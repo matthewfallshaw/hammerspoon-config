@@ -241,6 +241,9 @@ spoon.WindowScreenLeftAndRight:bindHotkeys({
    screen_right= { {"ctrl", "alt", "cmd"}, "Right" },
 })
 
+-- Spaces
+-- spaces = require("hs._asm.undocumented.spaces")
+
 
 -- ## notnux only
 if hs.host.localizedName() == "notnux" then
