@@ -1,6 +1,7 @@
 -- Keep App windows in their places
 local logger = hs.logger.new("Stay")
 logger.i("Loading Stay")
+hs.window.filter.setLogLevel(1)  -- wfilter is very noisy
 
 local M = {}
 
@@ -154,41 +155,57 @@ end
 
 M.window_layouts = {
   shared = hs.window.layout.new({
-    {chrome_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
     {{['Morty']={allowScreens='0,0'}}, 'move 1 oldest [0,0>70,100] 0,0'},
     -- allowScreens='0,0' so that it only applies to windows on the main screen, 
     -- so in desk mode I can temporarily "tear off" windows to the side screens
     -- for manual management
-    {{['GitX']={allowScreens='0,0',allowRoles='AXStandardWindow'}}, 'max all 0,0'},
-    {{['nvALT']={allowScreens='0,0'}}, 'move 1 oldest [63,0>100,79] 0,0'},
+    {{['GitX']={allowRoles='AXStandardWindow'}}, 'max all 0,0'},
+    {{['nvALT']={allowRoles='AXStandardWindow', allowScreens='0,0'}}, 'move 1 oldest [63,0>100,79] 0,0'},
     {{['Finder']={allowScreens='0,0'}},'move 1 oldest [40,44>94,92] 0,0'},
-    {{['Hammerspoon']={allowScreens='0,0',allowRoles='AXStandardWindow'}}, 'move 1 oldest [50,0>100,100] 0,0'},
     {{['Skype']={allowScreens='0,0'}}, 'move 1 oldest [56,0>100,70] 0,0'},
     {{['Messages']={allowScreens='0,0'}}, 'move 1 oldest [53,0>100,71] 0,0'},
     {{['Activity Monitor']={allowScreens='0,0'}}, 'move 1 oldest [0,42>61,100] 0,0'},
     {{['Slack']={allowScreens='0,0'}}, 'move 1 oldest [40,0>100,100] 0,0'},
   },'SHARED'),
   laptop = hs.window.layout.new({
-    screens={['Color LCD']='0,0',['-1,0']=false}, -- when no external screens
+    screens={['Color LCD']='0,0',['-1,0']=false,['0,-1']=false,['1,0']=false,['0,1']=false}, -- when no external screens
+    {chrome_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
     {chrome_docs_window_filter, 'move 1 oldest [0,0>80,100] 0,0'},
     {'MacVim', 'move 1 oldest [0,0>65,100] 0,0'},
     {{'Terminal', 'iTerm2'}, 'move 1 oldest [50,0>100,100] 0,0'},
+    {{['Hammerspoon']={allowRoles='AXStandardWindow'}}, 'move 1 oldest [50,0>100,90] 0,0'},
     {{'PivotalTracker','Asana','Google Calendar','Calendar','FreeMindStarter'},
       'max all 0,0'},
-    {{['greenhouse']={allowScreens='0,0'}}, 'maximize 1 oldest 0,0'},
+    {'greenhouse', 'maximize 1 oldest 0,0'},
   },'LAPTOP'),
-  dual = hs.window.layout.new({
-    screens={['-1,0']=true},
-    {chrome_docs_window_filter, 'move 1 oldest [0,0>60,100] -1,0'},
+  dualleft = hs.window.layout.new({
+    screens={['-1,0']=true,['0,-1']=false,['1,0']=false,['0,1']=false},
+    {chrome_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
+    {chrome_docs_window_filter, 'move 1 oldest [20,0>80,100] -1,0'},
     {'MacVim', 'move 1 oldest [0,0>50,100] -1,0'},
     {{'Terminal', 'iTerm2'}, 'move 1 oldest [50,0>100,100] -1,0'},
+    {{['Hammerspoon']={allowRoles='AXStandardWindow'}}, 'move 1 oldest [50,0>100,90] 0,0'},
     {'PivotalTracker', 'max 1 oldest -1,0'},
+    {'Asana', 'move 1 oldest [0,0>66,100] -1,0'},
     {'Google Calendar', 'max 2 oldest -1,0'},
     {'Calendar', 'max 1 oldest -1,0'},
-    {'Asana', 'move 1 oldest [0,0>66,100] -1,0'},
     {'FreeMindStarter', 'move 1 oldest [50,0>100,100] -1,0'},
-    {{['greenhouse']={allowScreens='-1,0'}}, 'maximize 1 oldest -1,0'},
-  },'DUAL'),
+    {'greenhouse', 'maximize 1 oldest -1,0'},
+  },'DUALLEFT'),
+  dualtop = hs.window.layout.new({
+    screens={['-1,0']=false,['0,-1']=true,['1,0']=false,['0,1']=false},
+    {chrome_gmail_window_filter, 'move 1 oldest [0,0>60,100] 0,-1'},
+    {chrome_docs_window_filter, 'move 1 oldest [0,0>80,100] 0,0'},
+    {'MacVim', 'move 1 oldest [0,0>50,100] 0,-1'},
+    {{'Terminal', 'iTerm2'}, 'move 1 oldest [50,0>100,100] 0,-1'},
+    {{['Hammerspoon']={allowRoles='AXStandardWindow'}}, 'move 1 oldest [50,0>100,90] 0,-1'},
+    {'PivotalTracker', 'max 1 oldest 0,-1'},
+    {'Asana', 'move 1 oldest [0,0>66,100] 0,-1'},
+    {'Google Calendar', 'max 2 oldest 0,-1'},
+    {'Calendar', 'max 1 oldest 0,-1'},
+    {'FreeMindStarter', 'move 1 oldest [50,0>100,100] 0,-1'},
+    {'greenhouse', 'maximize 1 oldest -1,0'},
+  },'DUALTOP'),
 }
 
 return M

@@ -137,14 +137,8 @@ spoon.CaptureHotkeys:capture("iTunes", ituneshotkeymap)
 
 
 -- URLs from hammerspoon:// schema
-local function hex_to_char(x)
-  return string.char(tonumber(x, 16))
-end
-local function unescape(url)
-  return url:gsub("%%(%x%x)", hex_to_char)
-end
 function URLDispatcherCallback(eventName, params)
-  local fullUrl = unescape(params.uri)
+  local fullUrl = u.unescape(params.uri)
   local parts = hs.http.urlParts(fullUrl)
   spoon.URLDispatcher:dispatchURL(parts.scheme, parts.host, parts.parameterString, fullUrl)
 end
@@ -160,6 +154,7 @@ spoon.URLDispatcher.url_patterns = {
   { "https?://www.pivotaltracker.com/.*", "com.fluidapp.FluidApp.PivotalTracker" },
   { "https?://morty.trikeapps.com/.*",    "org.epichrome.app.Morty" },
   { "https?://app.asana.com/.*",          "org.epichrome.app.Asana" },
+  { "https?://app.greenhouse.io/.*",      "com.fluidapp.FluidApp.greenhouse" },
 }
 spoon.URLDispatcher:start()
 
@@ -214,6 +209,8 @@ spoon.AppHotkeys:start()
 
 
 hs.loadSpoon("WindowHalfsAndThirds")
+spoon.WindowHalfsAndThirds._window_moves.left_half = {"left_half", left_half = "left_60", left_60 = "left_40"}
+spoon.WindowHalfsAndThirds._window_moves.right_half = {"right_half", right_half = "right_60", right_60 = "right_40"},
 spoon.WindowHalfsAndThirds:bindHotkeys({
   left_half   = { {        "alt", "cmd"}, "Left" },
   right_half  = { {        "alt", "cmd"}, "Right" },
@@ -248,6 +245,7 @@ spoon.WindowScreenLeftAndRight:bindHotkeys({
 -- ## notnux only
 if hs.host.localizedName() == "notnux" then
 
+  -- Export hotkeys to build/Hammerspoon.kcustom
   local kce = spoon.CaptureHotkeys.exporters.keyCue
   --
   -- local out, out_old = kce.output_file_path, kce.output_file_path .. ".old"
