@@ -148,7 +148,7 @@ url_dispatcher = hs.urlevent.bind("URLDispatcher", URLDispatcherCallback)
 -- Spoons (other than spoon.Hammer)
 -- ## All hosts
 hs.loadSpoon("URLDispatcher")
-spoon.URLDispatcher.default_handler = "com.google.Chrome"
+spoon.URLDispatcher.default_handler = "com.apple.Safari"
 spoon.URLDispatcher.url_patterns = {
   -- { <url pattern>, <application bundle ID> },
   { "https?://www.pivotaltracker.com/.*", "com.fluidapp.FluidApp.PivotalTracker" },
