@@ -61,4 +61,24 @@ function M.unescape(url)
   return url:gsub("%%(%x%x)", M.hex_to_char)
 end
 
+function M._escape_for_regexp(str)
+  return (str:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])","%%%1"))
+end
+
+function M.functionWithTimes(fn, ...)
+  logger.w(hs.timer.secondsSinceEpoch())
+  result = table.pack(fn(...))
+  logger.w(hs.timer.secondsSinceEpoch())
+  return table.unpack(result)
+end
+function M.profilingOn()
+  debug.sethook(function (event)
+    local x = debug.getinfo(2, 'nS')
+    print(event, x.name, x.linedefined, x.source, hs.timer.secondsSinceEpoch())
+  end, "c")
+end
+function M.profilingOff()
+  debug.sethook()
+end
+
 return M

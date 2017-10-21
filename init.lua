@@ -2,6 +2,9 @@ hs.logger.setGlobalLogLevel('warning')
 hs.logger.defaultLogLevel = 'warning'
 local logger = hs.logger.new("Init")
 hs.console.clearConsole()
+hs.application.enableSpotlightForNameSearches(true)
+hs.allowAppleScript(true)
+
 
 -- Capture spoon (and other) hotkeys
 hs.loadSpoon("CaptureHotkeys")
@@ -17,9 +20,6 @@ spoon.Hammer:bindHotkeys({
 spoon.Hammer:start()
 hs.hotkey.bind({"⌘", "⌥", "⌃", "⇧"}, "c", function() hs.console.clearConsole() end)
 spoon.CaptureHotkeys:capture("Clear console", {["Clear console"] = { {"⌘", "⌥", "⌃", "⇧"}, "c" }})
-
-hs.application.enableSpotlightForNameSearches(true)
-hs.allowAppleScript(true)
 
 
 u = require 'utilities'
