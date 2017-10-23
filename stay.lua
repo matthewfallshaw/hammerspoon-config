@@ -11,17 +11,23 @@ M.window_layouts_enabled = false
 
 function M:report_frontmost_window()
   local window = hs.application.frontmostApplication():focusedWindow()
+  local filter_string
+  if window:subrole() == 'AXStandardWindow' then
+    filter_string = string.format("'%s'", window:application():name())            
+  else
+    filter_string = string.format("{['%s']={allowRoles='%s'}}", window:application():name(), window:subrole())            
+  end
   local unit_rect = window:screen():toUnitRect(window:frame())
   local unit_rect_string = string.format("[%.0f,%.0f>%.0f,%.0f]",
             unit_rect.x1*100,unit_rect.y1*100,unit_rect.x2*100,unit_rect.y2*100)
-  local layout_rule
+  local screen_position_string = string.format("%i,%i", window:screen():position())
+  local action_string
   if unit_rect_string == "[0,0>100,100]" then
-    layout_rule = string.format("{{['%s']}, 'maximize 1 oldest %s'},",
-      window:application():name(),screen_position_string)
+    action_string = string.format("'maximize 1 oldest %s'", screen_position_string)
   else
-    layout_rule = string.format("{{['%s']}, 'move 1 oldest %s %s'},",
-      window:application():name(),screen_position_string,unit_rect_string)
+    action_string = string.format("'move 1 oldest %s %s'", unit_rect_string, screen_position_string)
   end
+  local layout_rule = string.format("{%s, %s}", filter_string, action_string)
   hs.pasteboard.setContents(layout_rule)
   logger.w("Active window position:\n".. layout_rule)
   hs.alert.show("Stay: Active window position in clipboard\n".. layout_rule)
