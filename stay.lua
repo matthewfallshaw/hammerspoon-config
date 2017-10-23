@@ -1,8 +1,7 @@
 -- Keep App windows in their places
 local logger = hs.logger.new("Stay")
 logger.i("Loading Stay")
--- hs.window.filter.setLogLevel(1)  -- wfilter is very noisy
-hs.window.filter.setLogLevel(4)
+hs.window.filter.setLogLevel(1)  -- wfilter is very noisy
 
 local M = {}
 
@@ -124,13 +123,14 @@ safari_docs_window_filter = app_tabs.window_filter.new({Safari = {
 M.window_layouts = {
   shared = hs.window.layout.new({
     {'Morty', 'move 1 oldest [0,0>70,100] 0,0'},
-    {{['GitX']={allowRoles='AXStandardWindow'}}, 'max all 0,0'},
+    {'GitX', 'max all 0,0'},
     {{['nvALT']={allowRoles='AXStandardWindow'}}, 'move 1 oldest [63,0>100,79] 0,0'},
     {'Finder','move 1 oldest [40,44>94,92] 0,0'},
     {'Skype', 'move 1 oldest [56,0>100,70] 0,0'},
     {'Messages', 'move 1 oldest [53,0>100,71] 0,0'},
     {'Activity Monitor', 'move 1 oldest [0,42>61,100] 0,0'},
     {'Slack', 'move 1 oldest [40,0>100,100] 0,0'},
+    {{['Quicksilver']={allowRoles='AXStandardWindow'}}, 'move 1 oldest [18,12>82,86] 0,0'},
   },'SHARED'),
   laptop = hs.window.layout.new({
     screens={['Color LCD']='0,0',['-1,0']=false,['0,-1']=false,['1,0']=false,['0,1']=false}, -- when no external screens
