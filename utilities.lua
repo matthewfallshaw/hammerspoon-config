@@ -65,6 +65,24 @@ function M._escape_for_regexp(str)
   return (str:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])","%%%1"))
 end
 
+function M.table_keys(t)
+  local ret, n = {}, 0
+  for k,v in pairs(t) do
+    n=n+1
+    ret[n] = k
+  end
+  return ret
+end
+
+function M.table_values(t)
+  local ret, n = {}, 0
+  for k,v in pairs(t) do
+    n=n+1
+    ret[n] = v
+  end
+  return ret
+end
+
 function M.functionWithTimes(fn, ...)
   logger.w(hs.timer.secondsSinceEpoch())
   result = table.pack(fn(...))

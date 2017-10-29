@@ -241,7 +241,37 @@ spoon.WindowScreenLeftAndRight:bindHotkeys({
 })
 
 -- Spaces
--- spaces = require("hs._asm.undocumented.spaces")
+move_spaces = { hotkeys = {} }
+function move_spaces.moveWindowOneSpace(direction)
+   local mouseOrigin = hs.mouse.getAbsolutePosition()
+   local win = hs.window.focusedWindow()
+   local clickPoint = win:zoomButtonRect()
+
+   clickPoint.x = clickPoint.x + clickPoint.w + 5
+   clickPoint.y = clickPoint.y + (clickPoint.h / 2)
+
+   local mouseClickEvent = hs.eventtap.event.newMouseEvent(hs.eventtap.event.types.leftMouseDown, clickPoint)
+   mouseClickEvent:post()
+   hs.timer.usleep(150000)
+
+   local nextSpaceDownEvent = hs.eventtap.event.newKeyEvent({"ctrl"}, direction, true)
+   nextSpaceDownEvent:post()
+   hs.timer.usleep(150000)
+
+   local nextSpaceUpEvent = hs.eventtap.event.newKeyEvent({"ctrl"}, direction, false)
+   nextSpaceUpEvent:post()
+   hs.timer.usleep(150000)
+
+   local mouseReleaseEvent = hs.eventtap.event.newMouseEvent(hs.eventtap.event.types.leftMouseUp, clickPoint)
+   mouseReleaseEvent:post()
+   hs.timer.usleep(150000)
+
+   hs.mouse.setAbsolutePosition(mouseOrigin)
+end
+move_spaces.hotkeys.right = spoon.CaptureHotkeys:bind("WindowSpacesLeftAndRight", "Right",
+  {"⌘", "⌥", "⌃", "⇧"}, "right", function() move_spaces.moveWindowOneSpace("right") end)
+move_spaces.hotkeys.left  = spoon.CaptureHotkeys:bind("WindowSpacesLeftAndRight", "Left",
+  {"⌘", "⌥", "⌃", "⇧"}, "left",  function() move_spaces.moveWindowOneSpace("left") end)
 
 
 -- ## notnux only
