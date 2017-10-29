@@ -18,8 +18,12 @@ spoon.Hammer:bindHotkeys({
   toggle_console={{"⌘", "⌥", "⌃", "⇧"}, "h"},
 })
 spoon.Hammer:start()
-hs.hotkey.bind({"⌘", "⌥", "⌃", "⇧"}, "c", function() hs.console.clearConsole() end)
-spoon.CaptureHotkeys:capture("Clear console", {["Clear console"] = { {"⌘", "⌥", "⌃", "⇧"}, "c" }})
+hammer_plus = {
+  hotkeys = {
+    clear = spoon.CaptureHotkeys:bind("Hammer+", "Clear console", {"⌘", "⌥", "⌃", "⇧"}, "c",
+                                      function() hs.console.clearConsole() end)
+  }
+}
 
 
 u = require 'utilities'
@@ -33,9 +37,7 @@ control_plane:start()
 -- Stay replacement: Keep App windows in their places
 stay = require 'stay'
 stay:start()
-spoon.CaptureHotkeys:capture("Stay", {
-  ["Toggle layout engine or report frontmost window"] = { {"⌘", "⌥", "⌃", "⇧"}, "s" },
-})
+spoon.CaptureHotkeys:capture("Stay", "Toggle layout engine or report frontmost window", {"⌘", "⌥", "⌃", "⇧"}, "s")
 
 
 -- ScanSnap: Start ScanSnap manager when scanner attached
