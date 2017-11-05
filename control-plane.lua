@@ -6,6 +6,22 @@ local obj = {}
 obj.cachedLocation = ''
 obj.locationFacts = {}
 
+-- ## Utility functions ##
+function obj.slackStatus(location)
+  if location == "" then
+    logger.i("Slack status -")
+  else
+    logger.i("Slack status " .. location)
+  end
+  result = hs.task.new("~/bin/slack-status", obj.slackStatusRetry, function(...) return false end, {location}):start()
+end
+function obj.slackStatusRetry(exitCode, stdOut, stdErr)
+  if exitCode ~= 0 then  -- if task fails, try again after 30s
+    logger.w("Stack status failed - exitCode:" .. tostring(exitCode) .. " stdOut:" .. tostring(stdOut) .. " stdErr:" .. tostring(stdErr))
+    hs.timer.doAfter(30, function() hs.task.new("~/bin/slack-status", obj.slackStatusRetry, function(...) return false end, {obj.cachedLocation}) end):start()
+  end
+end
+
 function obj.killApp(appname)
   local app, other_app = hs.application.find(appname)
     -- Should check for other_app, but this happens lots, so … we're going to ignore it
@@ -22,9 +38,7 @@ function obj.killApp(appname)
     logger.i(appname .. " wasn't open, so I didn't close it")
   end
 end
-
 function obj.resumeApp(appname, alt_appname)
-  -- optional alt_appname
   local app = hs.application.find(appname)
   if app and app:isRunning() then
     logger.i(appname .. " is already running")
@@ -117,7 +131,9 @@ function obj.networkConfCallback(_, keys)
     else
       logger.w("hs.network.reachability.internet():status() == ".. hs.network.reachability.internet():status() .." but hs.network.primaryInterfaces() == false… which is confusing")
     end
-    if hs.network.interfaceDetails(pi4).Link and hs.network.interfaceDetails(pi4).Link.Expensive then
+    if hs.network.interfaceDetails(pi4) and
+       hs.network.interfaceDetails(pi4).Link and
+       hs.network.interfaceDetails(pi4).Link.Expensive then
       obj.locationFacts['network'] = 'iPhone'
     elseif hs.fnutils.contains({'blacknode5', 'blacknode2.4'}, hs.wifi.currentNetwork()) then
       obj.locationFacts['network'] = 'Canning'
@@ -182,24 +198,6 @@ end
 obj.screenWatcher = hs.screen.watcher.new( function() obj.screenCallback() end )
 
 
--- ## Utility functions ##
-function obj.slackStatus(location)
-  if location == "" then
-    logger.i("Slack status -")
-  else
-    logger.i("Slack status " .. location)
-  end
-  result = hs.task.new("~/bin/slack-status", obj.slackStatusRetry, function(...) return false end, {location}):start()
-end
-
-function obj.slackStatusRetry(exitCode, stdOut, stdErr)
-  if exitCode ~= 0 then  -- if task fails, try again after 30s
-    logger.w("Stack status failed - exitCode:" .. tostring(exitCode) .. " stdOut:" .. tostring(stdOut) .. " stdErr:" .. tostring(stdErr))
-    hs.timer.doAfter(30, function() hs.task.new("~/bin/slack-status", obj.slackStatusRetry, function(...) return false end, {obj.cachedLocation}) end):start()
-  end
-end
-
-
 -- ##########################
 -- ## Entry & Exit Actions ##
 -- ##########################
@@ -232,7 +230,7 @@ function obj.FitzroyEntryActions()
 
   obj.slackStatus("Fitzroy")
 
-  hs.execute("~/code/utils/Scripts/mount-external-drives", true)
+  hs.execute("~/code/utilities/Scripts/mount-external-drives", true)
 end
 
 function obj.FitzroyExitActions()
@@ -244,7 +242,7 @@ end
 function obj.CanningEntryActions()
   obj.slackStatus("Canning")
 
-  hs.execute("~/code/utils/Scripts/mount-external-drives", true)
+  hs.execute("~/code/utilities/Scripts/mount-external-drives", true)
 end
 
 function obj.CanningExitActions()

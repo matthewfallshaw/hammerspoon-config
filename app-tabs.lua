@@ -39,7 +39,12 @@ tell application "%s"
 end tell
 ]]
 function M._app_tab_list_applescript_fn(window)
-  return string.format(_APP_TAB_LIST_APPLESCRIPT_STRING, window:application():name(), window:applescriptIndex())
+  local applescriptIndex = window:applescriptIndex()
+  if applescriptIndex then
+    return string.format(_APP_TAB_LIST_APPLESCRIPT_STRING, window:application():name(), applescriptIndex)
+  else
+    return false
+  end
 end
 
 local DELAY_BEFORE_RERUNNING_USTT = hs.timer.minutes(10)
@@ -78,7 +83,14 @@ function hs.window:applescriptIndex()
       count_of_windows_that_dont_count = count_of_windows_that_dont_count + 1
     end
   end
-  logger.e("Couldn't find applescriptIndex of ".. hs.inspect(self))
+  if not self:subrole() or self:subrole() == "" then
+    return false
+  end
+  logger.e("Couldn't find applescriptIndex of "..self:application():name().."'s window…")
+  logger.e("… ("..hs.inspect(self)..")")
+  logger.e("… with title: "..hs.inspect(self:title()))
+  logger.e("… and subrole: "..hs.inspect(self:subrole()))
+  logger.e("")
   return 1
 end
 
@@ -103,11 +115,17 @@ function hs.window:_tabsRaw()
   local success, applescript_text, appname
   appname = self:application():name()
   if appname == "Safari" then M._updateSafariTabs() end
-  local out, window_tabs_raw, err = hs.osascript.applescript(M._app_tab_list_applescript_fn(self))
-  if out and window_tabs_raw and window_tabs_raw[1] then
-    return window_tabs_raw
+  local applescript = M._app_tab_list_applescript_fn(self)
+  if applescript then
+    local out, window_tabs_raw, err = hs.osascript.applescript(applescript)
+    if out and window_tabs_raw and window_tabs_raw[1] then
+      return window_tabs_raw
+    else
+      -- If tabs change too fast handoff between HS & applescript can fail
+      return {}
+    end
   else
-    -- If tabs change too fast handoff between HS & applescript can fail
+    -- If a window is closed… then it's not there anymore
     return {}
   end
 end
@@ -139,6 +157,7 @@ M.filters = {}
 function M.window_filter.new(filters, logname, loglevel)
   -- (tab<n>|anyTab) = { (url_pattern|title_pattern) = <pattern>[, andFocus = true] }
   local isWindowAllowed = function(window)
+    if not window then return false end
     local app_filters = filters[window:application():name()]
     if not app_filters then return false end
     local allowed = true

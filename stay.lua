@@ -130,7 +130,7 @@ M.window_layouts = {
     {'Messages', 'move 1 oldest [53,0>100,71] 0,0'},
     {'Activity Monitor', 'move 1 oldest [0,42>61,100] 0,0'},
     {'Slack', 'move 1 oldest [40,0>100,100] 0,0'},
-    {{['Quicksilver']={allowRoles='AXStandardWindow'}}, 'move 1 oldest [18,12>82,86] 0,0'},
+    {{['Quicksilver']={allowRoles='AXStandardWindow'}}, 'move 1 oldest [24,12>84,86] 0,0'},
   },'SHARED'),
   laptop = hs.window.layout.new({
     screens={['Color LCD']='0,0',['-1,0']=false,['0,-1']=false,['1,0']=false,['0,1']=false}, -- when no external screens
@@ -143,7 +143,7 @@ M.window_layouts = {
     {{['Hammerspoon']={allowRoles='AXStandardWindow'}}, 'move 1 oldest [50,0>100,90] 0,0'},
     {{'PivotalTracker','Asana','Google Calendar','Calendar','FreeMindStarter'},
       'max all 0,0'},
-    {'greenhouse', 'maximize 1 oldest 0,0'},
+    {'Greenhouse', 'maximize 1 oldest 0,0'},
   },'LAPTOP'),
   dualleft = hs.window.layout.new({
     screens={['-1,0']=true,['0,-1']=false,['1,0']=false,['0,1']=false},
@@ -159,7 +159,7 @@ M.window_layouts = {
     {'Google Calendar', 'max 2 oldest -1,0'},
     {'Calendar', 'max 1 oldest -1,0'},
     {'FreeMindStarter', 'move 1 oldest [50,0>100,100] -1,0'},
-    {'greenhouse', 'maximize 1 oldest -1,0'},
+    {'Greenhouse', 'maximize 1 oldest -1,0'},
   },'DUALLEFT'),
   dualtop = hs.window.layout.new({
     screens={['-1,0']=false,['0,-1']=true,['1,0']=false,['0,1']=false},
@@ -175,7 +175,7 @@ M.window_layouts = {
     {'Google Calendar', 'max 2 oldest 0,-1'},
     {'Calendar', 'max 1 oldest 0,-1'},
     {'FreeMindStarter', 'move 1 oldest [50,0>100,100] 0,-1'},
-    {'greenhouse', 'maximize 1 oldest -1,0'},
+    {'Greenhouse', 'maximize 1 oldest -1,0'},
   },'DUALTOP'),
 }
 
