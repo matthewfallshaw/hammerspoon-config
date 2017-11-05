@@ -290,6 +290,9 @@ if hs.host.localizedName() == "notnux" then
   -- -- TODO: if diff, open .kcustom file for import into KeyCue
   -- hs.execute("rm " .. out_old)
 
+  -- Activity log
+  activity_log = require "activity-log"
+  activity_log:start()
 end
 
 hs.loadSpoon("FadeLogo"):start()

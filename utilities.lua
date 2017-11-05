@@ -83,6 +83,17 @@ function M.table_values(t)
   return ret
 end
 
+function M.log_to_file(message, file)
+  local file_path = file or "/var/log/com.matthewfallshaw.activities.log"
+
+  local output_file = assert(io.open(file_path, "a+"))
+
+  output_file:write(os.date("%Y-%m-%d %H:%M:%S") .. " | " .. tostring(message) .."\n")
+
+  output_file:close()
+  return true
+end
+
 function M.functionWithTimes(fn, ...)
   logger.w(hs.timer.secondsSinceEpoch())
   result = table.pack(fn(...))
