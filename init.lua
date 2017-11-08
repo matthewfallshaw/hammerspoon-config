@@ -70,9 +70,13 @@ function sleepWatcherCallback(event)
     if output then
       hs.caffeinate.declareUserActivity()  -- prevent sleep to give us time to eject drives
       u.log_and_alert(logger, "Ejecting drives before sleep…")
-      hs.osascript.applescript('tell application "Finder" to eject (every disk whose ejectable is true)')
-      u.log_and_alert(logger, "… drives ejected.")
-      hs.caffeinate.systemSleep()
+      local output, status, return_type, return_code = hs.execute("source "..os.getenv("HOME").."/code/utilities/Scripts/Eject\\ External\\ Drives.sh")
+      if status then
+        u.log_and_alert(logger, "… drives ejected.")
+        hs.caffeinate.systemSleep()
+      else
+        u.log_and_alert("… but the drives didn't eject: " .. tostring(output), " - return code: " .. tostring(return_code))
+      end
     end
   end
 end
