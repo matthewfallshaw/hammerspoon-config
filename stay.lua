@@ -1,4 +1,4 @@
--- Keep App windows in their places
+-- Stay replacement: Keep App windows in their places
 local logger = hs.logger.new("Stay")
 logger.i("Loading Stay")
 hs.window.filter.setLogLevel(1)  -- wfilter is very noisy
@@ -111,14 +111,14 @@ end
 
 
 app_tabs = require "app-tabs"
-chrome_gmail_window_filter = app_tabs.window_filter.new({['Google Chrome'] = {
-    tab1 = {url_pattern = "^https://mail%.google%.com/mail/u/0/"} }})
-chrome_docs_window_filter = app_tabs.window_filter.new({['Google Chrome' ]= {
-    tab1 = {url_pattern = "^https://drive%.google%.com/drive/u/0/"} }})
-safari_gmail_window_filter = app_tabs.window_filter.new({Safari = {
-    tab1 = {url_pattern = "^https://mail%.google%.com/mail/u/0/"} }})
-safari_docs_window_filter = app_tabs.window_filter.new({Safari = {
-    tab1 = {url_pattern = "^https://drive%.google%.com/drive/u/0/"} }})
+-- chrome_gmail_window_filter = app_tabs.window_filter.new({['Google Chrome'] = {
+--     tab1 = {url_pattern = "^https://mail%.google%.com/mail/u/0/"} }})
+-- chrome_docs_window_filter = app_tabs.window_filter.new({['Google Chrome' ]= {
+--     tab1 = {url_pattern = "^https://drive%.google%.com/drive/u/0/"} }})
+-- safari_gmail_window_filter = app_tabs.window_filter.new({Safari = {
+--     tab1 = {url_pattern = "^https://mail%.google%.com/mail/u/0/"} }})
+-- safari_docs_window_filter = app_tabs.window_filter.new({Safari = {
+--     tab1 = {url_pattern = "^https://drive%.google%.com/drive/u/0/"} }})
 
 M.window_layouts = {
   shared = hs.window.layout.new({
@@ -126,7 +126,7 @@ M.window_layouts = {
     {'GitX', 'max all 0,0'},
     {{['nvALT']={allowRoles='AXStandardWindow'}}, 'move 1 oldest [63,0>100,79] 0,0'},
     {'Finder','move 1 oldest [40,44>94,92] 0,0'},
-    {'Skype', 'move 1 oldest [56,0>100,70] 0,0'},
+    {'Skype', 'move 1 oldest [47,0>100,86] 0,0'},
     {'Messages', 'move 1 oldest [53,0>100,71] 0,0'},
     {'Activity Monitor', 'move 1 oldest [0,42>61,100] 0,0'},
     {'Slack', 'move 1 oldest [40,0>100,100] 0,0'},
@@ -134,10 +134,14 @@ M.window_layouts = {
   },'SHARED'),
   laptop = hs.window.layout.new({
     screens={['Color LCD']='0,0',['-1,0']=false,['0,-1']=false,['1,0']=false,['0,1']=false}, -- when no external screens
-    {chrome_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
-    {chrome_docs_window_filter, 'move 1 oldest [0,0>80,100] 0,0'},
-    {safari_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
-    {safari_docs_window_filter, 'move 1 oldest [0,0>80,100] 0,0'},
+    -- {chrome_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
+    -- {chrome_docs_window_filter, 'move 1 oldest [0,0>80,100] 0,0'},
+    -- {safari_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
+    -- {safari_docs_window_filter, 'move 1 oldest [0,0>80,100] 0,0'},
+    -- {'Opera', 'move 1 closest [0,0>77,100] 0,0'},
+    -- {'Opera', 'move 1 closest [0,0>80,100] 0,0'},
+    {'Gmail', 'move 1 oldest [0,0>77,100] 0,0'},
+    {'Google Drive', 'move 1 oldest [0,0>80,100] 0,0'},
     {'MacVim', 'move 1 oldest [0,0>65,100] 0,0'},
     {{'Terminal', 'iTerm2'}, 'move 1 oldest [50,0>100,100] 0,0'},
     {{['Hammerspoon']={allowRoles='AXStandardWindow'}}, 'move 1 oldest [50,0>100,90] 0,0'},
@@ -147,10 +151,14 @@ M.window_layouts = {
   },'LAPTOP'),
   dualleft = hs.window.layout.new({
     screens={['-1,0']=true,['0,-1']=false,['1,0']=false,['0,1']=false},
-    {chrome_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
-    {chrome_docs_window_filter, 'move 1 oldest [20,0>80,100] -1,0'},
-    {safari_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
-    {safari_docs_window_filter, 'move 1 oldest [20,0>80,100] -1,0'},
+    -- {chrome_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
+    -- {chrome_docs_window_filter, 'move 1 oldest [20,0>80,100] -1,0'},
+    -- {safari_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
+    -- {safari_docs_window_filter, 'move 1 oldest [20,0>80,100] -1,0'},
+    -- {'Opera', 'move 1 closest [0,0>77,100] 0,0'},
+    -- {'Opera', 'move 1 closest [20,0>80,100] -1,0'},
+    {'Gmail', 'move 1 oldest [0,0>77,100] 0,0'},
+    {'Google Drive', 'move 1 oldest [20,0>80,100] -1,0'},
     {'MacVim', 'move 1 oldest [0,0>50,100] -1,0'},
     {{'Terminal', 'iTerm2'}, 'move 1 oldest [50,0>100,100] -1,0'},
     {{['Hammerspoon']={allowRoles='AXStandardWindow'}}, 'move 1 oldest [50,0>100,90] 0,0'},
@@ -163,10 +171,14 @@ M.window_layouts = {
   },'DUALLEFT'),
   dualtop = hs.window.layout.new({
     screens={['-1,0']=false,['0,-1']=true,['1,0']=false,['0,1']=false},
-    {chrome_gmail_window_filter, 'move 1 oldest [0,0>60,100] 0,-1'},
-    {chrome_docs_window_filter, 'move 1 oldest [0,0>80,100] 0,0'},
-    {safari_gmail_window_filter, 'move 1 oldest [0,0>60,100] 0,-1'},
-    {safari_docs_window_filter, 'move 1 oldest [0,0>80,100] 0,0'},
+    -- {chrome_gmail_window_filter, 'move 1 oldest [0,0>60,100] 0,-1'},
+    -- {chrome_docs_window_filter, 'move 1 oldest [0,0>80,100] 0,0'},
+    -- {safari_gmail_window_filter, 'move 1 oldest [0,0>60,100] 0,-1'},
+    -- {safari_docs_window_filter, 'move 1 oldest [0,0>80,100] 0,0'},
+    -- {'Opera', 'move 1 closest [0,0>60,100] 0,-1'},
+    -- {'Opera', 'move 1 closest [0,0>80,100] 0,0'},
+    {'Gmail', 'move 1 oldest [0,0>60,100] 0,-1'},
+    {'Google Drive', 'move 1 oldest [0,0>80,100] 0,0'},
     {'MacVim', 'move 1 oldest [0,0>50,100] 0,-1'},
     {{'Terminal', 'iTerm2'}, 'move 1 oldest [50,0>100,100] 0,-1'},
     {{['Hammerspoon']={allowRoles='AXStandardWindow'}}, 'move 1 oldest [50,0>100,90] 0,-1'},

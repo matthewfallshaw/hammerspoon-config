@@ -27,6 +27,9 @@ function M.script_path(level)
 end
 
 local function appNameFromHint(hint)
+  -- Quicksilver/Applescript produces items like:
+  --   Macintosh HD:Applications:MacVim.app:
+  --   Macintosh HD:Applications:Utilities:Script Editor.app:
   return string.match(hint,'([^:]+)%.app:$') or string.match(hint,'/([^/]+)%.app/?$') or hint
 end
 

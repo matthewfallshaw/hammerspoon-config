@@ -136,13 +136,18 @@ url_dispatcher = hs.urlevent.bind("URLDispatcher", URLDispatcherCallback)
 -- Spoons (other than spoon.Hammer)
 -- ## All hosts
 hs.loadSpoon("URLDispatcher")
-spoon.URLDispatcher.default_handler = "com.apple.Safari"
+spoon.URLDispatcher.default_handler = "com.operasoftware.Opera"
 spoon.URLDispatcher.url_patterns = {
   -- { <url pattern>, <application bundle ID> },
+  { "https?://mail.google.com/.*",        "org.epichrome.app.Gmail" },
+  { "https?://drive.google.com/.*",       "com.fluidapp.FluidApp.Google Drive" },
   { "https?://www.pivotaltracker.com/.*", "com.fluidapp.FluidApp.PivotalTracker" },
-  { "https?://morty.trikeapps.com/.*",    "org.epichrome.app.Morty" },
   { "https?://app.asana.com/.*",          "org.epichrome.app.Asana" },
+  { "https?://morty.trikeapps.com/.*",    "org.epichrome.app.Morty" },
   { "https?://app.greenhouse.io/.*",      "com.fluidapp.FluidApp.greenhouse" },
+  { "https?://workflowy.com/.*",          "com.fluidapp.FluidApp.Workflowy" },
+  { "https?://calendar.google.com/.*",    "org.epichrome.app.GoogleCalend" },
+  { "https?://www.google.com/calendar/.*", "org.epichrome.app.GoogleCalend" },
 }
 spoon.URLDispatcher:start()
 
