@@ -63,26 +63,8 @@ usbWatcher:start()
 
 
 -- Jettison replacement: Eject ejectable drives on sleep
-logger.i("Loading Jettison sleep watcher")
-function sleepWatcherCallback(event)
-  if event == hs.caffeinate.watcher.systemWillSleep then
-    local result, output = hs.osascript.applescript('tell application "Finder" to return (URL of every disk whose ejectable is true)')
-    if output then
-      hs.caffeinate.declareUserActivity()  -- prevent sleep to give us time to eject drives
-      u.log_and_alert(logger, "Ejecting drives before sleep…")
-      local output, status, return_type, return_code = hs.execute("source "..os.getenv("HOME").."/code/utilities/Scripts/Eject\\ External\\ Drives.sh")
-      if status then
-        u.log_and_alert(logger, "… drives ejected.")
-        hs.caffeinate.systemSleep()
-      else
-        u.log_and_alert("… but the drives didn't eject: " .. tostring(output), " - return code: " .. tostring(return_code))
-      end
-    end
-  end
-end
-sleepWatcher = hs.caffeinate.watcher.new(sleepWatcherCallback)
-logger.i("Starting Jettison sleep watcher")
-sleepWatcher:start()
+jettison = require 'jettison'
+jettison:start()
 
 
 -- Transmission safety: Keep VPN running when Transmission is running
