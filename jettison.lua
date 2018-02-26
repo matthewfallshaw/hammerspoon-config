@@ -6,6 +6,10 @@ M = {}
 
 M._jettison_causing_sleep = false
 
+function M.isAnExternalDrivePresent()
+  local output, status, return_type, return_code = hs.execute("diskutil list | grep external")
+  return status
+end
 function M.isAnExternalDriveMounted()
   local output, status, return_type, return_code = hs.execute("for i in $(diskutil list | grep 'external, virtual' | cut -d' ' -f1); do diskutil info $i | grep -q 'Mounted.*Yes' && echo $i; done")
   return output ~= ""
@@ -24,11 +28,13 @@ function M.ejectExternalDrivesAndSleep()
 end
 
 function M.mountExternalDrives()
-  local output, status, return_type, return_code = hs.execute("~/code/utilities/Scripts/mount-external-drives")
-  if status then
-    u.log_and_alert(logger, "Drives remounted after sleep.")
-  else
-    u.log_and_alert(logger, "Drives failed to remount after sleep: " .. tostring(output) .. " - return code: " .. tostring(return_code))
+  if M.isAnExternalDrivePresent then
+    local output, status, return_type, return_code = hs.execute("~/code/utilities/Scripts/mount-external-drives")
+    if status then
+      u.log_and_alert(logger, "Drives remounted after sleep.")
+    else
+      u.log_and_alert(logger, "Drives failed to remount after sleep: " .. tostring(output) .. " - return code: " .. tostring(return_code))
+    end
   end
 end
 
