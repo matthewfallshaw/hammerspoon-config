@@ -1,3 +1,4 @@
+-- Control Plane replacement: Actions on change of location
 local logger = hs.logger.new("ControlPlane")
 logger.i("Loading ControlPlane")
 

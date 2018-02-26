@@ -40,6 +40,11 @@ stay:start()
 spoon.CaptureHotkeys:capture("Stay", "Toggle layout engine or report frontmost window", {"⌘", "⌥", "⌃", "⇧"}, "s")
 
 
+-- Jettison replacement: Eject ejectable drives on sleep
+jettison = require 'jettison'
+jettison:start()
+
+
 -- ScanSnap: Start ScanSnap manager when scanner attached
 logger.i("Loading ScanSnap USB watcher")
 function usbDeviceCallback(data)
@@ -60,11 +65,6 @@ end
 usbWatcher = hs.usb.watcher.new(usbDeviceCallback)
 logger.i("Starting ScanSnap USB watcher")
 usbWatcher:start()
-
-
--- Jettison replacement: Eject ejectable drives on sleep
-jettison = require 'jettison'
-jettison:start()
 
 
 -- Transmission safety: Keep VPN running when Transmission is running
