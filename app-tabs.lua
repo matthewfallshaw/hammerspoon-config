@@ -39,6 +39,7 @@ tell application "%s"
 end tell
 ]]
 function M._app_tab_list_applescript_fn(window)
+  assert(window)
   local applescriptIndex = window:applescriptIndex()
   if applescriptIndex then
     return string.format(_APP_TAB_LIST_APPLESCRIPT_STRING, window:application():name(), applescriptIndex)
@@ -74,6 +75,7 @@ end
 -- hs.window extensions
 -- ====================
 function hs.window:applescriptIndex()
+  assert(self)
   -- Applescript's `every window` and HS's hs.window:allWindows() index the same
   local count_of_windows_that_dont_count = 0
   for index, win in ipairs(self:application():allWindows()) do
@@ -97,6 +99,7 @@ end
 local Tab = {}
 Tab.__index = Tab
 function Tab.new(window, index, url, name)
+  assert(window and index)
   local self = setmetatable({}, Tab)
 
   self.window = window
@@ -107,11 +110,13 @@ function Tab.new(window, index, url, name)
   return self
 end
 function Tab:focus()
+  assert(self)
   self.window:focusTab(self.index)
   self.window:focus()
 end
 
 function hs.window:_tabsRaw()
+  assert(self)
   local success, applescript_text, appname
   appname = self:application():name()
   if appname == "Safari" then M._updateSafariTabs() end
@@ -131,6 +136,7 @@ function hs.window:_tabsRaw()
 end
 
 function hs.window:tabs()
+  assert(self)
   local tabs = hs.fnutils.imap(self:_tabsRaw(), function(raw_tab)
     local index, url, name = table.unpack(raw_tab)
     return Tab.new(self, index, url, name)
@@ -157,7 +163,7 @@ M.filters = {}
 function M.window_filter.new(filters, logname, loglevel)
   -- (tab<n>|anyTab) = { (url_pattern|title_pattern) = <pattern>[, andFocus = true] }
   local isWindowAllowed = function(window)
-    if not window then return false end
+    if (not window) or (window:role() == "AXUnknown") then return false end
     local app_filters = filters[window:application():name()]
     if not app_filters then return false end
     local allowed = true
