@@ -45,18 +45,6 @@ function M.restartApplication(hint)
   end
 end
 
-function M.applicationBundleID(hint)
-  local appname = appNameFromHint(hint)
-  local app = hs.application.get(appname)
-  if app then
-    local bid = app:bundleID()
-    hs.pasteboard.setContents(bid)
-    hs.alert(bid)
-  else
-    hs.alert('Couldn\'t make '.. appname ..' into an app with a bundleID')
-  end
-end
-
 function M.hex_to_char(x)
   return string.char(tonumber(x, 16))
 end

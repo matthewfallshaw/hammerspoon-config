@@ -111,10 +111,10 @@ end
 
 
 app_tabs = require "app-tabs"
--- chrome_gmail_window_filter = app_tabs.window_filter.new({['Google Chrome'] = {
---     tab1 = {url_pattern = "^https://mail%.google%.com/mail/u/0/"} }})
--- chrome_docs_window_filter = app_tabs.window_filter.new({['Google Chrome' ]= {
---     tab1 = {url_pattern = "^https://drive%.google%.com/drive/u/0/"} }})
+chrome_gmail_window_filter = app_tabs.window_filter.new({['Google Chrome'] = {
+    tab1 = {url_pattern = "^https://mail%.google%.com/mail/u/0/#"} }})
+chrome_docs_window_filter = app_tabs.window_filter.new({['Google Chrome' ]= {
+    tab1 = {url_pattern = "^https://drive%.google%.com/drive/[^u][^/]"} }})
 -- safari_gmail_window_filter = app_tabs.window_filter.new({Safari = {
 --     tab1 = {url_pattern = "^https://mail%.google%.com/mail/u/0/"} }})
 -- safari_docs_window_filter = app_tabs.window_filter.new({Safari = {
@@ -134,31 +134,30 @@ M.window_layouts = {
   },'SHARED'),
   laptop = hs.window.layout.new({
     screens={['Color LCD']='0,0',['-1,0']=false,['0,-1']=false,['1,0']=false,['0,1']=false}, -- when no external screens
-    -- {chrome_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
-    -- {chrome_docs_window_filter, 'move 1 oldest [0,0>80,100] 0,0'},
+    {chrome_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
+    {chrome_docs_window_filter, 'move 1 oldest [0,0>80,100] 0,0'},
     -- {safari_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
     -- {safari_docs_window_filter, 'move 1 oldest [0,0>80,100] 0,0'},
     -- {'Opera', 'move 1 closest [0,0>77,100] 0,0'},
     -- {'Opera', 'move 1 closest [0,0>80,100] 0,0'},
-    {'Gmail', 'move 1 oldest [0,0>77,100] 0,0'},
-    {'Google Drive', 'move 1 oldest [0,0>80,100] 0,0'},
+    -- {'Gmail', 'move 1 oldest [0,0>77,100] 0,0'},
+    -- {'Google Drive', 'move 1 oldest [0,0>80,100] 0,0'},
     {'MacVim', 'move 1 oldest [0,0>65,100] 0,0'},
     {{'Terminal', 'iTerm2'}, 'move 1 oldest [50,0>100,100] 0,0'},
     {{['Hammerspoon']={allowRoles='AXStandardWindow'}}, 'move 1 oldest [50,0>100,90] 0,0'},
-    {{'PivotalTracker','Asana','Google Calendar','Calendar','FreeMindStarter'},
-      'max all 0,0'},
-    {'Greenhouse', 'maximize 1 oldest 0,0'},
+    {{'PivotalTracker','Asana','Google Calendar','Calendar'},
+      'max 1 oldest 0,0'},
   },'LAPTOP'),
   dualleft = hs.window.layout.new({
     screens={['-1,0']=true,['0,-1']=false,['1,0']=false,['0,1']=false},
-    -- {chrome_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
-    -- {chrome_docs_window_filter, 'move 1 oldest [20,0>80,100] -1,0'},
+    {chrome_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
+    {chrome_docs_window_filter, 'move 1 oldest [20,0>80,100] -1,0'},
     -- {safari_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
     -- {safari_docs_window_filter, 'move 1 oldest [20,0>80,100] -1,0'},
     -- {'Opera', 'move 1 closest [0,0>77,100] 0,0'},
     -- {'Opera', 'move 1 closest [20,0>80,100] -1,0'},
-    {'Gmail', 'move 1 oldest [0,0>77,100] 0,0'},
-    {'Google Drive', 'move 1 oldest [20,0>80,100] -1,0'},
+    -- {'Gmail', 'move 1 oldest [0,0>77,100] 0,0'},
+    -- {'Google Drive', 'move 1 oldest [20,0>80,100] -1,0'},
     {'MacVim', 'move 1 oldest [0,0>50,100] -1,0'},
     {{'Terminal', 'iTerm2'}, 'move 1 oldest [50,0>100,100] -1,0'},
     {{['Hammerspoon']={allowRoles='AXStandardWindow'}}, 'move 1 oldest [50,0>100,90] 0,0'},
@@ -167,18 +166,17 @@ M.window_layouts = {
     {'Google Calendar', 'max 2 oldest -1,0'},
     {'Calendar', 'max 1 oldest -1,0'},
     {'FreeMindStarter', 'move 1 oldest [50,0>100,100] -1,0'},
-    {'Greenhouse', 'maximize 1 oldest -1,0'},
   },'DUALLEFT'),
   dualtop = hs.window.layout.new({
     screens={['-1,0']=false,['0,-1']=true,['1,0']=false,['0,1']=false},
-    -- {chrome_gmail_window_filter, 'move 1 oldest [0,0>60,100] 0,-1'},
-    -- {chrome_docs_window_filter, 'move 1 oldest [0,0>80,100] 0,0'},
+    {chrome_gmail_window_filter, 'move 1 oldest [0,0>60,100] 0,-1'},
+    {chrome_docs_window_filter, 'move 1 oldest [0,0>80,100] 0,0'},
     -- {safari_gmail_window_filter, 'move 1 oldest [0,0>60,100] 0,-1'},
     -- {safari_docs_window_filter, 'move 1 oldest [0,0>80,100] 0,0'},
     -- {'Opera', 'move 1 closest [0,0>60,100] 0,-1'},
     -- {'Opera', 'move 1 closest [0,0>80,100] 0,0'},
-    {'Gmail', 'move 1 oldest [0,0>60,100] 0,-1'},
-    {'Google Drive', 'move 1 oldest [0,0>80,100] 0,0'},
+    -- {'Gmail', 'move 1 oldest [0,0>60,100] 0,-1'},
+    -- {'Google Drive', 'move 1 oldest [0,0>80,100] 0,0'},
     {'MacVim', 'move 1 oldest [0,0>50,100] 0,-1'},
     {{'Terminal', 'iTerm2'}, 'move 1 oldest [50,0>100,100] 0,-1'},
     {{['Hammerspoon']={allowRoles='AXStandardWindow'}}, 'move 1 oldest [50,0>100,90] 0,-1'},
@@ -187,7 +185,6 @@ M.window_layouts = {
     {'Google Calendar', 'max 2 oldest 0,-1'},
     {'Calendar', 'max 1 oldest 0,-1'},
     {'FreeMindStarter', 'move 1 oldest [50,0>100,100] 0,-1'},
-    {'Greenhouse', 'maximize 1 oldest -1,0'},
   },'DUALTOP'),
 }
 
