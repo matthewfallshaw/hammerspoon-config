@@ -158,6 +158,18 @@ spoon.MouseCircle:bindHotkeys({ show = {{"⌘", "⌥", "⌃", "⇧"}, "m"}})
 hs.loadSpoon("Caffeine")
 spoon.Caffeine:bindHotkeys({ toggle = {{"⌥", "⌃", "⇧"}, "c"}})
 spoon.Caffeine:start()
+logger.i("Un-caffeinate and lock screen hotkey ⌘⌃⇧q")
+local function un_caffeinate_and_lock_screen()
+  logger.i("Un-caffeinate and lock screen: setting menubar icon")
+  if hs.caffeinate.get("displayIdle") then hs.caffeinate.toggle("displayIdle") end
+  spoon.Caffeine.setDisplay(hs.caffeinate.get("displayIdle"))
+  logger.i("Un-caffeinate and lock screen: tapping ⌘⌃q")
+  hs.eventtap.keyStroke({"⌘", "⌃"}, "q", 600000)  -- send system lock screen key
+  hs.eventtap.keyStroke({"⌘", "⌃"}, "q", 600000)  -- (first time doesn't work ?!)
+end
+un_caffeinate_and_lock_screen_hotkey = hs.hotkey.bind({"⌘", "⌃", "⇧"}, "q", un_caffeinate_and_lock_screen)
+spoon.CaptureHotkeys:capture("Caffeine", "Un-caffeinate and lock screen", {"⌘", "⌃", "⇧"}, "q")
+
 
 hs.loadSpoon("HeadphoneAutoPause")
 spoon.HeadphoneAutoPause.control['vox'] = nil
