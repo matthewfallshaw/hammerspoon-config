@@ -211,29 +211,41 @@ spoon.CaptureHotkeys:capture("Slack", {
 spoon.AppHotkeys:start()
 
 
-hs.loadSpoon("WindowHalfsAndThirds")
-spoon.WindowHalfsAndThirds._window_moves.left_half = {"left_half", left_half = "left_60", left_60 = "left_40"}
-spoon.WindowHalfsAndThirds._window_moves.right_half = {"right_half", right_half = "right_60", right_60 = "right_40"},
-spoon.WindowHalfsAndThirds:bindHotkeys({
-  left_half   = { {        "alt", "cmd"}, "Left" },
-  right_half  = { {        "alt", "cmd"}, "Right" },
-  top_half    = { {        "alt", "cmd"}, "Up" },
-  bottom_half = { {        "alt", "cmd"}, "Down" },
-  third_left  = { {"ctrl", "alt"       }, "Left" },
-  third_right = { {"ctrl", "alt"       }, "Right" },
-  third_up    = { {"ctrl", "alt"       }, "Up" },
-  third_down  = { {"ctrl", "alt"       }, "Down" },
-  top_left    = { {"ctrl",        "cmd"}, "Left" },
-  bottom_left = { {"ctrl",        "cmd", "shift"}, "Left" },
-  top_right   = { {"ctrl",        "cmd"}, "Right" },
-  bottom_right= { {"ctrl",        "cmd", "shift"}, "Right" },
-  max_toggle  = { {        "alt", "cmd", "shift"}, "f" },
-  max         = { {        "alt", "cmd"}, "f" },
-  undo        = { {        "alt", "cmd"}, "z" },
-  center      = { {        "alt", "cmd"}, "c" },
-  larger      = { {        "alt", "cmd", "shift"}, "Right" },
-  smaller     = { {        "alt", "cmd", "shift"}, "Left" },
+hs.loadSpoon("MiroWindowsManager")
+spoon.MiroWindowsManager.sizes = {2, 3, 3/2}
+spoon.MiroWindowsManager.fullScreenSizes = {1, 4/3, 2}
+local mods = {"⌥", "⌘"}
+spoon.MiroWindowsManager:bindHotkeys({
+  up = {mods, "up"},
+  right = {mods, "right"},
+  down = {mods, "down"},
+  left = {mods, "left"},
+  fullscreen = {mods, "f"}
 })
+
+-- hs.loadSpoon("WindowHalfsAndThirds")
+-- spoon.WindowHalfsAndThirds._window_moves.left_half = {"left_half", left_half = "left_60", left_60 = "left_40"}
+-- spoon.WindowHalfsAndThirds._window_moves.right_half = {"right_half", right_half = "right_60", right_60 = "right_40"},
+-- spoon.WindowHalfsAndThirds:bindHotkeys({
+--   left_half   = { {        "alt", "cmd"}, "Left" },
+--   right_half  = { {        "alt", "cmd"}, "Right" },
+--   top_half    = { {        "alt", "cmd"}, "Up" },
+--   bottom_half = { {        "alt", "cmd"}, "Down" },
+--   third_left  = { {"ctrl", "alt"       }, "Left" },
+--   third_right = { {"ctrl", "alt"       }, "Right" },
+--   third_up    = { {"ctrl", "alt"       }, "Up" },
+--   third_down  = { {"ctrl", "alt"       }, "Down" },
+--   top_left    = { {"ctrl",        "cmd"}, "Left" },
+--   bottom_left = { {"ctrl",        "cmd", "shift"}, "Left" },
+--   top_right   = { {"ctrl",        "cmd"}, "Right" },
+--   bottom_right= { {"ctrl",        "cmd", "shift"}, "Right" },
+--   max_toggle  = { {        "alt", "cmd", "shift"}, "f" },
+--   max         = { {        "alt", "cmd"}, "f" },
+--   undo        = { {        "alt", "cmd"}, "z" },
+--   center      = { {        "alt", "cmd"}, "c" },
+--   larger      = { {        "alt", "cmd", "shift"}, "Right" },
+--   smaller     = { {        "alt", "cmd", "shift"}, "Left" },
+-- })
 
 hs.loadSpoon("WindowScreenLeftAndRight")
 spoon.WindowScreenLeftAndRight:bindHotkeys({
