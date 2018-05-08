@@ -1,7 +1,7 @@
 -- Stay replacement: Keep App windows in their places
 local logger = hs.logger.new("Stay")
 logger.i("Loading Stay")
-hs.window.filter.setLogLevel(1)  -- wfilter is very noisy
+hs.window.filter.setLogLevel(1)  -- GLOBAL!! wfilter is very noisy
 
 local M = {}
 
@@ -114,7 +114,7 @@ app_tabs = require "app-tabs"
 chrome_gmail_window_filter = app_tabs.window_filter.new({['Google Chrome'] = {
     tab1 = {url_pattern = "^https://mail%.google%.com/mail/u/0/#"} }})
 chrome_docs_window_filter = app_tabs.window_filter.new({['Google Chrome' ]= {
-    tab1 = {url_pattern = "^https://drive%.google%.com/drive/[^u][^/]"} }})
+    tab1 = {url_pattern = "^https://drive%.google%.com/drive/..[^0]"} }})
 -- safari_gmail_window_filter = app_tabs.window_filter.new({Safari = {
 --     tab1 = {url_pattern = "^https://mail%.google%.com/mail/u/0/"} }})
 -- safari_docs_window_filter = app_tabs.window_filter.new({Safari = {
@@ -166,11 +166,12 @@ M.window_layouts = {
     {'Google Calendar', 'max 2 oldest -1,0'},
     {'Calendar', 'max 1 oldest -1,0'},
     {'FreeMindStarter', 'move 1 oldest [50,0>100,100] -1,0'},
+    {'Snagit 2018', 'move 1 oldest [15,12>85,88] -1,0'}
   },'DUALLEFT'),
   dualtop = hs.window.layout.new({
     screens={['-1,0']=false,['0,-1']=true,['1,0']=false,['0,1']=false},
-    {chrome_gmail_window_filter, 'move 1 oldest [0,0>60,100] 0,-1'},
-    {chrome_docs_window_filter, 'move 1 oldest [0,0>80,100] 0,0'},
+    {chrome_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
+    {chrome_docs_window_filter, 'move 1 oldest [20,0>80,100] 0,-1'},
     -- {safari_gmail_window_filter, 'move 1 oldest [0,0>60,100] 0,-1'},
     -- {safari_docs_window_filter, 'move 1 oldest [0,0>80,100] 0,0'},
     -- {'Opera', 'move 1 closest [0,0>60,100] 0,-1'},
@@ -181,7 +182,7 @@ M.window_layouts = {
     {{'Terminal', 'iTerm2'}, 'move 1 oldest [50,0>100,100] 0,-1'},
     {{['Hammerspoon']={allowRoles='AXStandardWindow'}}, 'move 1 oldest [50,0>100,90] 0,-1'},
     {'PivotalTracker', 'max 1 oldest 0,-1'},
-    {'Asana', 'move 1 oldest [0,0>66,100] 0,-1'},
+    {'Asana', 'move 1 oldest [0,0>67,100] 0,-1'},
     {'Google Calendar', 'max 2 oldest 0,-1'},
     {'Calendar', 'max 1 oldest 0,-1'},
     {'FreeMindStarter', 'move 1 oldest [50,0>100,100] 0,-1'},
