@@ -40,6 +40,14 @@ stay:start()
 spoon.CaptureHotkeys:capture("Stay", "Toggle layout engine or report frontmost window", {"⌘", "⌥", "⌃", "⇧"}, "s")
 
 
+-- Move windows between spaces
+move_spaces = require "move-spaces"
+move_spaces.hotkeys.right = spoon.CaptureHotkeys:bind("WindowSpacesLeftAndRight", "Right",
+  {"⌘", "⌥", "⌃", "⇧"}, "right", function() move_spaces.moveWindowOneSpace("right") end)
+move_spaces.hotkeys.left  = spoon.CaptureHotkeys:bind("WindowSpacesLeftAndRight", "Left",
+  {"⌘", "⌥", "⌃", "⇧"}, "left",  function() move_spaces.moveWindowOneSpace("left") end)
+
+
 -- Jettison replacement: Eject ejectable drives on sleep
 jettison = require 'jettison'
 jettison:start()
@@ -170,14 +178,12 @@ end
 un_caffeinate_and_lock_screen_hotkey = hs.hotkey.bind({"⌘", "⌃", "⇧"}, "q", un_caffeinate_and_lock_screen)
 spoon.CaptureHotkeys:capture("Caffeine", "Un-caffeinate and lock screen", {"⌘", "⌃", "⇧"}, "q")
 
-
 hs.loadSpoon("HeadphoneAutoPause")
 spoon.HeadphoneAutoPause.control['vox'] = nil
 spoon.HeadphoneAutoPause.controlfns['vox'] = nil
 spoon.HeadphoneAutoPause.control['deezer'] = nil
 spoon.HeadphoneAutoPause.controlfns['deezer'] = nil
 spoon.HeadphoneAutoPause:start()
-
 
 hs.loadSpoon("AppHotkeys")
 local hotkeys = spoon.AppHotkeys.hotkeys
@@ -209,7 +215,6 @@ spoon.CaptureHotkeys:capture("Slack", {
   ["Previous Channel"] = { {"⌘", "⇧"}, "[" },
 })
 spoon.AppHotkeys:start()
-
 
 hs.loadSpoon("MiroWindowsManager")
 spoon.MiroWindowsManager.sizes = {2, 3, 3/2}
@@ -252,39 +257,6 @@ spoon.WindowScreenLeftAndRight:bindHotkeys({
    screen_left = { {"ctrl", "alt", "cmd"}, "Left" },
    screen_right= { {"ctrl", "alt", "cmd"}, "Right" },
 })
-
--- Spaces
-move_spaces = { hotkeys = {} }
-function move_spaces.moveWindowOneSpace(direction)
-   local mouseOrigin = hs.mouse.getAbsolutePosition()
-   local win = hs.window.focusedWindow()
-   local clickPoint = win:zoomButtonRect()
-
-   clickPoint.x = clickPoint.x + clickPoint.w + 5
-   clickPoint.y = clickPoint.y + (clickPoint.h / 2)
-
-   local mouseClickEvent = hs.eventtap.event.newMouseEvent(hs.eventtap.event.types.leftMouseDown, clickPoint)
-   mouseClickEvent:post()
-   hs.timer.usleep(150000)
-
-   local nextSpaceDownEvent = hs.eventtap.event.newKeyEvent({"ctrl"}, direction, true)
-   nextSpaceDownEvent:post()
-   hs.timer.usleep(150000)
-
-   local nextSpaceUpEvent = hs.eventtap.event.newKeyEvent({"ctrl"}, direction, false)
-   nextSpaceUpEvent:post()
-   hs.timer.usleep(150000)
-
-   local mouseReleaseEvent = hs.eventtap.event.newMouseEvent(hs.eventtap.event.types.leftMouseUp, clickPoint)
-   mouseReleaseEvent:post()
-   hs.timer.usleep(150000)
-
-   hs.mouse.setAbsolutePosition(mouseOrigin)
-end
-move_spaces.hotkeys.right = spoon.CaptureHotkeys:bind("WindowSpacesLeftAndRight", "Right",
-  {"⌘", "⌥", "⌃", "⇧"}, "right", function() move_spaces.moveWindowOneSpace("right") end)
-move_spaces.hotkeys.left  = spoon.CaptureHotkeys:bind("WindowSpacesLeftAndRight", "Left",
-  {"⌘", "⌥", "⌃", "⇧"}, "left",  function() move_spaces.moveWindowOneSpace("left") end)
 
 
 -- ## notnux only
