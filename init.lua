@@ -99,19 +99,6 @@ logger.i("Starting Transmission VPN Guard")
 applicationWatcher:start()
 
 
--- Garmin auto ejector
-logger.i("Loading Garmin volume auto-ejector")
-function garminEjectWatcherCallback(event, info)
-  if event == hs.fs.volume.didMount and info.path:match("/Volumes/GARMIN") then
-    u.log_and_alert(logger, "Garmin volume mounted… go away pesky Garmin volume")
-    hs.fs.volume.eject(info.path)
-  end
-end
-garminEjectWatcher = hs.fs.volume.new(garminEjectWatcherCallback)
-logger.i("Starting Garmin volume auto-ejector")
-garminEjectWatcher:start()
-
-
 -- iTunes Hotkeys
 hs.itunes = require 'extensions.itunes' -- hs.itunes with improvements
 itunes_hotkeys = {}
@@ -217,7 +204,7 @@ spoon.CaptureHotkeys:capture("Slack", {
 spoon.AppHotkeys:start()
 
 hs.loadSpoon("MiroWindowsManager")
-spoon.MiroWindowsManager.sizes = {2, 3, 3/2}
+spoon.MiroWindowsManager.sizes = {2, 3/2, 3}
 spoon.MiroWindowsManager.fullScreenSizes = {1, 4/3, 2}
 local mods = {"⌥", "⌘"}
 spoon.MiroWindowsManager:bindHotkeys({
