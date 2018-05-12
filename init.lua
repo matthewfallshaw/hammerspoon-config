@@ -128,6 +128,10 @@ end
 url_dispatcher = hs.urlevent.bind("URLDispatcher", URLDispatcherCallback)
 
 
+-- Trash recent downloads
+trash_recent = require 'trash-recent'
+
+
 -- Spoons (other than spoon.Hammer)
 -- ## All hosts
 hs.loadSpoon("URLDispatcher")
