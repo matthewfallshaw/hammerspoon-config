@@ -74,6 +74,15 @@ function M.table_values(t)
   return ret
 end
 
+function M.iteratorToArray(...)
+  local arr, i = {}, 1
+  for v in ... do
+    arr[i] = v
+    i = i + 1
+  end
+  return arr
+end
+
 function M.log_to_file(message, file)
   local file_path = file or "/var/log/com.matthewfallshaw.activities.log"
 
