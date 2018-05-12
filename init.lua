@@ -153,17 +153,6 @@ spoon.MouseCircle:bindHotkeys({ show = {{"⌘", "⌥", "⌃", "⇧"}, "m"}})
 hs.loadSpoon("Caffeine")
 spoon.Caffeine:bindHotkeys({ toggle = {{"⌥", "⌃", "⇧"}, "c"}})
 spoon.Caffeine:start()
-logger.i("Un-caffeinate and lock screen hotkey ⌘⌃⇧q")
-local function un_caffeinate_and_lock_screen()
-  logger.i("Un-caffeinate and lock screen: setting menubar icon")
-  if hs.caffeinate.get("displayIdle") then hs.caffeinate.toggle("displayIdle") end
-  spoon.Caffeine.setDisplay(hs.caffeinate.get("displayIdle"))
-  logger.i("Un-caffeinate and lock screen: tapping ⌘⌃q")
-  hs.eventtap.keyStroke({"⌘", "⌃"}, "q", 600000)  -- send system lock screen key
-  hs.eventtap.keyStroke({"⌘", "⌃"}, "q", 600000)  -- (first time doesn't work ?!)
-end
-un_caffeinate_and_lock_screen_hotkey = hs.hotkey.bind({"⌘", "⌃", "⇧"}, "q", un_caffeinate_and_lock_screen)
-spoon.CaptureHotkeys:capture("Caffeine", "Un-caffeinate and lock screen", {"⌘", "⌃", "⇧"}, "q")
 
 hs.loadSpoon("HeadphoneAutoPause")
 spoon.HeadphoneAutoPause.control['vox'] = nil
@@ -265,6 +254,19 @@ if hs.host.localizedName() == "notnux" then
   -- Activity log
   activity_log = require "activity-log"
   activity_log:start()
+
+  -- Turn off Caffeine if screen is locked or system sent to sleep
+  screen_lock_watcher = hs.caffeinate.watcher.new(function(event)
+    if spoon.Caffeine and
+      (event == hs.caffeinate.watcher["screensDidLock"] or
+      event == hs.caffeinate.watcher["systemWillSleep"]) then
+
+      if hs.caffeinate.get("displayIdle") then
+        spoon.Caffeine.clicked()
+        logger.i(hs.caffeinate.watcher[event] .. " and spoon.Caffeine on; turning it off")
+      end
+    end
+  end):start()
 end
 
 hs.loadSpoon("FadeLogo"):start()
