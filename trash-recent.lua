@@ -26,13 +26,16 @@ function M._ChooserCallback(choice)
   local file_path = DOWNLOADS_DIRECTORY .. choice.text
   if M._fileExists(file_path) then
     hs.execute(TRASH_COMMAND .." '".. file_path .."'")
-    local log_message = "'".. file_path .."' moved to Trash"
 
+    local log_message = "'".. file_path .."' moved to Trash"
     local logfile = io.open(LOG_FILE, 'a')
     logfile:write(log_message)
     logfile:close()
 
     logger.i(logger, log_message)
+    hs.notify.new(nil, { title = "Download trashed", subTitle = log_message,
+                         informativeText = choice.subText,
+                         setIdImage = hs.image.imageFromName(hs.image.systemImageNames.TrashFull) }):send()
   else
     logger.w("Erm… I can't find '".. file_path .."', which is strange.")
   end
