@@ -99,24 +99,27 @@ logger.i("Starting Transmission VPN Guard")
 applicationWatcher:start()
 
 
--- iTunes Hotkeys
-hs.itunes = require 'extensions.itunes' -- hs.itunes with improvements
-itunes_hotkeys = {}
-local ituneshotkeymap = {
-  playpause = {{"⌥", "⌃", "⇧"}, "p"},
-  next      = {{"⌥", "⌃", "⇧"}, "n"},
+-- Google Play Music Desktop Player Hotkeys
+gpmdp = require 'gpmdp'
+gpmdp.hotkeys = {}
+local gpmdphotkeymap = {
+  playpause = {{"⌥", "⌃", "⇧"}, "f8"},
+  next      = {{"⌥", "⌃", "⇧"}, "f9"},
+  previous  = {{"⌥", "⌃", "⇧"}, "f7"},
   like      = {{"⌥", "⌃", "⇧"}, "l"},
   dislike   = {{"⌥", "⌃", "⇧"}, "d"},
   hide      = {{"⌥", "⌃", "⇧"}, "h"},
   quit      = {{"⌥", "⌃", "⇧"}, "q"},
-  -- mute      = {{"⌥", "⌃", "⇧"}, "f10"},
+  mute      = {{"⌥", "⌃", "⇧"}, "f10"},
   volumeDown= {{"⌥", "⌃", "⇧"}, "f11"},
   volumeUp  = {{"⌥", "⌃", "⇧"}, "f12"},
+  ff        = {{"⌥", "⌃", "⇧", "⌘"}, "f9"},
+  rw        = {{"⌥", "⌃", "⇧", "⌘"}, "f7"},
 }
-for fn_name, map in pairs(ituneshotkeymap) do
-  itunes_hotkeys[fn_name] = hs.hotkey.bind(map[1], map[2], function() hs.itunes[fn_name]() end)
+for fn_name, map in pairs(gpmdphotkeymap) do
+  gpmdp.hotkeys[fn_name] = hs.hotkey.bind(map[1], map[2], function() gpmdp[fn_name]() end)
 end
-spoon.CaptureHotkeys:capture("iTunes", ituneshotkeymap)
+spoon.CaptureHotkeys:capture("GPMDP", gpmdphotkeymap)
 
 
 -- URLs from hammerspoon:// schema
@@ -159,10 +162,15 @@ spoon.Caffeine:bindHotkeys({ toggle = {{"⌥", "⌃", "⇧"}, "c"}})
 spoon.Caffeine:start()
 
 hs.loadSpoon("HeadphoneAutoPause")
-spoon.HeadphoneAutoPause.control['vox'] = nil
-spoon.HeadphoneAutoPause.controlfns['vox'] = nil
-spoon.HeadphoneAutoPause.control['deezer'] = nil
-spoon.HeadphoneAutoPause.controlfns['deezer'] = nil
+spoon.HeadphoneAutoPause.control['vox'] = false
+spoon.HeadphoneAutoPause.control['deezer'] = false
+spoon.HeadphoneAutoPause.control['Google Play Music Desktop Player'] = true
+spoon.HeadphoneAutoPause.controlfns['Google Play Music Desktop Player'] = {
+  appname = 'Google Play Music Desktop Player',
+  isPlaying = gpmdp.isPlaying,
+  play = gpmdp.play,
+  pause = gpmdp.pause
+}
 spoon.HeadphoneAutoPause:start()
 
 hs.loadSpoon("AppHotkeys")
