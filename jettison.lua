@@ -8,13 +8,18 @@ M._jettison_causing_sleep = false
 
 function M.isAnExternalDrivePresent()
   local output, status, return_type, return_code = hs.execute("diskutil list | grep external")
-  return status
+  return status == true
 end
 function M.isAnExternalDriveMounted()
   local output, status, return_type, return_code = hs.execute("for i in $(diskutil list | grep 'external, virtual' | cut -d' ' -f1); do diskutil info $i | grep -q 'Mounted.*Yes' && echo $i; done")
   return output ~= ""
 end
+
 function M.ejectExternalDrivesAndSleep()
+  if M._jettison_causing_sleep == true then
+    u.log_and_alert(logger, "Asked to sleep while Jettison still trying to cause sleep… aborting.")
+    return nil
+  end
   u.log_and_alert(logger, "Ejecting drives before sleep…")
   local output, status, return_type, return_code = hs.execute("~/code/utilities/Scripts/eject-external-drives")
   if status then
@@ -28,7 +33,7 @@ function M.ejectExternalDrivesAndSleep()
 end
 
 function M.mountExternalDrives()
-  if M.isAnExternalDrivePresent then
+  if M.isAnExternalDrivePresent() then
     local output, status, return_type, return_code = hs.execute("~/code/utilities/Scripts/mount-external-drives")
     if status then
       u.log_and_alert(logger, "Drives remounted after sleep.")
@@ -39,20 +44,21 @@ function M.mountExternalDrives()
 end
 
 function M.sleepWatcherCallback(event)
-  if event == hs.caffeinate.watcher.systemWillSleep and not M._jettison_causing_sleep then
+  if (event == hs.caffeinate.watcher.systemWillSleep) and (not M._jettison_causing_sleep) then
     if M.isAnExternalDriveMounted() then
       hs.caffeinate.declareUserActivity()  -- prevent sleep to give us time to eject drives
       M.ejectExternalDrivesAndSleep()
     end
   elseif event == hs.caffeinate.watcher.systemDidWake then
     M.mountExternalDrives()
+  -- else do nothing
   end
 end
 M.sleepWatcher = hs.caffeinate.watcher.new(M.sleepWatcherCallback)
 
 function M:start()
   logger.i("Starting Jettison sleep watcher")
-  M.sleepWatcher:start()
+  self.sleepWatcher:start()
 end
 
 return M

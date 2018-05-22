@@ -103,18 +103,18 @@ applicationWatcher:start()
 gpmdp = require 'gpmdp'
 gpmdp.hotkeys = {}
 local gpmdphotkeymap = {
-  playpause = {{"⌥", "⌃", "⇧"}, "f8"},
-  next      = {{"⌥", "⌃", "⇧"}, "f9"},
-  previous  = {{"⌥", "⌃", "⇧"}, "f7"},
-  like      = {{"⌥", "⌃", "⇧"}, "l"},
-  dislike   = {{"⌥", "⌃", "⇧"}, "d"},
-  hide      = {{"⌥", "⌃", "⇧"}, "h"},
-  quit      = {{"⌥", "⌃", "⇧"}, "q"},
-  mute      = {{"⌥", "⌃", "⇧"}, "f10"},
-  volumeDown= {{"⌥", "⌃", "⇧"}, "f11"},
-  volumeUp  = {{"⌥", "⌃", "⇧"}, "f12"},
-  ff        = {{"⌥", "⌃", "⇧", "⌘"}, "f9"},
-  rw        = {{"⌥", "⌃", "⇧", "⌘"}, "f7"},
+  playpause  = {{"⌥", "⌃", "⇧"},      "f8"},
+  next       = {{"⌥", "⌃", "⇧"},      "f9"},
+  previous   = {{"⌥", "⌃", "⇧"},      "f7"},
+  like       = {{"⌥", "⌃", "⇧"},      "l"},
+  dislike    = {{"⌥", "⌃", "⇧"},      "d"},
+  hide       = {{"⌥", "⌃", "⇧"},      "h"},
+  quit       = {{"⌥", "⌃", "⇧"},      "q"},
+  mute       = {{"⌥", "⌃", "⇧"},      "f10"},
+  volumeDown = {{"⌥", "⌃", "⇧"},      "f11"},
+  volumeUp   = {{"⌥", "⌃", "⇧"},      "f12"},
+  ff         = {{"⌥", "⌃", "⇧", "⌘"}, "f9"},
+  rw         = {{"⌥", "⌃", "⇧", "⌘"}, "f7"},
 }
 for fn_name, map in pairs(gpmdphotkeymap) do
   gpmdp.hotkeys[fn_name] = hs.hotkey.bind(map[1], map[2], function() gpmdp[fn_name]() end)
