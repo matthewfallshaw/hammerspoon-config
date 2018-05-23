@@ -100,7 +100,8 @@ function M.iteratorToArray(...)
 end
 
 function M.log_to_file(message, file)
-  local file_path = file or "/var/log/com.matthewfallshaw.activities.log"
+  hs.fs.mkdir(os.getenv("HOME").."/log")
+  local file_path = file or os.getenv("HOME").."/log/com.matthewfallshaw.activities.log"
 
   local output_file = assert(io.open(file_path, "a+"))
 
