@@ -24,49 +24,75 @@ function string:chomp()
   return output
 end
 
-local cli = "~/bin/gpmdp-cli"
-if not fileExists(cli) then
-  error("I can't find ".. cli .." which I need to function. Install https://github.com/Glitch-is/gpmdp-cli.git there.")
+local function notify(informativeText, subTitle, title)
+  hs.notify.new(obj.hide,
+    { title = title or "GPMDP", subTitle = subTitle,
+      informativeText = informativeText,
+      setIdImage = hs.image.imageFromAppBundle(obj.app():bundleID())
+    }):send()
 end
 
--- For states see https://github.com/gmusic-utils/gmusic.js
+local cli = "~/bin/gpmdp-cli"
+if not fileExists(cli) then
+  error("I can't find ".. cli .." which I need to function. Install "..
+  "https://github.com/Glitch-is/gpmdp-cli.git there.")
+end
 
---- gpmdp.state_paused
+--- gpmdp.STATE_PAUSED
 --- Constant
---- Returned by `obj.getPlaybackState()` to indicates gpmdp is paused
-obj.state_paused = 1
+--- Returned by `gpmdp.getPlaybackState()` to indicate gpmdp is paused
+--- https://github.com/gmusic-utils/gmusic.js#playbackgetplaybackstate
+obj.STATE_PAUSED = 1
 
---- gpmdp.state_playing
+--- gpmdp.STATE_PLAYING
 --- Constant
---- Returned by `obj.getPlaybackState()` to indicates gpmdp is playing
-obj.state_playing = 2
+--- Returned by `gpmdp.getPlaybackState()` to indicate gpmdp is playing
+--- https://github.com/gmusic-utils/gmusic.js#playbackgetplaybackstate
+obj.STATE_PLAYING = 2
 
---- gpmdp.state_stopped
+--- gpmdp.STATE_STOPPED
 --- Constant
---- Returned by `obj.getPlaybackState()` to indicates gpmdp is stopped
-obj.state_stopped = 0
+--- Returned by `gpmdp.getPlaybackState()` to indicate gpmdp is stopped
+--- https://github.com/gmusic-utils/gmusic.js#playbackgetplaybackstate
+obj.STATE_STOPPED = 0
 
--- Internal function to pass a command to gpmdp-cli
+--- gpmdp.tell(cmd)
+-- Function
+-- Pass a command directly to gpmdp-cli
+--
+-- Parameters:
+--   * cmd - a command string: namespace method [arguments]*
+-- 
+-- Returns:
+--   * string, whatever gpmdp-cli returns
 function obj.tell(cmd)
   if not obj.app() then return nil end
 
-  local rexitCode, rstdOut, rstdErr = 0, '', ''
-    -- hs.task callback sometimes fails to run before task:waitUntilExit so rexitCode is nil
-    -- (results collected by stream callback, so just ignore this problem by defaulting to 0)
+  -- TODO:
+  -- hs.task callback sometimes fails to run before task:waitUntilExit so
+  -- rexitCode is nil (results collected by stream callback, so just ignore this
+  -- problem by defaulting to 0 -
+  -- NOTE THAT THIS IGNORES ERRORS IF THEY OCCUR)
+  local rexitCode = 0
+  local rstdOut, rstdErr = '', ''
   local task = hs.task.new(cli,
     function(exitCode, stdOut, stdErr)
-      rexitCode = tonumber(exitCode)  --; rstdOut = stdOut; rstdErr = stdErr
+      rexitCode = tonumber(exitCode)
+      rstdOut = rstdOut .. stdOut; rstdErr = rstdErr .. stdErr  -- accumulated values
     end,
     function(task, stdOut, stdErr)
-      rstdOut = rstdOut .. stdOut; rstdErr = rstdErr .. stdErr
+      rstdOut = rstdOut .. stdOut; rstdErr = rstdErr .. stdErr  -- accumulated values
       return true
     end,
     cmd:split(" "))
-  task:setEnvironment({PATH = '/Users/matt/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin'})
+  task:setEnvironment({PATH =
+    os.getenv("HOME")..'/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin'})
   task:start()
   task:waitUntilExit()
   if rexitCode ~= 0 then
-    logger.e(cli .." failed - cmd:'"..cmd.."', exitcode:'"..tostring(rexitCode).."', stdout:'"..tostring(rstdOut):chomp().."', stderr:'"..tostring(rstdErr):chomp().."'")
+    logger.e(cli .." failed - cmd:'"..cmd.."', exitcode:'"..tostring(rexitCode)..
+      "', stdout:'"..tostring(rstdOut):chomp().."', stderr:'"..tostring(rstdErr):chomp()..
+      "'")
   end
   return tostring(rstdOut):chomp()
 end
@@ -74,13 +100,13 @@ local tell = obj.tell
 
 --- gpmdp.app()
 --- Function
---- The GPMDP app, if it's running
+--- Returns the GPMDP app, if it's running, nil otherwise
 ---
 --- Parameters:
 ---  * None
 ---
 --- Returns:
----  * hs.application
+---  * hs.application, the GPMDP app
 function obj.app()
   return hs.application.get(app_name)
 end
@@ -93,7 +119,7 @@ end
 ---  * None
 ---
 --- Returns:
----  * None
+---  * The gpmdp object
 function obj.playpause()
   local app = obj.app()
   if not app then
@@ -101,6 +127,7 @@ function obj.playpause()
   else
     tell('playback playPause')
   end
+  return obj
 end
 
 --- gpmdp.play()
@@ -111,11 +138,12 @@ end
 ---  * None
 ---
 --- Returns:
----  * None
+---  * The gpmdp object
 function obj.play()
   if not obj.isPlaying() then
     tell('playback playPause')
   end
+  return obj
 end
 
 --- gpmdp.pause()
@@ -126,11 +154,12 @@ end
 ---  * None
 ---
 --- Returns:
----  * None
+---  * The gpmdp object
 function obj.pause()
   if obj.isPlaying() then
     tell('playback playPause')
   end
+  return obj
 end
 
 --- gpmdp.next()
@@ -141,22 +170,25 @@ end
 ---  * None
 ---
 --- Returns:
----  * None
+---  * The gpmdp object
 function obj.next()
   tell('playback forward')
+  return obj
 end
 
 --- gpmdp.previous()
 --- Function
---- If deep in the current track, rewinds to start, if close to start, jumps to previous gpmdp track
+--- If deep in the current track, rewinds to start, if close to start, jumps to
+--- previous gpmdp track
 ---
 --- Parameters:
 ---  * None
 ---
 --- Returns:
----  * None
+---  * The gpmdp object
 function obj.previous()
   tell('playback rewind')
+  return obj
 end
 
 --- gpmdp.like()
@@ -167,14 +199,16 @@ end
 ---  * None
 ---
 --- Returns:
----  * None
+---  * The gpmdp object
 function obj.like()
-  local rating = tell('rating getRating')
-  if not rating or tonumber(rating) < 5 then
-    tell('rating toggleThumbsUp')
+  local rating = obj.getRating()
+  if rating == 5 then
+    notify(obj.getCurrentTrackAndArtist() ..' already liked')
   else
-    hs.alert(obj.getCurrentTrack .." already liked")
+    tell('rating setRating 5')
+    notify('Liked '.. obj.getCurrentTrackAndArtist())
   end
+  return obj
 end
 
 --- gpmdp.dislike()
@@ -185,15 +219,64 @@ end
 ---  * None
 ---
 --- Returns:
----  * None
+---  * The gpmdp object
 function obj.dislike()
-  local rating = tell('rating getRating')
-  if not rating or tonumber(rating) > 1 then
-    tell('rating toggleThumbsUp')
+  local rating = obj.getRating()
+  if rating == 1 then
+    notify(obj.getCurrentTrackAndArtist() ..' already disliked')
   else
     tell('rating setRating 1')
-    hs.alert(obj.getCurrentTrack .." already disliked")
+    notify('Disliked '.. obj.getCurrentTrackAndArtist())
   end
+  return obj
+end
+
+--- gpmdp.getRating()
+--- Function
+--- Get the rating of the current gpmdp track
+---
+--- Parameters:
+---  * None
+---
+--- Returns:
+---  * An integer, the rating (0 means no rating, 1 means disliked)
+function obj.getRating()
+  local rating = tell('rating getRating')
+  return tonumber(rating)
+end
+
+--- gpmdp.setRating(rating)
+--- Function
+--- Set rating of the current gpmdp track (0, 1-5)
+---
+--- Parameters:
+---  * rating - An integer, 0 means no rating, 1 means disliked, 5 means liked
+---
+--- Returns:
+---  * The gpmdp object
+function obj.setRating(rating)
+  local rating = tonumber(rating)
+  tell('rating setRating '.. tostring(rating))
+  notify(obj.getCurrentTrackAndArtist() .." rated ".. tostring(rating) .." out of 5")
+  return obj
+end
+
+--- gpmdp.getCurrentTrack()
+--- Function
+--- Gets information for current track
+---
+--- Parameters:
+---  * None
+---
+--- Returns:
+---  * a table, the track information
+function obj.getCurrentTrack()
+  local info = tell('playback getCurrentTrack')
+  local out = {}
+  out.artist = info:match("'artist': '([^']+)'") or "Unknown artist"
+  out.album  = info:match("'album': '([^']+)'") or "Unknown album"
+  out.track  = info:match("'title': '([^']+)'") or "Unknown track"
+  return out
 end
 
 --- gpmdp.displayCurrentTrack()
@@ -204,13 +287,25 @@ end
 ---  * None
 ---
 --- Returns:
----  * None
+---  * a string, the track information
 function obj.displayCurrentTrack()
-  local info = tell('playback getCurrentTrack')
-  local artist = info:match("'artist': '([^']+)'") or "Unknown artist"
-  local album  = info:match("'album': '([^']+)'") or "Unknown album"
-  local track  = info:match("'title': '([^']+)'") or "Unknown track"
-  hs.alert.show(track .. "\n" .. album .. "\n" .. artist, 1.75)
+  local info = obj.getCurrentTrack()
+  local output = info.track .. "\n" .. info.album .. "\n" .. info.artist
+  notify(output)
+  return output
+end
+
+--- gpmdp.getCurrentTrackAndArtist()
+--- Function
+--- Gets the name and the name of the artist of the current track
+---
+--- Parameters:
+---  * None
+---
+--- Returns:
+---  * A string containing the name and Artist of the current track, or nil if an error occurred
+function obj.getCurrentTrackAndArtist()
+  return '"'.. obj.getCurrentTrackName() ..'" by "'.. obj.getCurrentArtist() ..'"'
 end
 
 --- gpmdp.getCurrentArtist()
@@ -223,9 +318,7 @@ end
 --- Returns:
 ---  * A string containing the Artist of the current track, or nil if an error occurred
 function obj.getCurrentArtist()
-  local info = tell('playback getCurrentTrack')
-  local artist = info:match("'artist': '([^']+)'") or "Unknown artist"
-  return artist
+  return obj.getCurrentTrack().artist
 end
 
 --- gpmdp.getCurrentAlbum()
@@ -238,12 +331,10 @@ end
 --- Returns:
 ---  * A string containing the Album of the current track, or nil if an error occurred
 function obj.getCurrentAlbum()
-  local info = tell('playback getCurrentTrack')
-  local album  = info:match("'album': '([^']+)'") or "Unknown album"
-  return album
+  return obj.getCurrentTrack().album
 end
 
---- gpmdp.getCurrentTrack()
+--- gpmdp.getCurrentTrackName()
 --- Function
 --- Gets the name of the current track
 ---
@@ -252,10 +343,8 @@ end
 ---
 --- Returns:
 ---  * A string containing the name of the current track, or nil if an error occurred
-function obj.getCurrentTrack()
-  local info = tell('playback getCurrentTrack')
-  local track  = info:match("'title': '([^']+)'") or "Unknown track"
-  return track
+function obj.getCurrentTrackName()
+  return obj.getCurrentTrack().track
 end
 
 --- gpmdp.getPlaybackState()
@@ -267,16 +356,18 @@ end
 ---
 --- Returns:
 ---  * A string containing one of the following constants:
----    - `obj.state_stopped`
----    - `obj.state_paused`
----    - `obj.state_playing`
+---    - `gpmdp.STATE_STOPPED`
+---    - `gpmdp.STATE_PAUSED`
+---    - `gpmdp.STATE_PLAYING`
 function obj.getPlaybackState()
   return tonumber(tell('playback getPlaybackState'))
 end
 
 --- gpmdp.isRunning()
 --- Function
---- Returns whether gpmdp is currently open. Most other functions in hs.gpmdp will automatically start the application, so this function can be used to guard against that.
+--- Returns whether gpmdp is currently open. Most other functions in hs.gpmdp
+--- will automatically start the application, so this function can be used to
+--- guard against that.
 ---
 --- Parameters:
 ---  * None
@@ -295,7 +386,9 @@ end
 ---  * None
 ---
 --- Returns:
----  * A boolean value indicating whether gpmdp is currently playing a track, or nil if an error occurred (unknown player state). Also returns false if the application is not running
+---  * A boolean value indicating whether gpmdp is currently playing a track, or
+--- nil if an error occurred (unknown player state). Also returns false if the
+--- application is not running
 function obj.isPlaying()
   -- We check separately to avoid starting the application if it's not running
   if not obj.isRunning() then return false end
@@ -323,11 +416,12 @@ end
 ---  * vol - A number between 1 and 100
 ---
 --- Returns:
----  * The new volume (between 0 and 100)
+---  * The gpmdp object
 function obj.setVolume(v)
   v = tonumber(v)
   if not v then error('volume must be a number 1..100', 2) end
-  return tonumber(tell('volume setVolume ' .. math.min(100, math.max(0, v))))
+  tell('volume setVolume ' .. tostring(math.min(100, math.max(0, v))))
+  return obj
 end
 
 --- gpmdp.volumeUp()
@@ -338,7 +432,7 @@ end
 ---  * None
 ---
 --- Returns:
----  * None
+---  * The new volume (between 0 and 100)
 function obj.volumeUp()
   tell('volume increaseVolume')
   return obj.getVolume()
@@ -352,7 +446,7 @@ end
 ---  * None
 ---
 --- Returns:
----  * None
+---  * The new volume (between 0 and 100)
 function obj.volumeDown()
   tell('volume decreaseVolume')
   return obj.getVolume()
@@ -366,15 +460,16 @@ end
 ---  * None
 ---
 --- Returns:
----  * 0
+---  * The gpmdp object
 function obj.mute()
   local current_volume = obj.getVolume()
   if current_volume == 0 then
     obj.setVolume(obj.volume['pre-mute'] or 30)
   else
     obj.volume['pre-mute'] = current_volume
-    return obj.setVolume(0)
+    obj.setVolume(0)
   end
+  return obj
 end
 
 --- gpmdp.getDuration()
@@ -412,11 +507,12 @@ end
 ---  * pos - A number containing the position (in seconds) to jump to in the current song
 ---
 --- Returns:
----  * None
+---  * The gpmdp object
 function obj.setPosition(p)
   p = tonumber(p)
   if not p then error('position must be a number in seconds', 2) end
-  return tonumber(tell('playback setCurrentTime ' .. p * 1000))
+  tell('playback setCurrentTime ' .. tostring(p * 1000))
+  return gpmdp
 end
 
 --- gpmdp.ff()
@@ -427,9 +523,11 @@ end
 ---  * None
 ---
 --- Returns:
----  * None
+---  * A number indicating the new position in the song
 function obj.ff()
-  return obj.setPosition(obj.getPosition() + 5)
+  local pos = obj.getPosition() + 5
+  obj.setPosition(pos)
+  return pos
 end
 
 --- gpmdp.rw
@@ -440,9 +538,11 @@ end
 ---  * None
 ---
 --- Returns:
----  * None
+---  * A number indicating the new position in the song
 function obj.rw()
-  return obj.setPosition(obj.getPosition() - 5)
+  local pos = obj.getPosition() - 5
+  obj.setPosition(pos)
+  return pos
 end
 
 --- gpmdp.hide()
@@ -473,10 +573,9 @@ end
 ---  * None
 ---
 --- Returns:
----  * hs.application
+---  * None
 function obj.quit()
   if obj.app() then obj.app():kill() end
-  return nil
 end
 
 return obj
