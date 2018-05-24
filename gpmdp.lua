@@ -202,11 +202,12 @@ end
 ---  * The gpmdp object
 function obj.like()
   local rating = obj.getRating()
+  local track = obj.getCurrentTrackAndArtist()
   if rating == 5 then
-    notify(obj.getCurrentTrackAndArtist() ..' already liked')
+    notify(track ..' already liked')
   else
     tell('rating setRating 5')
-    notify('Liked '.. obj.getCurrentTrackAndArtist())
+    notify('Liked '.. track)
   end
   return obj
 end
@@ -222,11 +223,12 @@ end
 ---  * The gpmdp object
 function obj.dislike()
   local rating = obj.getRating()
+  local track = obj.getCurrentTrackAndArtist()
   if rating == 1 then
-    notify(obj.getCurrentTrackAndArtist() ..' already disliked')
+    notify(track ..' already disliked')
   else
     tell('rating setRating 1')
-    notify('Disliked '.. obj.getCurrentTrackAndArtist())
+    notify('Disliked '.. track)
   end
   return obj
 end
@@ -256,8 +258,9 @@ end
 ---  * The gpmdp object
 function obj.setRating(rating)
   local rating = tonumber(rating)
+  local track = obj.getCurrentTrackAndArtist()
   tell('rating setRating '.. tostring(rating))
-  notify(obj.getCurrentTrackAndArtist() .." rated ".. tostring(rating) .." out of 5")
+  notify(track .." rated ".. tostring(rating) .." out of 5")
   return obj
 end
 
