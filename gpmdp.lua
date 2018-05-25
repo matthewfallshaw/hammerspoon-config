@@ -1,10 +1,17 @@
 --- === gpmdp ===
 --- Controls for Google Play Music Desktop Player music player
 
+-- Metadata
+obj.name = "GPMDP"
+obj.version = "1.0"
+obj.author = "Matthew Fallshaw <m@fallshaw.me>"
+obj.homepage = "https://github.com/matthewfallshaw/hammerspoon-config"
+obj.license = "MIT - https://opensource.org/licenses/MIT"
+
 local app_name = 'Google Play Music Desktop Player'
 
-local logger = hs.logger.new("GPMDP")
-logger.i("Loading ".. app_name)
+local logger = hs.logger.new(obj.name)
+logger.i("Loading ".. obj.name)
 
 
 local obj = { volume = {} }
@@ -293,9 +300,9 @@ end
 ---  * a string, the track information
 function obj.displayCurrentTrack()
   local info = obj.getCurrentTrack()
-  local output = info.track .. "\n" .. info.album .. "\n" .. info.artist
-  notify(output)
-  return output
+  local albumartist = 'from "'.. info.album ..'"\nby "'.. info.artist ..'"'
+  notify(albumartist, info.track)
+  return info.track .."\n".. albumartist
 end
 
 --- gpmdp.getCurrentTrackAndArtist()
