@@ -1,6 +1,6 @@
 [submodule "Spoons/CaptureHotkeys.spoon"]
 	path = Spoons/CaptureHotkeys.spoon
-	url = git@github.com:matthewfallshaw/CaptureHotkeys.spoon.git
+	url = https://github.com/matthewfallshaw/CaptureHotkeys.spoon.git
 [submodule "Spoons/AppHotkeys.spoon"]
 	path = Spoons/AppHotkeys.spoon
-	url = git@github.com:matthewfallshaw/AppHotkeys.spoon.git
+	url = https://github.com/matthewfallshaw/AppHotkeys.spoon.git
