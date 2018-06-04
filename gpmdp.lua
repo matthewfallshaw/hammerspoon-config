@@ -1,6 +1,8 @@
 --- === gpmdp ===
 --- Controls for Google Play Music Desktop Player music player
 
+local obj = { volume = {} }
+
 -- Metadata
 obj.name = "GPMDP"
 obj.version = "1.0"
@@ -10,11 +12,10 @@ obj.license = "MIT - https://opensource.org/licenses/MIT"
 
 local app_name = 'Google Play Music Desktop Player'
 
-local logger = hs.logger.new(obj.name)
+obj._logger = hs.logger.new(obj.name)
+local logger = obj._logger
 logger.i("Loading ".. obj.name)
 
-
-local obj = { volume = {} }
 
 -- Utility functions
 local function fileExists(filepath)
