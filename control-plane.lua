@@ -1,16 +1,41 @@
--- Control Plane replacement: Actions on change of location
-local logger = hs.logger.new("ControlPlane")
+-- # Control Plane replacement: Actions on change of location
+--
+-- Watch for location changes with
+--   ``` lua
+--   hs.watchable.watch(
+--     "control-plane.location",
+--     function(watcher, path, key, old_value, new_value)
+--       -- actions
+--     end
+--   )
+--   ```
+--
+-- ## Location update flow:
+--
+-- 1. *Callback functions set individual locationFacts
+-- 2. locationFactsWatcher restarts actionTimer on change of all but locationFacts.location
+--    (callbacks often fire many times when changes are happening - this delays
+--    acting until they've calmed down)
+-- 3. actionTimer updates locationFacts.location
+-- 4. locationWatcher fires actions when locationFacts.location changes
+
+local obj = {}  -- module
+
+obj._logger = hs.logger.new("ControlPlane")
+local logger = obj._logger
 logger.i("Loading ControlPlane")
 
-local obj = {}
+local application = hs.application
 
 ACTION_DELAY = 5 -- seconds
 KILL_APP_RETRY_DELAY = 15 -- seconds
 
 obj.locationFacts = hs.watchable.new("control-plane", true)
-obj.locationFacts.location = ''
+local locationFacts = obj.locationFacts
+locationFacts.location = ''
 obj.locationFactsWatcher = hs.watchable.watch("control-plane.*",
   function(watcher, path, key, old_value, new_value)
+    logger.i("Updating ".. key .." = " .. tostring(new_value))
     if key ~= 'location' then
       obj.actionTimer:start()
     end
@@ -21,38 +46,10 @@ obj.locationWatcher = hs.watchable.watch("control-plane.location",
     if old_value ~= "" then obj.previousLocation = old_value end
     obj.actions()
   end)
--- *Callback functions set individual locationFacts
--- locationFactsWatcher restarts actionTimer on change of all but
---   locationFacts.location
--- actionTimer updates locationFacts.location
--- locationWatcher fires actions
 
 -- ## Utility functions ##
-function obj.slackStatus(location)
-  if location == "" then
-    logger.i("Slack status -")
-  else
-    logger.i("Slack status " .. location)
-  end
-  result = hs.task.new("~/bin/slack-status", obj.slackStatusRetry,
-                       function(...) return false end, {location}):start()
-end
-function obj.slackStatusRetry(exitCode, stdOut, stdErr)
-  if exitCode ~= 0 then  -- if task fails, try again after 30s
-    logger.w("Slack status failed - exitCode:" .. tostring(exitCode) .. " stdOut:" ..
-      tostring(stdOut) .. " stdErr:" .. tostring(stdErr))
-    hs.timer.doAfter(30,
-                     function()
-                       hs.task.new("~/bin/slack-status",
-                                   obj.slackStatusRetry,
-                                   function(...) return false end,
-                                   {obj.locationFacts.location})
-                     end):start()
-  end
-end
-
-function obj.killApp(appname)
-  local app, other_app = hs.application.find(appname)
+local function killApp(appname)
+  local app, other_app = application.find(appname)
     -- Should check for other_app, but this happens lots, so … we're going to ignore it
   if app then
     logger.i("Closing " .. appname)
@@ -60,26 +57,26 @@ function obj.killApp(appname)
     hs.timer.doAfter(KILL_APP_RETRY_DELAY, function()
       -- sometimes apps are hard to kill, so we try several times
       if app:isRunning() then app:kill9() end
-      app = hs.application.find(appname); if app then app:kill9() end
-      if hs.application.find(appname) then logger.e("Failed to kill " .. appname) end
+      app = application.find(appname); if app then app:kill9() end
+      if application.find(appname) then logger.e("Failed to kill " .. appname) end
     end):start()
   else
     logger.i(appname .. " wasn't open, so I didn't close it")
   end
 end
-function obj.resumeApp(appname, alt_appname)
-  local app = hs.application.find(appname)
+local function resumeApp(appname, alt_appname)
+  local app = application.find(appname)
   if app and app:isRunning() then
     logger.i(appname .. " is already running")
   else
-    if hs.application.open(appname) then
+    if application.open(appname) then
       logger.i("Resuming " .. appname)
-    elseif alt_appname and hs.application.open(alt_appname) then
+    elseif alt_appname and application.open(alt_appname) then
       logger.i("Resuming " .. alt_appname)
     else
       hs.timer.doAfter(KILL_APP_RETRY_DELAY, function()
-        if (not hs.application.find(appname)) and
-           (not hs.application.find(alt_appname)) then
+        if (not application.find(appname)) and
+           (not application.find(alt_appname)) then
           logger.e("Couldn't resume '" .. appname ..
                     (alt_appname and ("' or '" .. alt_appname) or "'"))
         end
@@ -91,21 +88,21 @@ end
 -- ## Core functions ##
 function obj.updateLocation()
   local inferred_location
-  if obj.locationFacts.network and obj.locationFacts.network == 'iPhone' then
+  if locationFacts.network and locationFacts.network == 'iPhone' then
     -- At top because iPhone network is expensive; other network inferences below
     logger.i("Inferring iPhone from network")
-    inferred_location = obj.locationFacts.network
-  elseif obj.locationFacts.monitor then
-    logger.i("Inferring ".. obj.locationFacts.monitor .." from monitor")
-    inferred_location = obj.locationFacts.monitor
-  elseif obj.locationFacts.psu then
-    logger.i("Inferring ".. obj.locationFacts.psu .." from psu")
-    inferred_location = obj.locationFacts.psu
+    inferred_location = locationFacts.network
+  elseif locationFacts.monitor then
+    logger.i("Inferring ".. locationFacts.monitor .." from monitor")
+    inferred_location = locationFacts.monitor
+  elseif locationFacts.psu then
+    logger.i("Inferring ".. locationFacts.psu .." from psu")
+    inferred_location = locationFacts.psu
   else
     logger.i("Inferring … well, failing to infer, so falling back to 'Roaming'")
     inferred_location = 'Roaming'
   end
-  obj.locationFacts.location = inferred_location
+  locationFacts.location = inferred_location
   return inferred_location
 end
 
@@ -116,44 +113,52 @@ function obj.actions()
       obj[obj.previousLocation .. 'ExitActions']()
     end
   end
-  if obj[obj.locationFacts.location .. 'EntryActions'] then
-    logger.i("Entry actions for Location: ".. obj.locationFacts.location)
-    obj[obj.locationFacts.location .. 'EntryActions']()
+  if obj[locationFacts.location .. 'EntryActions'] then
+    logger.i("Entry actions for Location: ".. locationFacts.location)
+    obj[locationFacts.location .. 'EntryActions']()
   end
   obj.previousLocation = nil
 end
 
 function obj.location()
-  return obj.locationFacts.location
+  return locationFacts.location
 end
 
 -- ## Housekeeping functions ##
 
 function obj:start()
-  obj.locationFactsWatcher:resume()
-  obj.locationWatcher:resume()
   for k,v in pairs(obj) do
-    -- Run all callback functions to initialise obj.locationFacts
-    if type(v) == 'function' and k:find("Callback$") then
-      v()
-    end
-    -- Start all watchers
+    -- Run all callback functions to initialise locationFacts
+    if type(v) == 'function' and k:find("Callback$") then v() end
+    -- Starting or resuming all watchers
     if type(v) == 'userdata' and k:find("Watcher$") then
-      logger.i("Starting " .. k)
-      v:start()
+      if v.start ~= nil then
+        logger.i("Starting " .. k)
+        v:start()
+      elseif v.resume ~= nil then
+        logger.i("Resuming " .. k)
+        v:resume()
+      else
+        logger.w(k .." doesn't respond to `start()` or `resume()` - it's not active")
+      end
     end
   end
   return obj
 end
 
 function obj:stop()
-  obj.locationFactsWatcher:pause()
-  obj.locationWatcher:pause()
+  -- Stopping or pausing all watchers
   for k,v in pairs(obj) do
-    -- Stop all watchers
     if type(v) == 'userdata' and k:find("Watcher$") then
-      logger.i("Stoping " .. k)
-      v:stop()
+      if v.stop ~= nil then
+        logger.i("Stopping " .. k)
+        v:stop()
+      elseif v.pause ~= nil then
+        logger.i("Pausing " .. k)
+        v:pause()
+      else
+        logger.w(k .." doesn't respond to `stop()` or `pause()` - so… still doing it's thing")
+      end
     end
   end
   return obj
@@ -166,7 +171,6 @@ end
 -- Network configuration change (iPhone)
 function obj.networkConfCallback(_, keys)
   logger.i("Network config changed (" .. hs.inspect(keys) .. ")")
-  local old_network = obj.locationFacts.network
   -- Work out which network we're on
   if (hs.network.reachability.internet():status() &
         hs.network.reachability.flags.reachable) > 0 then
@@ -181,22 +185,19 @@ function obj.networkConfCallback(_, keys)
     if hs.network.interfaceDetails(pi4) and
        hs.network.interfaceDetails(pi4).Link and
        hs.network.interfaceDetails(pi4).Link.Expensive then
-      obj.locationFacts.network = 'iPhone'
+      locationFacts.network = 'iPhone'
     elseif hs.fnutils.contains({'blacknode5', 'blacknode2.4'},
                                hs.wifi.currentNetwork()) then
-      obj.locationFacts.network = 'Canning'
+      locationFacts.network = 'Canning'
     elseif hs.wifi.currentNetwork() == 'bellroy' then
-      obj.locationFacts.network = 'Fitzroy'
+      locationFacts.network = 'Fitzroy'
     else
       logger.i("Unknown network")
-      obj.locationFacts.network = nil
+      locationFacts.network = nil
     end
   else
     logger.i("No primary interface")
-    obj.locationFacts.network = nil
-  end
-  if obj.locationFacts.network ~= old_network then
-    logger.i("recording network = " .. tostring(obj.locationFacts.network))
+    locationFacts.network = nil
   end
 end
 obj.networkConfWatcher =
@@ -213,16 +214,12 @@ obj.networkConfWatcher =
 -- Attached power supply change (Canning, Fitzroy)
 function obj.powerCallback()
   logger.i("Power changed")
-  local old_power = obj.locationFacts.psu
   if hs.battery.psuSerial() == 3136763 then
-    obj.locationFacts.psu = 'Canning'
+    locationFacts.psu = 'Canning'
   elseif hs.battery.psuSerial() == 7411505 then
-    obj.locationFacts.psu = 'Fitzroy'
+    locationFacts.psu = 'Fitzroy'
   else
-    obj.locationFacts.psu = nil
-  end
-  if obj.locationFacts.psu ~= old_power then
-    logger.i("recording psu = " .. tostring(obj.locationFacts.psu))
+    locationFacts.psu = nil
   end
 end
 obj.batteryWatcher = hs.battery.watcher.new( function() obj.powerCallback() end )
@@ -230,18 +227,14 @@ obj.batteryWatcher = hs.battery.watcher.new( function() obj.powerCallback() end 
 -- Attached monitor change (Canning, Fitzroy)
 function obj.screenCallback()
   logger.i("Monitor changed")
-  local old_monitor = obj.locationFacts.monitor
   if hs.screen.find(188814579) then
-    obj.locationFacts.monitor = 'Canning'
+    locationFacts.monitor = 'Canning'
   elseif hs.screen.find(724061396) then
-    obj.locationFacts.monitor = 'Fitzroy'
+    locationFacts.monitor = 'Fitzroy'
   elseif hs.screen.find(69992768) then
-    obj.locationFacts.monitor = "CanningServer"
+    locationFacts.monitor = "CanningServer"
   else
-    obj.locationFacts.monitor = nil
-  end
-  if obj.locationFacts.monitor ~= old_monitor then
-    logger.i("recording monitor = " .. tostring(obj.locationFacts.monitor))
+    locationFacts.monitor = nil
   end
 end
 obj.screenWatcher = hs.screen.watcher.new( function() obj.screenCallback() end )
@@ -251,27 +244,27 @@ obj.screenWatcher = hs.screen.watcher.new( function() obj.screenCallback() end )
 -- ## Entry & Exit Actions ##
 -- ##########################
 
+slack = require 'utilities.slack'
+
 -- iPhone
 function obj.iPhoneEntryActions()
   logger.i("Closing Dropbox & GDrive")
-  obj.killApp("Dropbox")
-  obj.killApp("Backup and Sync from Google")
-  obj.killApp("Google Drive File Stream")
-  obj.killApp("Transmission")
+  killApp("Dropbox")
+  killApp("Backup and Sync from Google")
+  killApp("Transmission")
 end
 
 function obj.iPhoneExitActions()
   logger.i("Opening Dropbox & GDrive")
-  obj.resumeApp("Dropbox")
-  obj.resumeApp("Backup and Sync from Google", "Backup and Sync")
-  obj.resumeApp("Google Drive File Stream")
+  resumeApp("Dropbox")
+  resumeApp("Backup and Sync from Google", "Backup and Sync")
 end
 
 -- Fitzroy
 function obj.FitzroyEntryActions()
-  obj.killApp("Transmission")
+  killApp("Transmission")
 
-  obj.slackStatus("Fitzroy")
+  slack.setStatus("Fitzroy")
 
   hs.execute("~/code/utilities/Scripts/mount-external-drives", true)
 end
@@ -283,23 +276,23 @@ end
 
 -- Canning
 function obj.CanningEntryActions()
-  obj.slackStatus("Canning")
+  slack.setStatus("Canning")
 
   hs.execute("~/code/utilities/Scripts/mount-external-drives", true)
 end
 
 function obj.CanningExitActions()
-  obj.killApp("Transmission")
+  killApp("Transmission")
 
   logger.i("Wifi On")
   hs.wifi.setPower(true)
 
-  obj.slackStatus("")
+  slack.setStatus("")
 end
 
 -- Roaming
 function obj.RoamingEntryActions()
-  obj.killApp("Transmission")
+  killApp("Transmission")
 end
 
 return obj
