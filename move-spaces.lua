@@ -1,5 +1,9 @@
 -- Move windows between spaces
-local logger = hs.logger.new("Move spaces")
+
+M = { hotkeys = {} }
+
+M._logger = hs.logger.new("Move spaces")
+local logger = M._logger
 logger.i("Loading Move spaces tools")
 
 -- # Usage
@@ -8,8 +12,6 @@ logger.i("Loading Move spaces tools")
 --   {"⌘", "⌥", "⌃", "⇧"}, "right", function() move_spaces.moveWindowOneSpace("right") end)
 -- move_spaces.hotkeys.left  = spoon.CaptureHotkeys:bind("WindowSpacesLeftAndRight", "Left",
 --   {"⌘", "⌥", "⌃", "⇧"}, "left",  function() move_spaces.moveWindowOneSpace("left") end)
-
-M = { hotkeys = {} }
 
 spaces = require "hs._asm.undocumented.spaces" -- https://github.com/asmagill/hs._asm.undocumented.spaces
 
@@ -29,7 +31,7 @@ function M.moveWindowOneSpace(direction)
   local win = hs.window.frontmostWindow()
 
   if #win:spaces() > 1 then
-    u.log_and_alert(logger, "Frontmost window present on multiple spaces so just taking you ".. direction)
+    logger.i("Frontmost window present on multiple spaces so just taking you ".. direction)
     hs.eventtap.keyStroke({"ctrl"}, direction)
   else
     local screen = win:screen()
