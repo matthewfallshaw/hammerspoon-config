@@ -1,9 +1,12 @@
 hs.logger.setGlobalLogLevel('warning')
 hs.logger.defaultLogLevel = 'warning'
+hs.hotkey.setLogLevel('warning')  -- 'cos it ignores global defaults
 local logger = hs.logger.new("Init")
+
 hs.console.clearConsole()
 hs.application.enableSpotlightForNameSearches(true)
 hs.allowAppleScript(true)
+i = hs.inspect.inspect
 
 
 -- Capture spoon (and other) hotkeys
@@ -11,7 +14,7 @@ hs.loadSpoon("CaptureHotkeys")
 spoon.CaptureHotkeys:bindHotkeys({show = {{ "⌘", "⌥", "⌃", "⇧" }, "k"}})
 spoon.CaptureHotkeys:start()
 
--- Load spoon.Hammer first, since it gives us config reload & etc.
+-- Load spoon.Hammer early, since it gives us config reload & etc.
 hs.loadSpoon("Hammer")
 spoon.Hammer:bindHotkeys({
   config_reload ={{"⌘", "⌥", "⌃", "⇧"}, "r"},
@@ -26,7 +29,7 @@ hammer_plus = {
 }
 
 
-u = require 'utilities'
+local log = require('utilities.log').new(logger)
 
 
 -- Control Plane replacement: Actions on change of location
@@ -37,7 +40,8 @@ control_plane:start()
 -- Stay replacement: Keep App windows in their places
 stay = require 'stay'
 stay:start()
-spoon.CaptureHotkeys:capture("Stay", "Toggle layout engine or report frontmost window", {"⌘", "⌥", "⌃", "⇧"}, "s")
+spoon.CaptureHotkeys:capture("Stay", "Toggle layout engine or report frontmost window",
+  {"⌘", "⌥", "⌃", "⇧"}, "s")
 
 
 -- Move windows between spaces
@@ -58,12 +62,12 @@ logger.i("Loading ScanSnap USB watcher")
 function usbDeviceCallback(data)
   if (data["productName"]:match("^ScanSnap")) then
     if (data["eventType"] == "added") then
-      u.log_and_alert(logger, data["productName"].. " added, launching ScanSnap Manager")
+      log.and_alert(data["productName"].. " added, launching ScanSnap Manager")
       hs.application.launchOrFocus("ScanSnap Manager")
     elseif (data["eventType"] == "removed") then
       local app = hs.application.find("ScanSnap Manager")
       if app then
-        u.log_and_alert(logger, data["productName"].. " removed, closing ScanSnap Manager")
+        log.and_alert(data["productName"].. " removed, closing ScanSnap Manager")
         app:kill()
       end
       if hs.application.get("AOUMonitor") then hs.application.get("AOUMonitor"):kill9() end
@@ -80,17 +84,17 @@ logger.i("Loading Transmission VPN Guard")
 function applicationWatcherCallback(appname, event, app)
   if appname == "Transmission" and event == hs.application.watcher.launching then
     if not hs.application.get("Private Internet Access") then
-      u.log_and_alert(logger, "Transmission launch detected… launching PIA")
+      log.and_alert("Transmission launch detected… launching PIA")
       hs.application.open("Private Internet Access")
     else
-      u.log_and_alert(logger, "Transmission launch detected… but PIA already running")
+      log.and_alert("Transmission launch detected… but PIA already running")
     end
   elseif appname == "Private Internet Access" and event == hs.application.watcher.terminated then
     if hs.application.get("Transmission") then
-      u.log_and_alert(logger, "PIA termination detected… killing Transmission")
+      log.and_alert("PIA termination detected… killing Transmission")
       hs.application.get("Transmission"):kill9()
     else
-      u.log_and_alert(logger, "PIA termination detected… Transmission not running, so no action")
+      log.and_alert("PIA termination detected… Transmission not running, so no action")
     end
   end
 end
@@ -115,6 +119,7 @@ local gpmdphotkeymap = {
   volumeUp   = {{"⌥", "⌃", "⇧"},      "f12"},
   ff         = {{"⌥", "⌃", "⇧", "⌘"}, "f9"},
   rw         = {{"⌥", "⌃", "⇧", "⌘"}, "f7"},
+  displayCurrentTrack = {{"⌥", "⌃", "⇧"}, "t"},
 }
 for fn_name, map in pairs(gpmdphotkeymap) do
   gpmdp.hotkeys[fn_name] = hs.hotkey.bind(map[1], map[2], function() gpmdp[fn_name]() end)
@@ -123,8 +128,9 @@ spoon.CaptureHotkeys:capture("GPMDP", gpmdphotkeymap)
 
 
 -- URLs from hammerspoon:// schema
+local escape, unescape = require('utilities.string_escapes')()
 function URLDispatcherCallback(eventName, params)
-  local fullUrl = u.unescape(params.uri)
+  local fullUrl = unescape.url(params.uri)
   local parts = hs.http.urlParts(fullUrl)
   spoon.URLDispatcher:dispatchURL(parts.scheme, parts.host, parts.parameterString, fullUrl)
 end
@@ -204,16 +210,24 @@ spoon.CaptureHotkeys:capture("Slack", {
 })
 spoon.AppHotkeys:start()
 
-hs.loadSpoon("MiroWindowsManager")
-spoon.MiroWindowsManager.sizes = {2, 3/2, 3}
-spoon.MiroWindowsManager.fullScreenSizes = {1, 4/3, 2}
-local mods = {"⌥", "⌘"}
-spoon.MiroWindowsManager:bindHotkeys({
-  up = {mods, "up"},
-  right = {mods, "right"},
-  down = {mods, "down"},
-  left = {mods, "left"},
-  fullscreen = {mods, "f"}
+local mwm = hs.loadSpoon("MiroWindowsManager")
+mwm.sizes = {2, 3/2, 3, 'c'}
+mwm.fullScreenSizes = {1, 'c', 4/3, 2}
+mwm.GRID = {w = 24, h = 12}
+mwm:bindHotkeys({
+  up          = {{    '⌥',    '⌘'}, 'up'},
+  down        = {{    '⌥',    '⌘'}, 'down'},
+  left        = {{    '⌥',    '⌘'}, 'left'},
+  right       = {{    '⌥',    '⌘'}, 'right'},
+  fullscreen  = {{    '⌥',    '⌘'}, 'f'},
+  moveUp      = {{'⌃','⌥'        }, 'up'},
+  moveDown    = {{'⌃','⌥'        }, 'down'},
+  moveLeft    = {{'⌃','⌥'        }, 'left'},
+  moveRight   = {{'⌃','⌥'        }, 'right'},
+  taller      = {{'⌃','⌥','⇧'}, "down"},
+  shorter     = {{'⌃','⌥','⇧'}, "up"},
+  wider       = {{'⌃','⌥','⇧'}, "right"},
+  thinner     = {{'⌃','⌥','⇧'}, "left"},
 })
 
 -- hs.loadSpoon("WindowHalfsAndThirds")
