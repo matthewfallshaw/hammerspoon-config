@@ -1,29 +1,9 @@
+-- Log screen & power events
+
 local M = {}
 
-local caffeinate_events = {
-  "screensaverDidStart",
-  "screensaverDidStop",
-  "screensaverWillStop",
-  "screensDidLock",
-  "screensDidSleep",
-  "screensDidUnlock",
-  "screensDidWake",
-  "sessionDidBecomeActive",
-  "sessionDidResignActive",
-  "systemDidWake",
-  "systemWillPowerOff",
-  "systemWillSleep",
-}
-for _,event in pairs(caffeinate_events) do
-  caffeinate_events[hs.caffeinate.watcher[event]] = event
-end
-
-M.watchers = {
-  caffeinate = hs.caffeinate.watcher.new(function(event)
-    -- write event to log
-    u.log_to_file("Activity: ".. tostring(caffeinate_events[event]))
-  end),
-}
+local LOGDIR = os.getenv("HOME").."/log"
+local LOGFILE = LOGDIR.."/activities.log"
 
 function M:start()
   for _,watcher in pairs(M.watchers) do
@@ -35,5 +15,39 @@ function M:stop()
     watcher:stop()
   end
 end
+
+
+local function dirExists(filepath)
+  return hs.fs.attributes(filepath, 'mode') == 'directory'
+end
+
+local function log_activity(message)
+  if not dirExists(LOGDIR) then hs.fs.mkdir(LOGDIR) end
+  local output_file = assert(io.open(LOGFILE, "a+"))
+
+  output_file:write(os.date("%Y-%m-%d %H:%M:%S") .. " | " .. tostring(message) .."\n")
+
+  output_file:close()
+  return true
+end
+
+local caffeinate_events = {
+  "screensaverDidStart", "screensaverDidStop", "screensaverWillStop",
+  "screensDidLock", "screensDidUnlock",
+  "screensDidSleep", "screensDidWake",
+  "sessionDidBecomeActive", "sessionDidResignActive",
+  "systemWillSleep", "systemWillPowerOff", "systemDidWake",
+}
+for _,event in pairs(caffeinate_events) do
+  caffeinate_events[hs.caffeinate.watcher[event]] = event
+end
+
+M.watchers = {
+  caffeinate = hs.caffeinate.watcher.new(function(event)
+    -- write event to log
+    log_activity("Activity: ".. tostring(caffeinate_events[event]))
+  end),
+}
+
 
 return M
