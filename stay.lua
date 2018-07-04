@@ -1,9 +1,11 @@
 -- Stay replacement: Keep App windows in their places
-local logger = hs.logger.new("Stay")
-logger.i("Loading Stay")
-hs.window.filter.setLogLevel(1)  -- GLOBAL!! wfilter is very noisy
 
 local M = {}
+
+local logger = hs.logger.new("Stay")
+M._logger = logger
+logger.i("Loading Stay")
+hs.window.filter.setLogLevel(1)  -- GLOBAL!! wfilter is very noisy
 
 M.window_layouts = {} -- see bottom of file
 M.window_layouts_enabled = false
@@ -110,11 +112,11 @@ function M:stop()
 end
 
 
-app_tabs = require "app-tabs"
-chrome_gmail_window_filter = app_tabs.window_filter.new({['Google Chrome'] = {
-    tab1 = {url_pattern = "^https://mail%.google%.com/mail/u/0/#"} }})
-chrome_docs_window_filter = app_tabs.window_filter.new({['Google Chrome' ]= {
-    tab1 = {url_pattern = "^https://drive%.google%.com/drive/..[^0]"} }})
+-- app_tabs = require "app_tabs"
+-- chrome_gmail_window_filter = app_tabs.window_filter.new({['Google Chrome'] = {
+    -- tab1 = {url_pattern = "^https://mail%.google%.com/mail/u/0/#"} }})
+-- chrome_docs_window_filter = app_tabs.window_filter.new({['Google Chrome' ]= {
+    -- tab1 = {url_pattern = "^https://drive%.google%.com/drive/..[^0]"} }})
 -- safari_gmail_window_filter = app_tabs.window_filter.new({Safari = {
 --     tab1 = {url_pattern = "^https://mail%.google%.com/mail/u/0/"} }})
 -- safari_docs_window_filter = app_tabs.window_filter.new({Safari = {
@@ -131,11 +133,12 @@ M.window_layouts = {
     {'Activity Monitor', 'move 1 oldest [0,42>61,100] 0,0'},
     {'Slack', 'move 1 oldest [40,0>100,100] 0,0'},
     {{['Quicksilver']={allowRoles='AXStandardWindow'}}, 'move 1 oldest [24,12>84,86] 0,0'},
+    {'Lights Switch', 'move 1 oldest [59,0>87,67] 0,0'},
   },'SHARED'),
   laptop = hs.window.layout.new({
     screens={['Color LCD']='0,0',['-1,0']=false,['0,-1']=false,['1,0']=false,['0,1']=false}, -- when no external screens
-    {chrome_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
-    {chrome_docs_window_filter, 'move 1 oldest [0,0>80,100] 0,0'},
+    -- {chrome_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
+    -- {chrome_docs_window_filter, 'move 1 oldest [0,0>80,100] 0,0'},
     -- {safari_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
     -- {safari_docs_window_filter, 'move 1 oldest [0,0>80,100] 0,0'},
     -- {'Opera', 'move 1 closest [0,0>77,100] 0,0'},
@@ -150,8 +153,8 @@ M.window_layouts = {
   },'LAPTOP'),
   dualleft = hs.window.layout.new({
     screens={['-1,0']=true,['0,-1']=false,['1,0']=false,['0,1']=false},
-    {chrome_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
-    {chrome_docs_window_filter, 'move 1 oldest [20,0>80,100] -1,0'},
+    -- {chrome_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
+    -- {chrome_docs_window_filter, 'move 1 oldest [20,0>80,100] -1,0'},
     -- {safari_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
     -- {safari_docs_window_filter, 'move 1 oldest [20,0>80,100] -1,0'},
     -- {'Opera', 'move 1 closest [0,0>77,100] 0,0'},
@@ -170,8 +173,8 @@ M.window_layouts = {
   },'DUALLEFT'),
   dualtop = hs.window.layout.new({
     screens={['-1,0']=false,['0,-1']=true,['1,0']=false,['0,1']=false},
-    {chrome_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
-    {chrome_docs_window_filter, 'move 1 oldest [20,0>80,100] 0,-1'},
+    -- {chrome_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
+    -- {chrome_docs_window_filter, 'move 1 oldest [20,0>80,100] 0,-1'},
     -- {safari_gmail_window_filter, 'move 1 oldest [0,0>60,100] 0,-1'},
     -- {safari_docs_window_filter, 'move 1 oldest [0,0>80,100] 0,0'},
     -- {'Opera', 'move 1 closest [0,0>60,100] 0,-1'},
@@ -188,5 +191,10 @@ M.window_layouts = {
     {'FreeMindStarter', 'move 1 oldest [50,0>100,100] 0,-1'},
   },'DUALTOP'),
 }
+for _,layout in pairs(M.window_layouts) do
+  for _,rule in pairs(layout.rules) do
+    rule.windowfilter:setOverrideFilter({visible=true})
+  end
+end
 
 return M
