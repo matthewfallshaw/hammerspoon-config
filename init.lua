@@ -1,3 +1,5 @@
+-- p = require 'utilities.profile'
+-- p:start()
 
 local consts = require 'configConsts'
 local path = require 'utilities.path'
@@ -270,5 +272,8 @@ if hs.host.localizedName() == "notnux" then
     end
   end):start()
 end
+
+-- p:stop()
+-- p:writeReport('build/profile.txt')
 
 hs.loadSpoon("FadeLogo"):start()

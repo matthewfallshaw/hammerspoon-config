@@ -192,6 +192,17 @@ function ProFi:setInspect( methodName, levels )
 	end
 end
 
+--[[
+  Start profiler, run a single function, then stop profiling and write report.
+]]
+function ProFi:runAndReport(fn, filename)
+  self:reset()
+  self:start()
+  fn()
+  self:stop()
+  self:writeReport(filename or "build/profile.txt")
+end
+
 -----------------------
 -- Implementations methods:
 -----------------------
