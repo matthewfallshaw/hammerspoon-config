@@ -156,8 +156,6 @@ local function URLDispatcherCallback(eventName, params)
 end
 spoon.URLDispatcher.url_dispatcher = hs.urlevent.bind("URLDispatcher", URLDispatcherCallback)
 
-hs.loadSpoon("Emojis")
-spoon.Emojis:bindHotkeys({ toggle = {{"⌘", "⌥", "⌃", "⇧"}, "space"}})
 
 hs.loadSpoon("MouseCircle")
 spoon.MouseCircle:bindHotkeys({ show = {{"⌘", "⌥", "⌃", "⇧"}, "m"}})
@@ -166,6 +164,19 @@ spoon.MouseCircle:bindHotkeys({ show = {{"⌘", "⌥", "⌃", "⇧"}, "m"}})
 hs.loadSpoon("Caffeine")
 spoon.Caffeine:bindHotkeys({ toggle = {{"⌥", "⌃", "⇧"}, "c"}})
 spoon.Caffeine:start()
+-- Turn off Caffeine if screen is locked or system sent to sleep
+caffeine_screen_lock_watcher = hs.caffeinate.watcher.new(function(event)
+  if spoon.Caffeine and
+    (event == hs.caffeinate.watcher["screensDidLock"] or
+     event == hs.caffeinate.watcher["systemWillSleep"]) then
+
+    if hs.caffeinate.get("displayIdle") then
+      spoon.Caffeine.clicked()
+      logger.i(hs.caffeinate.watcher[event] .. " and spoon.Caffeine on; turning it off")
+    end
+  end
+end):start()
+
 
 hs.loadSpoon("HeadphoneAutoPause")
 spoon.HeadphoneAutoPause.control['vox'] = false
@@ -259,18 +270,6 @@ if hs.host.localizedName() == "notnux" then
   activity_log = require('activity_log')
   activity_log:start()
 
-  -- Turn off Caffeine if screen is locked or system sent to sleep
-  screen_lock_watcher = hs.caffeinate.watcher.new(function(event)
-    if spoon.Caffeine and
-      (event == hs.caffeinate.watcher["screensDidLock"] or
-      event == hs.caffeinate.watcher["systemWillSleep"]) then
-
-      if hs.caffeinate.get("displayIdle") then
-        spoon.Caffeine.clicked()
-        logger.i(hs.caffeinate.watcher[event] .. " and spoon.Caffeine on; turning it off")
-      end
-    end
-  end):start()
 end
 
 -- p:stop()
