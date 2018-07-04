@@ -589,4 +589,28 @@ function obj.quit()
   if obj.app() then obj.app():kill() end
 end
 
+
+-- Spoon interactions
+obj.spoons = {}
+
+-- spoon.HeadphoneAutoPause
+obj.spoons.HeadphoneAutoPause = {
+  controlfns = {
+    ['Google Play Music Desktop Player'] = {
+      appname = 'Google Play Music Desktop Player',
+      isPlaying = obj.isPlaying,
+      play = obj.play,
+      pause = obj.pause
+    }
+  }
+}
+if spoon.HeadphoneAutoPause then
+  local hap = spoon.HeadphoneAutoPause
+
+  if not hap.controlfns['Google Play Music Desktop Player'] then
+    hap.controlfns['Google Play Music Desktop Player'] =
+    obj.spoons.HeadphoneAutoPause.controlfns['Google Play Music Desktop Player']
+  end
+end
+
 return obj

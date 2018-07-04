@@ -169,12 +169,8 @@ hs.loadSpoon("HeadphoneAutoPause")
 spoon.HeadphoneAutoPause.control['vox'] = false
 spoon.HeadphoneAutoPause.control['deezer'] = false
 spoon.HeadphoneAutoPause.control['Google Play Music Desktop Player'] = true
-spoon.HeadphoneAutoPause.controlfns['Google Play Music Desktop Player'] = {
-  appname = 'Google Play Music Desktop Player',
-  isPlaying = gpmdp.isPlaying,
-  play = gpmdp.play,
-  pause = gpmdp.pause
-}
+spoon.HeadphoneAutoPause.controlfns['Google Play Music Desktop Player'] =
+  gpmdp.spoons.HeadphoneAutoPause.controlfns['Google Play Music Desktop Player']
 spoon.HeadphoneAutoPause:start()
 
 
