@@ -1,0 +1,11 @@
+return {
+  _all = {
+    coverage = true
+  },
+  default = {
+    verbose = true,
+    ROOT = {"spec"},
+  },
+}
+
+--vi: filetype=lua

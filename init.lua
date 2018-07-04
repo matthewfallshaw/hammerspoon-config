@@ -1,36 +1,24 @@
-hs.logger.setGlobalLogLevel('warning')
-hs.logger.defaultLogLevel = 'warning'
-hs.hotkey.setLogLevel('warning')  -- 'cos it ignores global defaults
-local logger = hs.logger.new("Init")
+
+local consts = require 'configConsts'
+local path = require 'utilities.path'
 
 init = {}  -- watchers & etc.
 
+local logger = hs.logger.new("Init")
 hs.console.clearConsole()
-hs.application.enableSpotlightForNameSearches(true)
-hs.allowAppleScript(true)
-i = hs.inspect.inspect
 
+i = hs.inspect.inspect
 
 -- Capture spoon (and other) hotkeys
 hs.loadSpoon("CaptureHotkeys")
 spoon.CaptureHotkeys:bindHotkeys({show = {{ "⌘", "⌥", "⌃", "⇧" }, "k"}}):start()
 
--- Load spoon.Hammer early, since it gives us config reload & etc.
-hs.loadSpoon("Hammer")
-spoon.Hammer:bindHotkeys({
-  config_reload ={{"⌘", "⌥", "⌃", "⇧"}, "r"},
-  toggle_console={{"⌘", "⌥", "⌃", "⇧"}, "h"},
-})
-spoon.Hammer:start()
-hammer_plus = {
-  hotkeys = {
-    clear = spoon.CaptureHotkeys:bind("Hammer+", "Clear console", {"⌘", "⌥", "⌃", "⇧"}, "c",
-                                      function() hs.console.clearConsole() end)
-  }
-}
-
-
 local log = require('utilities.log').new(logger)
+
+
+-- Auto-reload config
+init.auto_reload_or_test = require 'auto_reload_or_test'
+init.auto_reload_or_test:start()
 
 
 -- Control Plane replacement: Actions on change of location
@@ -44,6 +32,14 @@ spoon.CaptureHotkeys:capture(
   {"⌘", "⌥", "⌃", "⇧"}, "s")
 
 
+-- Clear console hotkey
+init.clearConsoleHotkey = {
+  clear = spoon.CaptureHotkeys:bind("Hammer+", "Clear console",
+      {"⌘", "⌥", "⌃", "⇧"}, "c",
+      function() hs.console.clearConsole() end)
+}
+
+
 -- Move windows between spaces
 move_spaces = require('move_spaces')
 move_spaces.hotkeys.left  = spoon.CaptureHotkeys:bind("WindowSpacesLeftAndRight", "Left",
@@ -55,6 +51,8 @@ move_spaces.hotkeys.right = spoon.CaptureHotkeys:bind("WindowSpacesLeftAndRight"
 -- Jettison replacement: Eject ejectable drives on sleep
 jettison = require 'jettison'
 jettison:start()
+
+
 -- Google Play Music Desktop Player Hotkeys
 gpmdp = require('gpmdp')
 gpmdp.hotkeys = {}
@@ -134,6 +132,13 @@ init.applicationWatcher:start()
 -- Spoons
 -- ## All hosts
 
+hs.loadSpoon('Hammer')
+spoon.Hammer.auto_reload_config = false
+spoon.Hammer:bindHotkeys({
+  config_reload ={{"⌘", "⌥", "⌃", "⇧"}, "r"},
+  toggle_console={{"⌘", "⌥", "⌃", "⇧"}, "h"},
+})
+spoon.Hammer:start()
 
 
 hs.loadSpoon("URLDispatcher")
