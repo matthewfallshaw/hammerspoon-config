@@ -247,6 +247,86 @@ spoon.WindowScreenLeftAndRight:bindHotkeys({
 })
 
 
+hs.loadSpoon("Seal")
+local seal = spoon.Seal
+seal:loadPlugins({'apps', 'calc', 'useractions'})
+seal.plugins.useractions.actions = {
+  ["New Asana task in " .. consts.asanaWorkWorkspaceName] = {
+    fn = function(x)
+      newAsanaTask(x, consts.asanaWorkWorkspaceName)
+      refocusAfterUserAction()
+    end,
+    keyword = "awork"
+  },
+  ["New Asana task in " .. consts.asanaPersonalWorkspaceName] = {
+    fn = function(x)
+      newAsanaTask(x, consts.asanaPersonalWorkspaceName)
+      refocusAfterUserAction()
+    end,
+    keyword = "ahome"
+  },
+  -- System commands
+  ["Restart/Reboot"] = {
+    fn = function()
+      hs.caffeinate.restartSystem()
+    end
+  },
+  ["Shutdown"] = {
+    fn = function()
+      hs.caffeinate.shutdownSystem()
+    end
+  },
+  ["Lock"] = {
+    fn = function()
+      hs.eventtap.keyStroke({"cmd", "ctrl"}, "q")
+    end
+  },
+  ["Hammerspoon Docs"] = {
+    fn = function(x)
+      hs.doc.hsdocs.help(x)
+    end,
+    keyword = "hsdocs"
+  },
+  Gmail = {
+    fn = function()
+      chrome_tabs:focusTab( { title=" - matthew.fallshaw@gmail.com %- Gmail$",
+          url="^https://mail.google.com/mail/u/0/%?" })
+    end,
+    keyword = "gm"
+  },
+  Docs = {
+    fn = function()
+      chrome_tabs:focusTab( { title=" - Google Drive$",
+          url="^https://drive.google.com/drive/[^u]" })
+    end,
+    keyword = "docs"
+  },
+  ["Bellroy Docs"] = {
+    fn = function()
+      chrome_tabs:focusTab( { title=" - Google Drive$",
+          url="^https://drive.google.com/drive/u/1/" })
+    end,
+    keyword = "bdocs"
+  },
+  ["MIRI Docs"] = {
+    fn = function()
+      chrome_tabs:focusTab( { title=" - Google Drive$",
+          url="^https://drive.google.com/drive/u/2/" })
+    end,
+    keyword = "mdocs"
+  },
+}
+seal:refreshAllCommands()
+seal:bindHotkeys({ toggle = {{'⌃','⌥','⌘'}, 'space'}, })
+seal:start()
+-- asana plugin
+-- remember keys used for choices
+-- fuzzy search
+-- help
+-- gpmdp commands
+-- pass queryChangedCallback function for second level results
+-- tab command completion
+-- faster Chrome tab search (see how Vimium 'T' does it)
 
 
 -- ## notnux only ##
