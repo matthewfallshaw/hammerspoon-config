@@ -7,7 +7,7 @@ local logger = M._logger
 logger.i("Loading Move spaces tools")
 
 -- # Usage
--- require 'move-spaces'
+-- require 'move_spaces'
 -- move_spaces.hotkeys.right = spoon.CaptureHotkeys:bind("WindowSpacesLeftAndRight", "Right",
 --   {"⌘", "⌥", "⌃", "⇧"}, "right", function() move_spaces.moveWindowOneSpace("right") end)
 -- move_spaces.hotkeys.left  = spoon.CaptureHotkeys:bind("WindowSpacesLeftAndRight", "Left",

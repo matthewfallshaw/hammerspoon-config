@@ -76,7 +76,7 @@ end
 -- ====================
 function hs.window:applescriptIndex()
   assert(self)
-  -- Applescript's `every window` and HS's hs.window:allWindows() index the same
+  -- Applescript's `every window` and HS's hs.application:allWindows() index the same
   local count_of_windows_that_dont_count = 0
   for index, win in ipairs(self:application():allWindows()) do
     if win == self then
@@ -88,11 +88,9 @@ function hs.window:applescriptIndex()
   if not self:subrole() or self:subrole() == "" then
     return false
   end
-  logger.e("Couldn't find applescriptIndex of "..self:application():name().."'s window…")
-  logger.e("… ("..hs.inspect(self)..")")
-  logger.e("… with title: "..hs.inspect(self:title()))
-  logger.e("… and subrole: "..hs.inspect(self:subrole()))
-  logger.e("")
+  logger.e("Couldn't find applescriptIndex of "..self:application():name().."\z
+  's window ("..hs.inspect(self)..") with title: "..hs.inspect(self:title()).." \z
+  and subrole: "..hs.inspect(self:subrole()))
   return 1
 end
 
