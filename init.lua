@@ -49,8 +49,8 @@ move_spaces.hotkeys.right = spoon.CaptureHotkeys:bind("WindowSpacesLeftAndRight"
 
 
 -- Jettison replacement: Eject ejectable drives on sleep
-jettison = require 'jettison'
-jettison:start()
+-- jettison = require('jettison')
+-- jettison:start()
 
 
 -- Google Play Music Desktop Player Hotkeys
