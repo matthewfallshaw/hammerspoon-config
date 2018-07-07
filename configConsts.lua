@@ -8,7 +8,7 @@ hs.allowAppleScript(true)
 
 return {
   -- modules under test
-  modules_under_test = {'chrome_tabs'},
+  modules_under_test = {},
 
   -- spoon.URLDispatcher
   url_patterns = {

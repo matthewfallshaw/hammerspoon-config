@@ -75,7 +75,7 @@ function M.test_or_reload(files)
   local changed_modules_under_test = M.changed_modules_under_test(files)
   local did_any_module_not_under_test_change = M.did_any_module_not_under_test_change(files)
 
-  if #changed_modules_under_test >= 0 and not did_any_module_not_under_test_change then
+  if #changed_modules_under_test > 0 and not did_any_module_not_under_test_change then
     hs.fnutils.every(changed_modules_under_test, function(module)
       local msg = module .." is under test, testing it"
       logger.i(msg)
@@ -83,6 +83,7 @@ function M.test_or_reload(files)
       local output,status,ret_type,ret_code = hs.execute("/usr/local/bin/busted ".. M.spec_file_from_module(module))
       print(output)
     end)
+    hs.openConsole()
   elseif did_any_module_not_under_test_change then
     logger.i("modules not under test changed, reloading")
     hs.reload()

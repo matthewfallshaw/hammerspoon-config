@@ -83,6 +83,8 @@ spoon.CaptureHotkeys:capture("GPMDP", gpmdp_hotkeymap)
 trash_recent = require('trash_recent')
 
 
+-- ChromeTabs
+chrome_tabs = require('chrome_tabs'):start()
 
 
 -- ScanSnap: Start ScanSnap manager when scanner attached
@@ -350,6 +352,7 @@ if hs.host.localizedName() == "notnux" then
   activity_log = require('activity_log')
   activity_log:start()
 
+  -- mission_control_hotkeys = require('mission_control_hotkeys')
 end
 
 -- p:stop()
