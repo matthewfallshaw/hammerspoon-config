@@ -167,7 +167,7 @@ hs.loadSpoon("Caffeine")
 spoon.Caffeine:bindHotkeys({ toggle = {{"⌥", "⌃", "⇧"}, "c"}})
 spoon.Caffeine:start()
 -- Turn off Caffeine if screen is locked or system sent to sleep
-caffeine_screen_lock_watcher = hs.caffeinate.watcher.new(function(event)
+init.caffeine_screen_lock_watcher = hs.caffeinate.watcher.new(function(event)
   if spoon.Caffeine and
     (event == hs.caffeinate.watcher["screensDidLock"] or
      event == hs.caffeinate.watcher["systemWillSleep"]) then

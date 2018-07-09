@@ -2,6 +2,14 @@ require 'spec.spec_helper'
 
 describe("chrome-tabs", function()
   chrome_tabs = require("chrome_tabs")
+
+  it("should have defined global ChromeWindow", function()
+    assert.is_not_nil(ChromeWindow)
+  end)
+  it("should have defined global ChromeTab", function()
+    assert.is_not_nil(ChromeTab)
+  end)
+
   _applescript_fixture = {}
 
   function reset_fixtures()
