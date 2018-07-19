@@ -52,8 +52,7 @@ local ChromeTab = {
     if found_window then
       return found_chrome_tab
     else
-      error_and_cleanup('in ChromeTab:find('..i(search)..')::\n\z
-      Not found.')
+      logger.w('in ChromeTab:find('..i(search)..')::\n Not found.')
     end
   end,
   destroy = function(self)

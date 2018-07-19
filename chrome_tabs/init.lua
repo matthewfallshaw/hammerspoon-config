@@ -3,6 +3,10 @@
 --- Tracks Google Chrome windows and tabs, and provides tools to manipulate
 --- them.
 
+-- TODO:
+-- actually check
+--  - creating new tabs, deleting tabs, navigating to new pages
+
 local M = {}
 
 -- Metadata
@@ -53,14 +57,9 @@ ChromeTab    = require('chrome_tabs.ChromeTab'   ):init(M)  -- Global!
 
 -- ## Internal
 
-local function error_and_cleanup(...)
-  M._in_update_window = false
-  M._in_update_all_windows = false
-  error(...)
-end
-
 function M._applescript(as)
   checks('string')
+
   as = [[
 tell (load script POSIX file "]].. lfs.currentdir() ..[[/chrome_tabs/chrome_tabs.scpt")
   ]].. as ..[[
@@ -69,14 +68,32 @@ end tell
   ]]
   logger.d("Applescript:\n"..as)
   local status, output, raw = hs.osascript.applescript(as)
+local xstatus, xoutput = pcall(function() 
   if status and output then
     return output
   else
-    error_and_cleanup("applescript failed:\n\n"..as.."\n\n\z
-        raw:\n\n"..i(raw).."\n\n\z
-        status:"..tostring(status).."\n\n\z
-        output:\n\n"..tostring(i(output)).."\n\n")
+    if raw and
+      raw.NSLocalizedFailureReason and
+      tostring(raw.NSLocalizedFailureReason).match('Invalid index') then
+      return nil
+    else
+      error("applescript failed:\n\n"..as.."\n\n\z
+      raw:\n\n"..i(raw).."\n\n\z
+      status:"..tostring(status).."\n\n\z
+      output:\n\n"..tostring(i(output)).."\n\n")
+    end
   end
+end)
+if status then
+  return xoutput
+else
+  print("raw type: "..type(raw))
+  for k,v in pairs(raw) do
+    print("raw key type: "..type(k)..", value: '"..i(k).."'")
+    print("raw value type: "..type(v)..", value: '"..i(v).."'")
+  end
+  error(i(raw))
+end
 end
 
 
@@ -102,20 +119,30 @@ function M._check_and_update_windows()
     else
       chromeWindow.windowIndex = win_table.windowIndex
       chromeWindow.activeTabIndex = win_table.activeTabIndex
+
       chromeWindow.activeTab = hs.fnutils.find(chromeWindow.chromeTabs,
           function(t) return chromeWindow.activeTabIndex == t.tabIndex end)
+      if chromeWindow.activeTab == nil then  -- new tab
+        M._refresh_one_window(win_table.windowId)
+      end
+
       removed_windows[chromeWindow.windowId] = nil  -- window still exists
     end
   end)
   for win_id,_ in pairs(removed_windows) do
     -- windows that used to exist, but don't any more
-    M.chromeWindows[win_id]:destroy()
+    if M.chromeWindows[win_id] then M.chromeWindows[win_id]:destroy() end
   end
 end
 
 function M._refresh_one_window(window_id)
   local raw = M._applescript("return one_window_and_tabs(".. window_id ..")")
-  ChromeWindow:createOrUpdate(raw)
+  if raw then
+    ChromeWindow:createOrUpdate(raw)
+  else
+    -- do nothing - window gone before update, which happens when multiple tabs
+    -- closed simultaneously
+  end
 end
 
 function M._focus_tab(index_of_tab, id_of_window)
@@ -127,20 +154,15 @@ function M._focus_window(id_of_window)
 end
 
 
+local fuzzel = require 'utilities.fuzzy.fuzzel'
 function M._chromeWindow_from_window(window)
   M._check_and_update_windows()
-  for _,chromeWindow in pairs(M.chromeWindows) do
-    if window:title() == chromeWindow.activeTab.tabTitle then
-      if chromeWindow.windowIndex <= 2 then
-        return chromeWindow
-      else
-        logger.w("Found ChromeWindow for ".. i(window) .." at index "..
-            chromeWindow.windowIndex .." (which is high)")
-        return chromeWindow
-      end
-    end
-  end
-  return nil
+  local target_window_title = window:title()
+  local active_tabs = hs.fnutils.map(M.chromeWindows, function(w) return w.activeTab.tabTitle end)
+  local best_match_title = fuzzel.FuzzyFindRatio(target_window_title, active_tabs)
+  return hs.fnutils.find(M.chromeWindows, function(chromeWindow)
+    return chromeWindow.activeTab.tabTitle == best_match_title
+  end)
 end
 
 
@@ -157,11 +179,9 @@ end
 ---  * The ChromeTabs object
 function M:update(chromeWindow)
   checks('ChromeTabs', 'ChromeWindow')
-  logger.i("ChromeTabs:update('".. i(chromeWindow) .."')")
+  logger.i("ChromeTabs:update('".. tostring(chromeWindow) .."')")
 
-  self._in_update_window = true
   M._refresh_one_window(chromeWindow.windowId)
-  self._in_update_window = false
   return self
 end
 
@@ -178,9 +198,7 @@ function M:updateAllWindows()
   checks('ChromeTabs')
   logger.i("ChromeTabs:updateAllWindows()")
 
-  self._in_update_all_windows = true
   M._create_all_windows_and_tabs()
-  self._in_update_all_windows = false
   return self
 end
 
@@ -266,7 +284,7 @@ local function refresh_window_after_change(window, app_name, event)
   if chromeWindow ~= nil then
     M:update(chromeWindow)
   else
-    error("Failed to find or make a ChromeWindow from ".. hs.inspect(window))
+    logger.e(debug.traceback("Failed to find or make a ChromeWindow from ".. hs.inspect(window)))
   end
 end
 -- local function update_window_after_change(window, app_name, event)
@@ -280,16 +298,13 @@ local function destroy_window_after_destroyed(window, app_name, event)
   checks('userdata', 'string', 'string')
   logger.i("destroy_window_after_destroyed("..i({window, app_name, event})..")")
 
-  local chromeWindow = M._chromeWindow_from_window(window)
-  assert(chromeWindow == nil, "Erm… hs reports ".. hs.inspect(window) .." destroyed.\z
-      Its matching ChromeWindow should have been destroyed too, but… "..
-      hs.inspect(chromeWindow))
+  M._check_and_update_windows()
 end
 local function chrome_window_filter(self)
   checks('ChromeTabs')
 
   local wf_chrome = hs.window.filter.new(
-      function(win) return win:title() ~= '' and win:application() == self._chrome_app end)
+      function(win) return win and win:title() ~= '' and win:application() == self._chrome_app end)
   wf_chrome:subscribe(WINDOW_CREATED_EVENTS, create_window_after_created)
   wf_chrome:subscribe(WINDOW_CHANGE_EVENTS, refresh_window_after_change)
   -- wf_chrome:subscribe(WINDOW_UPDATE_EVENTS, update_window_after_change)

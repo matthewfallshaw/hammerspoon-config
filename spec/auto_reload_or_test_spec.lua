@@ -5,130 +5,122 @@ expose("Auto-reload or test library", function()
   local arot = require 'auto_reload_or_test'
 
   setup(function()
-    a_module_under_test_file = '/Users/user/code/hammerspoon_config/a_module_under_test.lua'
-    a_module_not_under_test_file = '/Users/user/code/hammerspoon_config/a_module_not_under_test.lua'
-    a_module_under_test_spec_file = '/Users/user/code/hammerspoon_config/a_module_under_test_spec.lua'
-    consts.modules_under_test = {"a_module_under_test", "another_module_under_test"}
+    local hs_configdir = arot.hs_configdir()
+    fix = {
+      a_module_under_test = {
+        mod  = 'a_module_under_test',
+        file = hs_configdir..'/a_module_under_test.lua',
+        spec = 'spec/a_module_under_test_spec.lua',
+        specfile = hs_configdir..'/spec/a_module_under_test_spec.lua',
+      },
+      an_init_module_under_test = {
+        mod  = 'an_init_module_under_test',
+        file = hs_configdir..'/an_init_module_under_test/init.lua',
+        spec = 'spec/an_init_module_under_test_spec.lua',
+        specfile = hs_configdir..'/spec/an_init_module_under_test_spec.lua',
+      },
+      a_subdir_module_under_test = {
+        mod  = 'subdir.a_subdir_module_under_test',
+        file = hs_configdir..'/subdir/a_subdir_module_under_test.lua',
+        spec = 'spec/subdir/a_subdir_module_under_test_spec.lua',
+        specfile = hs_configdir..'/spec/subdir/a_subdir_module_under_test_spec.lua',
+      },
+      a_module_not_under_test = {
+        mod  = 'a_module_not_under_test',
+        file = hs_configdir..'/a_module_not_under_test.lua',
+        spec = 'spec/a_module_not_under_test_spec.lua',
+        specfile = hs_configdir..'/spec/a_module_not_under_test_spec.lua',
+      },
+    }
+    consts.modules_under_test = {
+      fix.a_module_under_test.mod,
+      fix.an_init_module_under_test.mod,
+      fix.a_subdir_module_under_test.mod }
   end)
   
-  describe("file_is_under_test", function()
-    it("returns true when file basename listed in modules_under_test", function()
-      assert.is_true(
-          arot.file_is_under_test(a_module_under_test_file))
+  describe("is_module_under_test", function()
+    it("returns true when module listed in modules_under_test", function()
+      assert.is_true(arot.is_module_under_test(fix.a_module_under_test.mod))
     end)
-    it("returns true for spec file when matched file basename listed in modules_under_test", function()
-      assert.is_true(
-          arot.file_is_under_test(a_module_under_test_spec_file))
+    it("returns true when subdir module listed in modules_under_test", function()
+      assert.is_true(arot.is_module_under_test(fix.a_subdir_module_under_test.mod))
+    end)
+    it("returns true when init module listed in modules_under_test", function()
+      assert.is_true(arot.is_module_under_test(fix.an_init_module_under_test.mod))
     end)
   end)
 
-  describe("spec_file_from_file", function()
+  describe("spec_from_module", function()
     it("is the right spec file", function()
-      assert.are.equal(a_module_under_test_spec_file,
-          arot.spec_file_from_file(a_module_under_test_file))
+      assert.are.equal(fix.a_module_under_test.spec,
+          arot.spec_from_module(fix.a_module_under_test.mod))
     end)
-  end)
-
-  describe("spec_file_from_module", function()
-    it("is the right spec file", function()
-      assert.are.equal("spec/a_module_under_test_spec.lua",
-          arot.spec_file_from_module("a_module_under_test"))
-    end)
-  end)
-
-  describe("file_from_spec_file", function()
-    it("is the right file", function()
-      assert.are.equal("spec/a_module_under_test_spec.lua",
-          arot.spec_file_from_module("a_module_under_test"))
-    end)
-  end)
-
-  describe("basename", function()
-    it("is the basename", function()
-      assert.are.equal("a_module_under_test",
-          arot.basename(a_module_under_test_file))
-      assert.are.equal("a_module_under_test",
-          arot.basename(a_module_under_test_spec_file))
+    it("is the right spec file for a subdir module", function()
+      assert.are.equal(fix.a_subdir_module_under_test.spec,
+          arot.spec_from_module(fix.a_subdir_module_under_test.mod))
     end)
   end)
 
   describe("is_luafile", function()
     it("true for a lua file", function()
-      assert.is_true(arot.is_luafile(a_module_under_test_file))
+      assert.is_true(arot.is_luafile(fix.a_module_under_test.file))
     end)
     it("false for a not-lua file", function()
-      assert.is_false(arot.is_luafile("/tmp/not_a_lua_file"))
+      assert.is_false(arot.is_luafile("/tmp/not_a_lua_file.conf"))
     end)
   end)
 
-  describe("changed_modules_under_test", function()
-    it("returns modules_under_test", function()
-      local files = {a_module_under_test_file, "/tmp/not_a_lua_file"}
+  describe("modularise_file_path", function()
+    for k,v in pairs({'a_module_under_test', 'an_init_module_under_test',
+        'a_subdir_module_under_test', 'a_module_not_under_test'}) do
+      it("is "..fix[v].mod.." for "..fix[v].file, function()
+        assert.equal(fix[v].mod, arot.modularise_file_path(fix[v].file))
+      end)
+      it("is "..fix[v].mod.." for "..fix[v].specfile, function()
+        assert.equal(fix[v].mod, arot.modularise_file_path(fix[v].specfile))
+      end)
+    end
+  end)
+
+  describe("file_types", function()
+    setup(function()
+      changed_modules_under_test,
+      changed_spec_files_for_modules_not_under_test,
+      changed_modules_not_under_test = arot.file_types({
+        fix.a_module_under_test.file,
+        fix.a_module_under_test.specfile,
+        fix.an_init_module_under_test.file,
+        fix.an_init_module_under_test.specfile,
+        fix.a_subdir_module_under_test.file,
+        fix.a_subdir_module_under_test.specfile,
+        fix.a_module_not_under_test.file,
+        fix.a_module_not_under_test.specfile,
+      })
+    end)
+    it("returns changed_modules_under_test", function()
       assert.are_same(
-        {"a_module_under_test"},
-        arot.changed_modules_under_test(files)
+        {
+          fix.a_module_under_test.mod,
+          fix.a_module_under_test.mod,
+          fix.an_init_module_under_test.mod,
+          fix.an_init_module_under_test.mod,
+          fix.a_subdir_module_under_test.mod,
+          fix.a_subdir_module_under_test.mod,
+        },
+        changed_modules_under_test
       )
     end)
-
-    it("returns an empty list when appropriate", function()
-      local files = {'/Users/user/code/hammerspoon_config/a_module_not_under_test.lua'}
-      assert.are_same( {}, arot.changed_modules_under_test(files))
+    it("returns changed_spec_files_for_modules_not_under_test", function()
+      assert.are_same(
+        { fix.a_module_not_under_test.specfile },
+          changed_spec_files_for_modules_not_under_test
+      )
     end)
-  end)
-
-  describe("did_any_module_not_under_test_change", function()
-    it("returns true when it should", function()
-      local files = {a_module_under_test_file, a_module_not_under_test_file}
-      assert.is_true(arot.did_any_module_not_under_test_change(files))
+    it("returns changed_modules_not_under_test", function()
+      assert.are_same(
+        { fix.a_module_not_under_test.mod },
+          changed_modules_not_under_test
+      )
     end)
-    it("returns false when it should", function()
-      local files = {a_module_under_test_file}
-      assert.is_false(arot.did_any_module_not_under_test_change(files))
-    end)
-  end)
-
-  describe("test_or_reload", function()
-    it("should reload when non-test modules change", function()
-      -- TODO
-      pending("really should have a test or two")
-    end)
-    it("should execute tests when test modules change and no non-test modules change", function()
-      -- TODO
-      pending("really should have a test or two")
-    end)
---[[
-function M.test_or_reload(files)
-  local changed_modules_under_test = M.changed_modules_under_test(files)
-  local did_any_module_not_under_test_change = M.did_any_module_not_under_test_change(files)
-
-  if #changed_modules_under_test ~= 0 and not did_any_module_not_under_test_change then
-    hs.fnutils.every(changed_modules_under_test, function(module)
-      logger.i(module .." is under test, testing it")
-      local output,status,ret_type,ret_code = hs.execute("/usr/local/bin/busted ".. M.spec_file_from_module(module))
-      print(output)
-    end)
-  elseif did_any_module_not_under_test_change then
-    logger.i("modules not under test changed, reloading")
-    hs.reload()
-  else
-    -- do nothing
-  end
-end
-]]
-  end)
-
-  describe("start", function()
-    it("should start a file watcher", function()
-      -- TODO
-      pending("really should have a test or two")
-    end)
---[[
-function M:start()
-  logger.i("Starting config file watcher")
-  self.configFileWatcher = hs.pathwatcher.new(hs.configdir,
-      function(paths) M.test_or_reload(paths) end)
-  self.configFileWatcher:start()
-end
-]]
   end)
 end)

@@ -6,6 +6,9 @@ guard :shell do
   watch(%r{^([^/]+).lua$}) do |m|
     `busted spec/#{m[1]}_spec.lua`
   end
+  watch(%r{^([^/]+)/([^/]+).lua$}) do |m|
+    `busted spec/#{m[2]}_spec.lua`
+  end
  
   watch(%r{^(spec/.+.lua)$}) do |m|
     `busted #{m[1]}`

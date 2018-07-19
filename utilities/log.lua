@@ -39,4 +39,16 @@ end
 function log:warning_and_alert(message) log:and_alert(message, 'warning') end
 function log:error_and_alert(message) log:and_alert(message, 'error') end
 
+function log.log_to_file(message, file)
+  hs.fs.mkdir(os.getenv("HOME").."/log")
+  local file_path = file or os.getenv("HOME").."/log/com.matthewfallshaw.activities.log"
+
+  local output_file = assert(io.open(file_path, "a+"))
+
+  output_file:write(os.date("%Y-%m-%d %H:%M:%S") .. " | " .. tostring(message) .."\n")
+
+  output_file:close()
+  return true
+end
+
 return log

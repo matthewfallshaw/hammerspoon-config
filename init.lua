@@ -2,7 +2,6 @@
 -- p:start()
 
 local consts = require 'configConsts'
-local path = require 'utilities.path'
 
 init = {}  -- watchers & etc.
 
