@@ -67,7 +67,7 @@ describe("chrome_tab_chooser", function()
       it("should return our choices fixture, sorted appropriately", function()
         chrome_tabs.chooser.chooser.query = function() return "two" end
         assert.same(
-          {fixture.choices[2], fixture.choices[1], fixture.choices[3]},
+          {fixture.choices[2]},
           chrome_tabs.chooser._choices_fn()
         )
       end)

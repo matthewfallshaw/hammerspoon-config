@@ -2,18 +2,7 @@
 
 local M = {}
 
-local fuzzel = require 'utilities.fuzzy.fuzzel'
-
-local function search_fn(string_first, string_second)
-    -- string_first, string_second,
-    -- number_addcost, number_substituecost, number_deletecost,
-    -- number_transpositioncost
-  return fuzzel.dld_e(string_first, string_second, 1,10,30,2)
-end
--- local function funny_sort_table(string_needle, key, ...)
---     -- string_needle, distance_fn, short, key, ...
---   return fuzzel.FuzzySort(string_needle, search_fn, false, key, ...)
--- end
+local fuzzy_match = require 'utilities.fuzzy.fuzzy_match'
 
 local function choices_fn()
   local query = M.chooser:query()
@@ -42,22 +31,22 @@ local function choices_fn()
     end
   end
 
-  -- if query ~= '' then
-  --   local sort_key = funny_sort_table(query, 'search_text', search_choices)
-  --   local sorted, taken = {}, {}
-  --   local ii = 0
-  --   for k,v in ipairs(sort_key) do
-  --     ii = ii + 1
-  --     if ii > MAX_CHOOSER_OPTIONS then break end
-  --     if not taken[v.uuid] then
-  --       sorted[k] = choices[v.uuid]
-  --       taken[v.uuid] = true
-  --     end
-  --   end
-  --   return sorted
-  -- else
+  if query ~= '' then
+    local sort_key = fuzzy_match.fuzzySort(search_choices, 'search_text', query)
+    local sorted, taken = {}, {}
+    local ii = 0
+    for k,v in ipairs(sort_key) do
+      ii = ii + 1
+      -- if ii > MAX_CHOOSER_OPTIONS then break end
+      if (not taken[v.uuid]) and (not (v._score == 0)) then
+        sorted[#sorted+1] = choices[v.uuid]
+        taken[v.uuid] = true
+      end
+    end
+    return sorted
+  else
     return choices
-  -- end
+  end
 end
 M._choices_fn = choices_fn
 
@@ -73,8 +62,8 @@ M._completion_fn = completion_fn
 
 M.chooser = hs.chooser.new(completion_fn)
 M.chooser:choices(choices_fn)
--- M.chooser:queryChangedCallback(function(query) M.timer:start() end)
--- M.timer = hs.timer.delayed.new(0.2, function() M.chooser:refreshChoicesCallback() end)
-M.chooser:searchSubText(true)
+M.chooser:queryChangedCallback(function(query) M.timer:start() end)
+M.timer = hs.timer.delayed.new(0.2, function() M.chooser:refreshChoicesCallback() end)
+-- M.chooser:searchSubText(true)
 
 return M
