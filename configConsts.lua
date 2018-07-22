@@ -20,6 +20,7 @@ return {
     { "https?://workflowy.com/.*",          "com.fluidapp.FluidApp.Workflowy" },
     { "https?://calendar.google.com/.*",    "org.epichrome.app.GoogleCalend" },
     { "https?://www.google.com/calendar/.*", "org.epichrome.app.GoogleCalend" },
+    { "https?://calendar.google.com/.*",    "org.epichrome.app.GoogleCalend" },
   },
 
   -- asana

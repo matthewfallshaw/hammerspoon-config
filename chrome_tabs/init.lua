@@ -73,9 +73,10 @@ local xstatus, xoutput = pcall(function()
     return output
   else
     if raw and
-      raw.NSLocalizedFailureReason and
-      tostring(raw.NSLocalizedFailureReason).match('Invalid index') then
-      return nil
+        raw.NSLocalizedFailureReason and
+        tostring(raw.NSLocalizedFailureReason):match('get window id [0-9]') or
+        tostring(raw.NSLocalizedFailureReason):match('Invalid index') then
+      return nil  -- window or tab gone before we finish executing
     else
       error("applescript failed:\n\n"..as.."\n\n\z
       raw:\n\n"..i(raw).."\n\n\z
@@ -89,8 +90,8 @@ if status then
 else
   print("raw type: "..type(raw))
   for k,v in pairs(raw) do
-    print("raw key type: "..type(k)..", value: '"..i(k).."'")
-    print("raw value type: "..type(v)..", value: '"..i(v).."'")
+    print("raw key type: "..type(k)..", value: "..i(k))
+    print("raw value type: "..type(v)..", value: "..i(v))
   end
   error(i(raw))
 end

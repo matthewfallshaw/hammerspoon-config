@@ -110,7 +110,6 @@ function M.test_file(file)
 end
 
 function M.test_or_reload(files)
-  print("changed files: "..hs.inspect(files))
   local changed_modules_under_test,
         changed_spec_files_for_modules_not_under_test,
         changed_modules_not_under_test = M.file_types(files)
