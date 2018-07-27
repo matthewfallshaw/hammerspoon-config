@@ -85,7 +85,7 @@ local xstatus, xoutput = pcall(function()
     end
   end
 end)
-if status then
+if xstatus then
   return xoutput
 else
   print("raw type: "..type(raw))
