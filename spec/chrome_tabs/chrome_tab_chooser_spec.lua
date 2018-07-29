@@ -4,6 +4,8 @@ _G.chrome_tabs = require('chrome_tabs')
 
 describe("chrome_tab_chooser", function()
   chrome_tabs.chooser = require('chrome_tabs.chrome_tab_chooser')
+  fuzzy_match = require 'utilities.fuzzy.fuzzy_match'
+  M = fuzzy_match
 
   fixture = {
     choices = {
@@ -64,13 +66,37 @@ describe("chrome_tab_chooser", function()
       end)
     end)
     describe("with a query", function()
-      it("should return our choices fixture, sorted appropriately", function()
-        chrome_tabs.chooser.chooser.query = function() return "two" end
-        assert.same(
-          {fixture.choices[2]},
-          chrome_tabs.chooser._choices_fn()
-        )
+      setup(function()
+        chrome_tabs.chooser.chooser.query = function() return "Two" end
       end)
+
+      it("should return our choices fixture, sorted appropriately", function()
+        local choices = chrome_tabs.chooser._choices_fn()
+        for _,v in pairs({'text','subText','uuid','chromeWindowId','chromeTabId'}) do
+          assert.same(fixture.choices[2][v], choices[1][v])
+        end
+      end)
+
+      local matches = {
+        title = {
+          score = M.SCORE_CONTINUE_MATCH^3*M.SCORE_START_WORD*M.PENALTY_SKIPPED^21,
+          html = "Original window: Tab <b>T</b><b>w</b><b>o</b>",
+        },
+        url = {
+          score = 0.87064377981362361947,
+          html = "http://example.org/tab_<b>t</b><b>w</b><b>o</b>/index.html",
+        },
+      }
+      matches.best = matches.title
+      for k,v in pairs(matches) do
+        it("should decorate the result with the "..k.." match", function()
+          local choices = chrome_tabs.chooser._choices_fn()
+          assert.same(
+            v,
+            choices[1]._match[k]
+          )
+        end)
+      end
     end)
   end)
   describe("completion_fn(choice)", function()
