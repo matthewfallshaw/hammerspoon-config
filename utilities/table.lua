@@ -20,3 +20,15 @@ table.values = function(self)
   end
   return values
 end
+
+table.clone = function(self)
+  local out = {}
+  for k,v in pairs(self) do
+    if type(v) == 'table' then
+      out[k] = table.clone(v)
+    else
+      out[k] = v
+    end
+  end
+  return out
+end
