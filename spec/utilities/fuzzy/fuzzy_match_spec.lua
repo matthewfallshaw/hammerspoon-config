@@ -53,13 +53,14 @@ describe("fuzzy_match:", function()
         M.fuzzyMatch(doors, "Q")
       )
     end)
-    it("should, on a complete match, return score SCORE_CONTINUE_MATCH^len", function()
+    it("should, on a complete match, return score SCORE_CONTINUE_MATCH^(len+1)", function()
       assert.same(
-        {score=M.SCORE_CONTINUE_MATCH^4, html="<b>t</b><b>h</b><b>i</b><b>s</b>"},
+        {score=M.SCORE_CONTINUE_MATCH^5, html="<b>t</b><b>h</b><b>i</b><b>s</b>"},
         M.fuzzyMatch("this", "this")
       )
     end)
-    it("should, on a matching first character, return score PENALTY_NOT_COMPLETE",
+    it("should, on a matching first character, return score SCORE_CONTINUE_MATCH \z
+        * PENALTY_NOT_COMPLETE",
       function()
         assert.same(
           {score=M.PENALTY_NOT_COMPLETE, html="<b>t</b>his"},
@@ -67,7 +68,8 @@ describe("fuzzy_match:", function()
         )
       end
     )
-    it("should, on matching first two characters, return score PENALTY_NOT_COMPLETE",
+    it("should, on matching first two characters, return score SCORE_CONTINUE_MATCH^2 \z
+        * PENALTY_NOT_COMPLETE",
       -- TODO: matching more characters should get a higher score
       function()
         assert.same(
@@ -106,6 +108,8 @@ describe("fuzzy_match:", function()
           M.PENALTY_NOT_COMPLETE*M.SCORE_OK*M.PENALTY_SKIPPED^5},
         { 'Harry or', 'y or',
           M.SCORE_CONTINUE_MATCH^3*M.SCORE_OK*M.PENALTY_SKIPPED^4},
+        { 'Original window: Tab Two', 'Two',
+          M.SCORE_CONTINUE_MATCH^3*M.SCORE_START_WORD*M.PENALTY_SKIPPED^21},
       }
       for _,v in pairs(fix) do
         it("should, for '"..v[1].."' with '"..v[2].."', return the score "..v[3], function()
