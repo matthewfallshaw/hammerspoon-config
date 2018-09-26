@@ -1,5 +1,3 @@
--- local MAX_CHOOSER_OPTIONS = 10
-
 local M = {}
 
 local fuzzy_match = require 'utilities.fuzzy.fuzzy_match'

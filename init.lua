@@ -148,8 +148,8 @@ spoon.Hammer:start()
 
 
 hs.loadSpoon("URLDispatcher")
-spoon.URLDispatcher.default_handler = "com.google.Chrome"
-spoon.URLDispatcher.url_patterns = consts.url_patterns
+spoon.URLDispatcher.default_handler = consts.URLDispatcher.default_handler
+spoon.URLDispatcher.url_patterns = consts.URLDispatcher.url_patterns
 spoon.URLDispatcher:start()
 -- URLs from hammerspoon:// schema
 local escape, unescape = require('utilities.string_escapes')()

@@ -11,16 +11,19 @@ return {
   modules_under_test = {},
 
   -- spoon.URLDispatcher
-  url_patterns = {
-    -- { <url pattern>, <application bundle ID> },
-    { "https?://www.pivotaltracker.com/.*", "com.fluidapp.FluidApp.PivotalTracker" },
-    { "https?://app.asana.com/.*",          "org.epichrome.app.Asana" },
-    { "https?://morty.trikeapps.com/.*",    "org.epichrome.app.Morty" },
-    { "https?://app.greenhouse.io/.*",      "org.epichrome.app.Greenhouse" },
-    { "https?://workflowy.com/.*",          "com.fluidapp.FluidApp.Workflowy" },
-    { "https?://calendar.google.com/.*",    "org.epichrome.app.GoogleCalend" },
-    { "https?://www.google.com/calendar/.*", "org.epichrome.app.GoogleCalend" },
-    { "https?://calendar.google.com/.*",    "org.epichrome.app.GoogleCalend" },
+  URLDispatcher = {
+    url_patterns = {
+      -- { <url pattern>, <application bundle ID> },
+      { "https?://www.pivotaltracker.com/.*",  "com.fluidapp.FluidApp.PivotalTracker" },
+      { "https?://app.asana.com/.*",           "org.epichrome.app.Asana" },
+      { "https?://morty.trikeapps.com/.*",     "org.epichrome.app.Morty" },
+      { "https?://app.greenhouse.io/.*",       "org.epichrome.app.Greenhouse" },
+      { "https?://workflowy.com/.*",           "com.fluidapp.FluidApp.Workflowy" },
+      { "https?://calendar.google.com/.*",     "org.epichrome.app.GoogleCalend" },
+      { "https?://www.google.com/calendar/.*", "org.epichrome.app.GoogleCalend" },
+      { "https?://calendar.google.com/.*",     "org.epichrome.app.GoogleCalend" },
+    },
+    default_handler = "com.google.Chrome"
   },
 
   -- asana
