@@ -80,6 +80,9 @@ spoon.CaptureHotkeys:capture("GPMDP", gpmdp_hotkeymap)
 
 -- Trash recent downloads
 trash_recent = require('trash_recent')
+trash_recent.hotkey = spoon.CaptureHotkeys:bind(
+  "Trash recent download", "trashRecentDownload", {"⌥", "⌃", "⇧", "⌘"}, "t", 
+  trash_recent.trashRecentDownload)
 
 
 -- ChromeTabs
