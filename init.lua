@@ -229,8 +229,8 @@ spoon.AppHotkeys:start()
 
 
 local mwm = hs.loadSpoon("MiroWindowsManager")
-mwm.sizes = {2, 3/2, 3, 'c'}
-mwm.fullScreenSizes = {1, 'c', 4/3, 2}
+mwm.sizes = {2, 3/2, 3}
+mwm.fullScreenSizes = {1, 4/3, 2}
 mwm.GRID = {w = 24, h = 12}
 mwm:bindHotkeys({
   up          = {{    '⌥',    '⌘'}, 'up'},
@@ -238,6 +238,7 @@ mwm:bindHotkeys({
   left        = {{    '⌥',    '⌘'}, 'left'},
   right       = {{    '⌥',    '⌘'}, 'right'},
   fullscreen  = {{    '⌥',    '⌘'}, 'f'},
+  center      = {{    '⌥',    '⌘'}, 'c'},
   moveUp      = {{'⌃','⌥'        }, 'up'},
   moveDown    = {{'⌃','⌥'        }, 'down'},
   moveLeft    = {{'⌃','⌥'        }, 'left'},
