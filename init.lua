@@ -225,6 +225,14 @@ spoon.CaptureHotkeys:capture("Slack", {
   ["Next Channel"] = { {"⌘", "⇧"}, "]" },
   ["Previous Channel"] = { {"⌘", "⇧"}, "[" },
 })
+-- VimR tab switching
+logger.i("VimR hotkeys for switching tabs")
+table.insert(hks["VimR"], hs.hotkey.new({'⌘', '⇧'}, '[', function()
+  hs.eventtap.keyStrokes(":tabprevious\n")
+end))
+table.insert(hks["VimR"], hs.hotkey.new({'⌘', '⇧'}, ']', function()
+  hs.eventtap.keyStrokes(":tabNext\n")
+end))
 spoon.AppHotkeys:start()
 
 
