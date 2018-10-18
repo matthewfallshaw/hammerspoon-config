@@ -81,7 +81,7 @@ spoon.CaptureHotkeys:capture("GPMDP", gpmdp_hotkeymap)
 -- Trash recent downloads
 trash_recent = require('trash_recent')
 trash_recent.hotkey = spoon.CaptureHotkeys:bind(
-  "Trash recent download", "trashRecentDownload", {"⌥", "⌃", "⇧", "⌘"}, "t", 
+  "Trash recent download", "trashRecentDownload", {"⌥", "⌃", "⇧", "⌘"}, "t",
   trash_recent.trashRecentDownload)
 
 
@@ -116,7 +116,7 @@ init.usbWatcher:start()
 
 -- Transmission safety: Keep VPN running when Transmission is running
 logger.i("Loading Transmission VPN Guard")
-local function applicationWatcherCallback(appname, event, app)
+local function applicationWatcherCallback(appname, event, _)
   if appname == "Transmission" and event == hs.application.watcher.launching then
     if not hs.application.get("Private Internet Access") then
       log.and_alert("Transmission launch detected… launching PIA")
@@ -155,8 +155,8 @@ spoon.URLDispatcher.default_handler = consts.URLDispatcher.default_handler
 spoon.URLDispatcher.url_patterns = consts.URLDispatcher.url_patterns
 spoon.URLDispatcher:start()
 -- URLs from hammerspoon:// schema
-local escape, unescape = require('utilities.string_escapes')()
-local function URLDispatcherCallback(eventName, params)
+local _, unescape = require('utilities.string_escapes')()
+local function URLDispatcherCallback(_, params)
   local fullUrl = unescape.url(params.uri)
   local parts = hs.http.urlParts(fullUrl)
   spoon.URLDispatcher:dispatchURL(parts.scheme, parts.host, parts.parameterString, fullUrl)
@@ -195,15 +195,15 @@ spoon.HeadphoneAutoPause:start()
 
 
 hs.loadSpoon("AppHotkeys")
-local appHotkeys_hotkeys = spoon.AppHotkeys.hotkeys
+local hks = spoon.AppHotkeys.hotkeys
 -- Terminal ⌘1-9 to tab focus
 logger.i("Terminal hotkeys for switching ⌘1-9 to Tab focus")
 for i=1,8 do
-  table.insert(appHotkeys_hotkeys["Terminal"], hs.hotkey.new('⌘', tostring(i), function()
+  table.insert(hks["Terminal"], hs.hotkey.new('⌘', tostring(i), function()
     hs.osascript.applescript('tell application "Terminal" to set selected of tab ' .. i .. ' of first window to true')
   end))
 end
-table.insert(appHotkeys_hotkeys["Terminal"], hs.hotkey.new('⌘', "9", function()
+table.insert(hks["Terminal"], hs.hotkey.new('⌘', "9", function()
   hs.osascript.applescript('tell application "Terminal" to set selected of last tab of first window to true')
 end))
 spoon.CaptureHotkeys:capture("Terminal", {
@@ -212,12 +212,14 @@ spoon.CaptureHotkeys:capture("Terminal", {
 })
 -- Slack usability improvements
 logger.i("Slack usability hotkeys")
-table.insert(appHotkeys_hotkeys["Slack"], hs.hotkey.new('⌘', 'w', function()
+table.insert(hks["Slack"], hs.hotkey.new('⌘', 'w', function()
   hs.eventtap.keyStrokes("/leave ")
   hs.timer.doAfter(0.3, function() hs.application.get("Slack"):activate(); hs.eventtap.keyStroke({}, "return") end)
 end))
-table.insert(appHotkeys_hotkeys["Slack"], hs.hotkey.new('⌘⇧', ']', function() hs.eventtap.keyStroke({'alt'}, 'down') end))
-table.insert(appHotkeys_hotkeys["Slack"], hs.hotkey.new('⌘⇧', '[', function() hs.eventtap.keyStroke({'alt'}, 'up') end))
+table.insert(hks["Slack"],
+             hs.hotkey.new('⌘⇧', ']', function() hs.eventtap.keyStroke({'alt'}, 'down') end))
+table.insert(hks["Slack"],
+             hs.hotkey.new('⌘⇧', '[', function() hs.eventtap.keyStroke({'alt'}, 'up') end))
 spoon.CaptureHotkeys:capture("Slack", {
   ["Close Channel"] = { {"⌘"}, "w" },
   ["Next Channel"] = { {"⌘", "⇧"}, "]" },
