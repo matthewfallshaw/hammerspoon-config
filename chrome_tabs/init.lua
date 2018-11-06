@@ -68,33 +68,33 @@ end tell
   ]]
   logger.d("Applescript:\n"..as)
   local status, output, raw = hs.osascript.applescript(as)
-local xstatus, xoutput = pcall(function() 
-  if status and output then
-    return output
-  else
-    if raw and
-        raw.NSLocalizedFailureReason and
-        tostring(raw.NSLocalizedFailureReason):match('get window id [0-9]') or
-        tostring(raw.NSLocalizedFailureReason):match('Invalid index') then
-      return nil  -- window or tab gone before we finish executing
+  local xstatus, xoutput = pcall(function()
+    if status and output then
+      return output
     else
-      error("applescript failed:\n\n"..as.."\n\n\z
-      raw:\n\n"..i(raw).."\n\n\z
-      status:"..tostring(status).."\n\n\z
-      output:\n\n"..tostring(i(output)).."\n\n")
+      if raw and
+          raw.NSLocalizedFailureReason and
+          tostring(raw.NSLocalizedFailureReason):match('get window id [0-9]') or
+          tostring(raw.NSLocalizedFailureReason):match('Invalid index') then
+        return nil  -- window or tab gone before we finish executing
+      else
+        error("applescript failed:\n\n"..as.."\n\n\z
+        raw:\n\n"..i(raw).."\n\n\z
+        status:"..tostring(status).."\n\n\z
+        output:\n\n"..tostring(i(output)).."\n\n")
+      end
     end
+  end)
+  if xstatus then
+    return xoutput
+  else
+    print("raw type: "..type(raw))
+    for k,v in pairs(raw) do
+      print("raw key type: "..type(k)..", value: "..i(k))
+      print("raw value type: "..type(v)..", value: "..i(v))
+    end
+    error(i(raw))
   end
-end)
-if xstatus then
-  return xoutput
-else
-  print("raw type: "..type(raw))
-  for k,v in pairs(raw) do
-    print("raw key type: "..type(k)..", value: "..i(k))
-    print("raw value type: "..type(v)..", value: "..i(v))
-  end
-  error(i(raw))
-end
 end
 
 
@@ -109,6 +109,7 @@ end
 
 function M._check_and_update_windows()
   local raw = M._applescript("return all_windows()")
+  assert(raw, "Applescript failed to collect Chrome windows.")
   local removed_windows = {}
   hs.fnutils.each(M.chromeWindows, function(win)
     removed_windows[win.windowId] = true
