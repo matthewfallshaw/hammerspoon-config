@@ -86,10 +86,10 @@ trash_recent.hotkey = spoon.CaptureHotkeys:bind(
 
 
 -- ChromeTabs
-chrome_tabs = require('chrome_tabs'):start()
-chrome_tabs.chooser = require('chrome_tabs.chrome_tab_chooser')
-chrome_tabs.hotkey = spoon.CaptureHotkeys:bind("ChromeTabs", "Find & focus a Chrome tab",
-    {'⌘','⇧','⌃'}, 'n', function() chrome_tabs.chooser.chooser:show() end)
+chrome_tabs = require('chrome_tabs')
+-- chrome_tabs.chooser = require('chrome_tabs.chrome_tab_chooser')
+-- chrome_tabs.hotkey = spoon.CaptureHotkeys:bind("ChromeTabs", "Find & focus a Chrome tab",
+--     {'⌘','⇧','⌃'}, 'n', function() chrome_tabs.chooser.chooser:show() end)
 
 
 -- ScanSnap: Start ScanSnap manager when scanner attached
