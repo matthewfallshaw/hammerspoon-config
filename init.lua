@@ -96,13 +96,14 @@ chrome_tabs = require('chrome_tabs')
 logger.i("Loading ScanSnap USB watcher")
 local function usbDeviceCallback(data)
   if (data["productName"]:match("^ScanSnap")) then
+    local app_name = "ScanSnap Home"
     if (data["eventType"] == "added") then
-      log.and_alert(data["productName"].. " added, launching ScanSnap Manager")
-      hs.application.launchOrFocus("ScanSnap Manager")
+      log:and_alert(data["productName"].. " added, launching ".. app_name)
+      hs.application.launchOrFocus(app_name)
     elseif (data["eventType"] == "removed") then
-      local app = hs.application.find("ScanSnap Manager")
+      local app = hs.application.find(app_name)
       if app then
-        log.and_alert(data["productName"].. " removed, closing ScanSnap Manager")
+        log:and_alert(data["productName"].. " removed, closing ".. app_name)
         app:kill()
       end
       if hs.application.get("AOUMonitor") then hs.application.get("AOUMonitor"):kill9() end
@@ -119,17 +120,17 @@ logger.i("Loading Transmission VPN Guard")
 local function applicationWatcherCallback(appname, event, _)
   if appname == "Transmission" and event == hs.application.watcher.launching then
     if not hs.application.get("Private Internet Access") then
-      log.and_alert("Transmission launch detected… launching PIA")
+      log:and_alert("Transmission launch detected… launching PIA")
       hs.application.open("Private Internet Access")
     else
-      log.and_alert("Transmission launch detected… but PIA already running")
+      log:and_alert("Transmission launch detected… but PIA already running")
     end
   elseif appname == "Private Internet Access" and event == hs.application.watcher.terminated then
     if hs.application.get("Transmission") then
-      log.and_alert("PIA termination detected… killing Transmission")
+      log:and_alert("PIA termination detected… killing Transmission")
       hs.application.get("Transmission"):kill9()
     else
-      log.and_alert("PIA termination detected… Transmission not running, so no action")
+      log:and_alert("PIA termination detected… Transmission not running, so no action")
     end
   end
 end
@@ -153,6 +154,7 @@ spoon.Hammer:start()
 hs.loadSpoon("URLDispatcher")
 spoon.URLDispatcher.default_handler = consts.URLDispatcher.default_handler
 spoon.URLDispatcher.url_patterns = consts.URLDispatcher.url_patterns
+spoon.URLDispatcher.logger.setLogLevel('debug')
 spoon.URLDispatcher:start()
 -- URLs from hammerspoon:// schema
 local _, unescape = require('utilities.string_escapes')()
@@ -227,11 +229,21 @@ spoon.CaptureHotkeys:capture("Slack", {
 })
 -- VimR tab switching
 logger.i("VimR hotkeys for switching tabs")
+local function slowkeys(keys)
+  -- Hack: `hs.eventtap.keyStrokes` causes random dups & omissions (':tapprrvious')
+  local delay = 5000
+  local mt = {__index=function(_,c) return {{},c,delay} end}
+  local codes = setmetatable({[':']={{'shift'},';',delay}}, mt)
+  for c in string.gmatch(keys,'.') do
+    hs.eventtap.keyStroke(table.unpack(codes[c]))
+  end
+  hs.eventtap.keyStrokes("\n")
+end
 table.insert(hks["VimR"], hs.hotkey.new({'⌘', '⇧'}, '[', function()
-  hs.eventtap.keyStrokes(":tabprevious\n")
+  slowkeys(":tabprevious")
 end))
 table.insert(hks["VimR"], hs.hotkey.new({'⌘', '⇧'}, ']', function()
-  hs.eventtap.keyStrokes(":tabNext\n")
+  slowkeys(':tabNext')
 end))
 spoon.AppHotkeys:start()
 
@@ -307,29 +319,34 @@ seal.plugins.useractions.actions = {
   },
   Gmail = {
     fn = function()
-      chrome_tabs:focusTab( { title=" - matthew.fallshaw@gmail.com %- Gmail$",
-          url="^https://mail.google.com/mail/u/0/%?" })
+      chrome_tabs.sendCommand( { focus = {
+        title="* - matthew.fallshaw@gmail.com - Gmail",
+        url="https://mail.google.com/mail/u/0/*" }})
     end,
     keyword = "gm"
   },
   Docs = {
     fn = function()
-      chrome_tabs:focusTab( { title=" - Google Drive$",
-          url="^https://drive.google.com/drive/[^u]" })
+      chrome_tabs.sendCommand( { focus = {
+        title="* - Google Drive",
+        url="https://drive.google.com/drive/*",
+        not_url="^https://drive.google.com/drive/u" }})
     end,
     keyword = "docs"
   },
   ["Bellroy Docs"] = {
     fn = function()
-      chrome_tabs:focusTab( { title=" - Google Drive$",
-          url="^https://drive.google.com/drive/u/1/" })
+      chrome_tabs.sendCommand( { focus = {
+        title="* - Google Drive",
+        url="https://drive.google.com/drive/u/1/*" }})
     end,
     keyword = "bdocs"
   },
   ["MIRI Docs"] = {
     fn = function()
-      chrome_tabs:focusTab( { title=" - Google Drive$",
-          url="^https://drive.google.com/drive/u/2/" })
+      chrome_tabs.sendCommand( { focus = {
+        title="* - Google Drive",
+        url="https://drive.google.com/drive/u/2/*" }})
     end,
     keyword = "mdocs"
   },
@@ -349,7 +366,7 @@ seal:start()
 
 -- ## notnux only ##
 -- #################
-if hs.host.localizedName() == "notnux" then
+if hs.host.localizedName() == "notnux2" then
 
   -- Export hotkeys to build/Hammerspoon.kcustom
   local kce = spoon.CaptureHotkeys.exporters.keyCue

@@ -191,6 +191,8 @@ function obj.networkConfCallback(_, keys)
       locationFacts.network = 'Canning'
     elseif hs.wifi.currentNetwork() == 'bellroy' then
       locationFacts.network = 'Fitzroy'
+    elseif hs.wifi.currentNetwork() == 'MIRICFAR UniFi' then
+      locationFacts.network = 'MIRI'
     else
       logger.i("Unknown network")
       locationFacts.network = nil
@@ -290,9 +292,18 @@ function obj.CanningExitActions()
   slack.setStatus("")
 end
 
+-- MIRI
+function obj.MIRIEntryActions()
+  slack.setStatus('MIRI')
+end
+
+function obj.MIRIExitActions()
+  slack.setStatus('')
+end
+
 -- Roaming
 function obj.RoamingEntryActions()
-  killApp("Transmission")
+  killApp('Transmission')
 end
 
 return obj

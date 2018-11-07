@@ -31,8 +31,9 @@ local level_words = {
   e = 'Error', w = 'Warning', i = 'Info', d = 'Debug', v = 'Verbose'
 }
 function log:and_alert(message, level)
+  assert(self, "Sorry, I should be called as a method rather than a function (with ':', not '.').")
   level = level or 'info'
-  local level = levels[level]
+  level = levels[level]
   self.logger[level](message)
   hs.alert.show(level_words[level] ..": ".. message)
 end

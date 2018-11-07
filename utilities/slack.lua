@@ -17,7 +17,7 @@ local logger = obj._logger
 logger.i("Loading Slack")
 
 local function fileExists(filepath) return hs.fs.attributes(filepath, 'mode') == 'file' end
-local cli = "~/bin/slack-status"
+local cli = '~/bin/slack-status'
 if not fileExists(cli) then
   error("I can't find ".. cli .." which I need to function. Install "..
   "https://github.com/matthewfallshaw/utilities/blob/master/shell/slack-status"..
@@ -25,23 +25,23 @@ if not fileExists(cli) then
 end
 
 function obj.setStatus(location)
-  if location == "" then
-    logger.i("Slack status -")
+  if location == '' then
+    logger.i('Slack status -')
   else
-    logger.i("Slack status " .. location)
+    logger.i('Slack status ' .. location)
   end
 
   -- recreate the retry fuction so that it captures the right `location`
   local function setStatusRetry(exitCode, stdOut, stdErr)
     if exitCode ~= 0 then  -- if task fails, try again after 30s
-      logger.w("Slack status update failed - exitCode:" .. tostring(exitCode) ..
+      logger.w('Slack status update failed - exitCode:' .. tostring(exitCode) ..
         " stdOut:" .. tostring(stdOut) .. " stdErr:" .. tostring(stdErr)
       )
       hs.timer.doAfter(30,
         function() hs.task.new(cli, setStatusRetry, {location}) end
       ):start()
     else
-      logger.i("Slack status update successful")
+      logger.i('Slack status update successful')
     end
   end
 

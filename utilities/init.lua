@@ -24,4 +24,18 @@ function M.restartApplication(hint)
   end
 end
 
+function M.bundleID(hint)
+  local app = hs.application.find(hint)
+  local app_path = nil
+  if app then
+    app_path = app:path():gsub('(/Applications/[^.]+.app)/.*','%1')
+  else
+    app_path = "/Applications/"..hint..".app"
+  end
+  local command = 'mdls -name kMDItemCFBundleIdentifier -r '.. app_path
+  print(command)
+
+  return (hs.execute(command))
+end
+
 return M
