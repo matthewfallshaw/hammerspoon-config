@@ -194,7 +194,7 @@ M.window_layouts = {
     {'Calendar', 'max 1 oldest 0,-1'},
     {'FreeMindStarter', 'move 1 oldest [50,0>100,100] 0,-1'},
   },'DualTop'),
-  dualdellU2718Q = hs.window.layout.new({
+  canningdesk = hs.window.layout.new({
     screens={["DELL U2718Q"]=true},
     {{['Hammerspoon']={allowRoles='AXStandardWindow'}}, 'move 1 oldest [50,0>100,90] 0,0'},
     {{'VimR', 'MacVim'}, 'move 1 oldest [0,0>42,100] 0,-1'},
@@ -204,7 +204,18 @@ M.window_layouts = {
     {'Google Calendar', 'move 1 oldest [0,8>100,100] 0,-1'},
     {'Calendar', 'max 1 oldest 0,-1'},
     {'FreeMindStarter', 'move 1 oldest [50,0>100,100] 0,-1'},
-  }, 'DualDELLVert'),
+  }, 'CanningDesk'),
+  miridesk = hs.window.layout.new({
+    screens={["DELL U2715H"]=true},
+    {{['Hammerspoon']={allowRoles='AXStandardWindow'}}, 'move 1 oldest [50,0>100,90] 0,0'},
+    {{'VimR', 'MacVim'}, 'move 1 oldest [0,0>42,100] 0,-1'},
+    {'iTerm2', 'move 1 oldest [62,0>100,100] 0,-1'},
+    {'PivotalTracker', 'max 1 oldest 0,-1'},
+    {'Asana', 'move 1 oldest [0,0>100,100] -1,0'},
+    {'Google Calendar', 'move 1 oldest [0,8>100,100] 0,-1'},
+    {'Calendar', 'max 1 oldest 0,-1'},
+    {'FreeMindStarter', 'move 1 oldest [50,0>100,100] 0,-1'},
+  }, 'MiriDesk'),
 }
 for _,layout in pairs(M.window_layouts) do
   for _,rule in pairs(layout.rules) do
