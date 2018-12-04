@@ -1,6 +1,8 @@
 -- p = require 'utilities.profile'
 -- p:start()
 
+--luacheck: allow defined top
+
 local consts = require 'configConsts'
 
 init = {}  -- watchers & etc.
@@ -8,31 +10,24 @@ init = {}  -- watchers & etc.
 local logger = hs.logger.new("Init")
 hs.console.clearConsole()
 
-i = hs.inspect.inspect
+i = hs.inspect.inspect  -- luacheck: ignore
 
+-- # Setup for everything else #
+--
 -- Capture spoon (and other) hotkeys
 hs.loadSpoon("CaptureHotkeys")
 spoon.CaptureHotkeys:bindHotkeys({show = {{ "⌘", "⌥", "⌃", "⇧" }, "k"}}):start()
 
 local log = require('utilities.log').new(logger)
 
-
 -- Auto-reload config
 init.auto_reload_or_test = require 'auto_reload_or_test'
 init.auto_reload_or_test:start()
 
+-- # / Setup #
 
--- Control Plane replacement: Actions on change of location
-control_plane = require('control_plane'):start()
-
-
--- Stay replacement: Keep App windows in their places
-stay = require('stay'):start()
-spoon.CaptureHotkeys:capture(
-  "Stay", "Toggle layout engine or report frontmost window",
-  {"⌘", "⌥", "⌃", "⇧"}, "s")
-
-
+-- # HS config #
+--
 -- Clear console hotkey
 init.clearConsoleHotkey = {
   clear = spoon.CaptureHotkeys:bind("Hammer+", "Clear console",
@@ -41,12 +36,26 @@ init.clearConsoleHotkey = {
 }
 
 
--- Move windows between spaces
-move_spaces = require('move_spaces')
-move_spaces.hotkeys.left  = spoon.CaptureHotkeys:bind("WindowSpacesLeftAndRight", "Left",
-  {"⌘", "⌥", "⌃", "⇧"}, "left",  function() move_spaces.moveWindowOneSpace("left") end)
-move_spaces.hotkeys.right = spoon.CaptureHotkeys:bind("WindowSpacesLeftAndRight", "Right",
-  {"⌘", "⌥", "⌃", "⇧"}, "right", function() move_spaces.moveWindowOneSpace("right") end)
+hs.loadSpoon('Hammer')
+spoon.Hammer.auto_reload_config = false
+spoon.Hammer:bindHotkeys({
+  config_reload ={{"⌘", "⌥", "⌃", "⇧"}, "r"},
+  toggle_console={{"⌘", "⌥", "⌃", "⇧"}, "d"},
+})
+spoon.Hammer:start()
+
+-- # / HS config #
+
+
+-- Control Plane replacement: Actions on change of location
+control_plane = require('control_plane'):start()  -- luacheck: ignore
+
+
+-- Stay replacement: Keep App windows in their places
+stay = require('stay'):start()  -- luacheck: ignore
+spoon.CaptureHotkeys:capture(
+  "Stay", "Toggle layout engine or report frontmost window",
+  {"⌘", "⌥", "⌃", "⇧"}, "s")
 
 
 -- Jettison replacement: Eject ejectable drives on sleep
@@ -83,13 +92,6 @@ trash_recent = require('trash_recent')
 trash_recent.hotkey = spoon.CaptureHotkeys:bind(
   "Trash recent download", "trashRecentDownload", {"⌥", "⌃", "⇧", "⌘"}, "t",
   trash_recent.trashRecentDownload)
-
-
--- ChromeTabs
-chrome_tabs = require('chrome_tabs')
--- chrome_tabs.chooser = require('chrome_tabs.chrome_tab_chooser')
--- chrome_tabs.hotkey = spoon.CaptureHotkeys:bind("ChromeTabs", "Find & focus a Chrome tab",
---     {'⌘','⇧','⌃'}, 'n', function() chrome_tabs.chooser.chooser:show() end)
 
 
 -- ScanSnap: Start ScanSnap manager when scanner attached
@@ -137,18 +139,6 @@ end
 logger.i("Starting Transmission VPN Guard")
 init.applicationWatcher = hs.application.watcher.new(applicationWatcherCallback)
 init.applicationWatcher:start()
-
-
--- Spoons
--- ## All hosts
-
-hs.loadSpoon('Hammer')
-spoon.Hammer.auto_reload_config = false
-spoon.Hammer:bindHotkeys({
-  config_reload ={{"⌘", "⌥", "⌃", "⇧"}, "r"},
-  toggle_console={{"⌘", "⌥", "⌃", "⇧"}, "h"},
-})
-spoon.Hammer:start()
 
 
 hs.loadSpoon("URLDispatcher")
@@ -248,33 +238,42 @@ end))
 spoon.AppHotkeys:start()
 
 
+-- ChromeTabs
+chrome_tabs = require('chrome_tabs')
+-- chrome_tabs.chooser = require('chrome_tabs.chrome_tab_chooser')
+-- chrome_tabs.chooser.hotkey = spoon.CaptureHotkeys:bind("ChromeTabs", "Find & focus a Chrome tab",
+--     {'⌘','⇧','⌃'}, 'n', function() chrome_tabs.chooser.show() end)
+
+
 local mwm = hs.loadSpoon("MiroWindowsManager")
 mwm.sizes = {2, 3/2, 3}
-mwm.fullScreenSizes = {1, 4/3, 2}
+mwm.fullScreenSizes = {1, 4/3, 2, 'c'}
 mwm.GRID = {w = 24, h = 12}
 mwm:bindHotkeys({
-  up          = {{    '⌥',    '⌘'}, 'up'},
-  down        = {{    '⌥',    '⌘'}, 'down'},
-  left        = {{    '⌥',    '⌘'}, 'left'},
-  right       = {{    '⌥',    '⌘'}, 'right'},
+  up          = {{    '⌥',    '⌘'}, 'k'},
+  down        = {{    '⌥',    '⌘'}, 'j'},
+  left        = {{    '⌥',    '⌘'}, 'h'},
+  right       = {{    '⌥',    '⌘'}, 'l'},
   fullscreen  = {{    '⌥',    '⌘'}, 'f'},
   center      = {{    '⌥',    '⌘'}, 'c'},
-  moveUp      = {{'⌃','⌥'        }, 'up'},
-  moveDown    = {{'⌃','⌥'        }, 'down'},
-  moveLeft    = {{'⌃','⌥'        }, 'left'},
-  moveRight   = {{'⌃','⌥'        }, 'right'},
-  taller      = {{'⌃','⌥','⇧'}, "down"},
-  shorter     = {{'⌃','⌥','⇧'}, "up"},
-  wider       = {{'⌃','⌥','⇧'}, "right"},
-  thinner     = {{'⌃','⌥','⇧'}, "left"},
+  move        = {{    '⌥',    '⌘'}, "v"},
+  resize      = {{    '⌥',    '⌘'}, "d" },
 })
 
 
 hs.loadSpoon("WindowScreenLeftAndRight")
 spoon.WindowScreenLeftAndRight:bindHotkeys({
-   screen_left = { {"ctrl", "alt", "cmd"}, "Left" },
-   screen_right= { {"ctrl", "alt", "cmd"}, "Right" },
+   screen_left = { {"ctrl", "alt", "cmd"}, "h" },
+   screen_right= { {"ctrl", "alt", "cmd"}, "l" },
 })
+
+
+-- Move windows between spaces
+move_spaces = require('move_spaces')
+move_spaces.hotkeys.left  = spoon.CaptureHotkeys:bind("WindowSpacesLeftAndRight", "Left",
+  {"⌘", "⌥", "⌃", "⇧"}, "h",  function() move_spaces.moveWindowOneSpace("left") end)
+move_spaces.hotkeys.right = spoon.CaptureHotkeys:bind("WindowSpacesLeftAndRight", "Right",
+  {"⌘", "⌥", "⌃", "⇧"}, "l", function() move_spaces.moveWindowOneSpace("right") end)
 
 
 hs.loadSpoon("Seal")
@@ -313,7 +312,11 @@ seal.plugins.useractions.actions = {
   },
   ["Hammerspoon Docs"] = {
     fn = function(x)
-      hs.doc.hsdocs.help(x)
+      if x ~= '' then
+        hs.doc.hsdocs.help(x)
+      else
+        hs.doc.hsdocs.help()
+      end
     end,
     keyword = "hsdocs"
   },
@@ -364,8 +367,8 @@ seal:start()
 -- faster Chrome tab search (see how Vimium 'T' does it)
 
 
--- ## notnux only ##
--- #################
+-- # notnux only #
+--
 if hs.host.localizedName() == "notnux2" then
 
   -- Export hotkeys to build/Hammerspoon.kcustom

@@ -9,4 +9,6 @@ stds.hs = {
   },
 }
 std = 'max+hs'
-ignore = { '111', '112' }
+-- ignore = { '111', '112' }
+
+-- vim: set filetype=lua:
