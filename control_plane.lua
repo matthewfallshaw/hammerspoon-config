@@ -281,6 +281,7 @@ function obj.CanningEntryActions()
   slack.setStatus("Canning")
 
   hs.execute("~/code/utilities/Scripts/mount-external-drives", true)
+  hs.application.open('Lights Switch')
 end
 
 function obj.CanningExitActions()
@@ -290,6 +291,7 @@ function obj.CanningExitActions()
   hs.wifi.setPower(true)
 
   slack.setStatus("")
+  local ls = hs.application('Lights Switch'); if ls then ls:kill() end
 end
 
 -- MIRI
