@@ -1,6 +1,6 @@
 -- Move windows between spaces
 
-M = { hotkeys = {} }
+local M = { hotkeys = {}, hotkey_timer = nil }
 
 M._logger = hs.logger.new("Move spaces")
 local logger = M._logger
@@ -8,12 +8,12 @@ logger.i("Loading Move spaces tools")
 
 -- # Usage
 -- require 'move_spaces'
--- move_spaces.hotkeys.right = spoon.CaptureHotkeys:bind("WindowSpacesLeftAndRight", "Right",
---   {"⌘", "⌥", "⌃", "⇧"}, "right", function() move_spaces.moveWindowOneSpace("right") end)
--- move_spaces.hotkeys.left  = spoon.CaptureHotkeys:bind("WindowSpacesLeftAndRight", "Left",
---   {"⌘", "⌥", "⌃", "⇧"}, "left",  function() move_spaces.moveWindowOneSpace("left") end)
+-- move_spaces:bindHotkeys({
+--   left  = {{"⌘", "⌥", "⌃", "⇧"}, "h"},
+--   right = {{"⌘", "⌥", "⌃", "⇧"}, "l"},
+-- })
 
-spaces = require "hs._asm.undocumented.spaces" -- https://github.com/asmagill/hs._asm.undocumented.spaces
+local spaces = require "hs._asm.undocumented.spaces" -- https://github.com/asmagill/hs._asm.undocumented.spaces
 
 function M.changeSpace(direction)
   hs.eventtap.keyStroke({"ctrl"}, direction)
@@ -51,8 +51,38 @@ function M.moveWindowOneSpace(direction)
     win:spacesMoveTo(targetSpaceUUID)
   end
 
+  return win
+end
+
+function M.moveWindowOneSpaceAndFocus(direction)
+  local win = M.moveWindowOneSpace(direction)
+
   win:focus()  -- focusing the window will change the active space
   hs.fnutils.each({ 0.2, 0.4, 0.6 }, function(delay) hs.timer.doAfter(delay, function() win:focus() end) end)
+end
+
+function M:nudgeOrMove(direction)
+  if not self.double_tap_timer then
+    -- If called once, move
+    self.double_tap_timer = hs.timer.doAfter(0.25,
+      function()
+        self.double_tap_timer = nil
+        self.moveWindowOneSpaceAndFocus(direction)
+      end)
+  else
+    -- If called twice, nudge
+    self.double_tap_timer:stop()
+    self.double_tap_timer = nil
+    self.moveWindowOneSpace(direction)
+  end
+end
+
+function M:bindHotkeys(mapping)
+  self.hotkeys.right = spoon.CaptureHotkeys:bind("WindowSpacesLeftAndRight", "Right",
+    mapping.right[1], mapping.right[2], function() self:nudgeOrMove("right") end)
+  self.hotkeys.left  = spoon.CaptureHotkeys:bind("WindowSpacesLeftAndRight", "Left",
+    mapping.left[1], mapping.left[2],  function() self:nudgeOrMove("left") end)
+  return self
 end
 
 return M

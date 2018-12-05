@@ -263,17 +263,17 @@ mwm:bindHotkeys({
 
 hs.loadSpoon("WindowScreenLeftAndRight")
 spoon.WindowScreenLeftAndRight:bindHotkeys({
-   screen_left = { {"ctrl", "alt", "cmd"}, "h" },
-   screen_right= { {"ctrl", "alt", "cmd"}, "l" },
+   screen_left  = { {"ctrl", "alt", "cmd"}, "h" },
+   screen_right = { {"ctrl", "alt", "cmd"}, "l" },
 })
 
 
 -- Move windows between spaces
 move_spaces = require('move_spaces')
-move_spaces.hotkeys.left  = spoon.CaptureHotkeys:bind("WindowSpacesLeftAndRight", "Left",
-  {"⌘", "⌥", "⌃", "⇧"}, "h",  function() move_spaces.moveWindowOneSpace("left") end)
-move_spaces.hotkeys.right = spoon.CaptureHotkeys:bind("WindowSpacesLeftAndRight", "Right",
-  {"⌘", "⌥", "⌃", "⇧"}, "l", function() move_spaces.moveWindowOneSpace("right") end)
+move_spaces:bindHotkeys({
+  left  = {{"⌘", "⌥", "⌃", "⇧"}, "h"},
+  right = {{"⌘", "⌥", "⌃", "⇧"}, "l"},
+})
 
 
 hs.loadSpoon("Seal")
