@@ -186,7 +186,7 @@ function obj.networkConfCallback(_, keys)
        hs.network.interfaceDetails(pi4).Link and
        hs.network.interfaceDetails(pi4).Link.Expensive then
       locationFacts.network = 'iPhone'
-    elseif hs.fnutils.contains({'blacknode5', 'blacknode2.4'},
+    elseif hs.fnutils.contains({'blacknode'},
                                hs.wifi.currentNetwork()) then
       locationFacts.network = 'Canning'
     elseif hs.wifi.currentNetwork() == 'bellroy' then
@@ -229,7 +229,7 @@ obj.batteryWatcher = hs.battery.watcher.new( function() obj.powerCallback() end 
 -- Attached monitor change (Canning, Fitzroy)
 function obj.screenCallback()
   logger.i('Monitor changed')
-  if hs.screen.find(188814579) then
+  if hs.screen.find(724043857) then
     locationFacts.monitor = 'Canning'
   elseif hs.screen.find(724061396) then
     locationFacts.monitor = 'Fitzroy'
@@ -278,7 +278,7 @@ end
 function obj.CanningEntryActions()
   slack.setStatus('Canning')
   hs.execute('~/code/utilities/Scripts/mount-external-drives', true)
-  hs.application.open('Lights Switch')
+  if not hs.application('Lights Switch') then hs.application.open('Lights Switch') end
 end
 
 function obj.CanningExitActions()
