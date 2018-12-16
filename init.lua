@@ -94,21 +94,21 @@ trash_recent.hotkey = spoon.CaptureHotkeys:bind(
   trash_recent.trashRecentDownload)
 
 
--- ScanSnap: Start ScanSnap manager when scanner attached
+-- ScanSnap: Start ScanSnap's horrendous array of apps when scanner attached, and kill them when detatched
 logger.i("Loading ScanSnap USB watcher")
 local function usbDeviceCallback(data)
+  logger.d(data['productName']..' '..data['eventType'])
+  -- ScanSnap Home's apps are not properly registered (named) and there are several of them, so matches and arrays…
   if (data["productName"]:match("^ScanSnap")) then
-    local app_name = "ScanSnap Home"
-    if (data["eventType"] == "added") then
-      log:and_alert(data["productName"].. " added, launching ".. app_name)
-      hs.application.launchOrFocus(app_name)
-    elseif (data["eventType"] == "removed") then
-      local app = hs.application.find(app_name)
-      if app then
-        log:and_alert(data["productName"].. " removed, closing ".. app_name)
+    if (data['eventType'] == 'added') then
+      log:and_alert(data['productName'].. ' added, launching ScanSnap Home')
+      hs.application.launchOrFocus('ScanSnapHomeMain')
+    elseif (data['eventType'] == 'removed') then
+      hs.fnutils.ieach(table.pack(hs.application.find("ScanSnap")), function(app)
+        log:and_alert(data['productName'].. ' removed, closing '.. app:name())
         app:kill()
-      end
-      if hs.application.get("AOUMonitor") then hs.application.get("AOUMonitor"):kill9() end
+      end)
+      if hs.application.get('AOUMonitor') then hs.application.get('AOUMonitor'):kill9() end
     end
   end
 end
