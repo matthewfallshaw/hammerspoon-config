@@ -8,6 +8,7 @@ local consts = require 'configConsts'
 init = {}  -- watchers & etc.
 
 local logger = hs.logger.new("Init")
+init.logger = logger
 hs.console.clearConsole()
 
 i = hs.inspect.inspect  -- luacheck: ignore
