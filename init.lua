@@ -250,6 +250,7 @@ local mwm = hs.loadSpoon("MiroWindowsManager")
 mwm.sizes = {2, 3/2, 3}
 mwm.fullScreenSizes = {1, 4/3, 2, 'c'}
 mwm.GRID = {w = 24, h = 12}
+mwm.stickySides = true
 mwm:bindHotkeys({
   up          = {{    '⌥',    '⌘'}, 'k'},
   down        = {{    '⌥',    '⌘'}, 'j'},
