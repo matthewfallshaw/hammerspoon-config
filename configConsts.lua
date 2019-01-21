@@ -2,7 +2,8 @@ hs.logger.setGlobalLogLevel('warning')
 hs.logger.defaultLogLevel = 'warning'
 hs.hotkey.setLogLevel('warning')  -- 'cos it ignores global defaults
 hs.window.animationDuration = 0.1
-hs.doc.hsdocs.forceExternalBrowser(true)
+-- hs.doc.hsdocs.forceExternalBrowser(true)
+hs.doc.hsdocs.moduleEntitiesInSidebar(true)
 hs.application.enableSpotlightForNameSearches(true)
 hs.allowAppleScript(true)
 

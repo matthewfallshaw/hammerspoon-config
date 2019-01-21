@@ -28,7 +28,7 @@ logger.i('Loading ControlPlane')
 local application = hs.application
 
 local ACTION_DELAY = 5 -- seconds
-local KILL_APP_RETRY_DELAY = 15 -- seconds
+local KILL_APP_RETRY_DELAY = 30 -- seconds
 
 obj.locationFacts = hs.watchable.new('control-plane', true)
 local locationFacts = obj.locationFacts
@@ -253,12 +253,14 @@ function obj.iPhoneEntryActions()
   logger.i('Closing Dropbox & GDrive')
   killApp('Dropbox')
   killApp('Backup and Sync from Google')
+  killApp('Google Drive File Stream')
   killApp('Transmission')
 end
 
 function obj.iPhoneExitActions()
   logger.i('Opening Dropbox & GDrive')
   resumeApp('Dropbox')
+  resumeApp('Google Drive File Stream')
   resumeApp('Backup and Sync from Google', 'Backup and Sync')
 end
 
