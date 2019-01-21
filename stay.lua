@@ -10,6 +10,14 @@ hs.window.filter.setLogLevel(1)  -- GLOBAL!! wfilter is very noisy
 M.window_layouts = {} -- see bottom of file
 M.window_layouts_enabled = false
 
+local function alert(message)
+  hs.alert.closeAll()
+  logger.i(message)
+  if not M.starting then
+    hs.alert.show('Stay: '.. message)
+  end
+end
+
 function M:report_frontmost_window()
   local window = hs.application.frontmostApplication():focusedWindow()
   local filter_string
@@ -30,9 +38,29 @@ function M:report_frontmost_window()
   end
   local layout_rule = string.format("{%s, %s}", filter_string, action_string)
   hs.pasteboard.setContents(layout_rule)
-  logger.w("Active window position:\n".. layout_rule)
-  hs.alert.show("Stay: Active window position in clipboard\n".. layout_rule)
+  alert("Active window position in clipboard\n".. layout_rule)
   return layout_rule
+end
+
+function M:report_screens()
+  local screens = hs.fnutils.reduce(
+    hs.fnutils.concat({{}}, hs.screen.allScreens()),
+    function(list, screen)
+      return hs.fnutils.concat(list,{{name = screen:name(), id = screen:id()}})
+    end
+  )
+  local screens_string = hs.inspect(screens)
+  hs.pasteboard.setContents(screens_string)
+  alert("Screens in clipboard\n".. screens_string)
+  return screens
+end
+
+local function toggle_window_layouts_enabled_descripton()
+  if not M.window_layouts_enabled then
+    return 'Starting window layout engine'
+  else
+    return 'Pausing window layout engine'
+  end
 end
 
 function M:toggle_window_layouts_enabled()
@@ -48,11 +76,6 @@ function M:window_layouts_enable()
   if not self.window_layouts_enabled then
     for _,layout in pairs(self.window_layouts) do layout:start() end
     self.window_layouts_enabled = true
-    if self.disable_startup_alert then
-      self.disable_startup_alert = nil -- no alert at startup
-    else
-      hs.alert.show("Stay: Window auto-layout engine started")
-    end
   end
   return self
 end
@@ -61,48 +84,61 @@ function M:window_layouts_disable()
   if self.window_layouts_enabled then
     for _,layout in pairs(self.window_layouts) do layout:stop() end
     self.window_layouts_enabled = false
-    hs.alert.show("Stay: Window auto-layout engine paused")
   end
   return self
 end
 
+M.toggle_or_report_stack = {
+  { name = 'toggle', description = toggle_window_layouts_enabled_descripton,
+      fn = function() M:toggle_window_layouts_enabled() end },
+  { name = 'screens', description = 'Reporting screen details',
+      fn = function() M:report_screens() end },
+  { name = 'report', description = 'Reporting frontmost window position',
+      fn = function() M:report_frontmost_window() end },
+  { name = 'report_and_open', description = 'Reporting frontmost window position and opening',
+      fn = function()
+        M:report_frontmost_window()
+        hs.execute("/usr/bin/open ".. debug.getinfo(1).short_src)
+      end },
+}
 function M:toggle_or_report()
-  if not self.double_tap_timer then
-    -- If called once, toggle_window_layouts_enabled
-    self.double_tap_timer = {
-      name = "toggle",
-      timer = hs.timer.doAfter(0.5, function()
-        self.double_tap_timer = nil
-        self:toggle_window_layouts_enabled()
-      end)
-    }
-  elseif self.double_tap_timer.name == "toggle" then
-    -- If called twice quickly, report_frontmost_window
-    self.double_tap_timer.timer:stop()
-    self.double_tap_timer = {
-      name = "report",
-      timer = hs.timer.doAfter(0.5, function()
-        self.double_tap_timer = nil
-        self:report_frontmost_window()
-      end)
-    }
+  local obj = self.double_tap_timer
+
+  if not obj then
+    -- First call, set up for the first action
+    obj = { position = 1 }
   else
-    -- If called thrice quickly, report_frontmost_window & open this file
-    self.double_tap_timer.timer:stop()
-    self.double_tap_timer = nil
-    self:report_frontmost_window()
-    hs.execute("/usr/bin/open ".. debug.getinfo(1).short_src)
+    -- Subsequent call, set up for subsequent action
+    obj.timer:stop()
+    obj.position = obj.position + 1
   end
+
+  local descr = self.toggle_or_report_stack[obj.position].description
+  descr = type(descr) == 'function' and descr() or descr
+  if obj.position < #self.toggle_or_report_stack then
+    alert(descr.. "\nTap again to achive: ".. M.toggle_or_report_stack[obj.position + 1].description)
+    obj.timer = hs.timer.doAfter(0.5, function()
+      obj.timer = nil
+      M.toggle_or_report_stack[obj.position].fn()
+      self.double_tap_timer = nil
+    end)
+  else
+    alert(self.toggle_or_report_stack[obj.position].description)
+    obj.timer = nil
+    M.toggle_or_report_stack[obj.position].fn()
+    obj = nil
+  end
+  self.double_tap_timer = obj
   return self
 end
 
 function M:start()
-  self.disable_startup_alert = true
+  self.starting = true
   self:window_layouts_enable()
-  self.disable_startup_alert = nil
 
   self.hotkey = self.hotkey or hs.hotkey.new({"⌘", "⌥", "⌃", "⇧"}, "s", function() M:toggle_or_report() end)
   self.hotkey:enable() 
+  self.starting = nil
   return self
 end
 function M:stop()
