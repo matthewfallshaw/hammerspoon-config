@@ -275,6 +275,7 @@ move_spaces:bindHotkeys({
   left  = {{"⌘", "⌥", "⌃", "⇧"}, "h"},
   right = {{"⌘", "⌥", "⌃", "⇧"}, "l"},
 })
+move_spaces:start()
 
 
 hs.loadSpoon("Seal")
