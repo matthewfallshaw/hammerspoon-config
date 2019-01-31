@@ -118,10 +118,15 @@ function M.showDesktopSpaceNumbers()
       hs.geometry.rect(
         screen:frame().x + 2,
         screen:frame().y - 21,
-        40, 40
+        11, 11
       ),
       map.active_spaces[screen:spacesUUID()].space_number
-    ):setBehavior(hs.drawing.windowBehaviors['stationary']):setLevel('assistiveTechHigh'):setTextSize(8):show()
+    ):
+      setBehavior(hs.drawing.windowBehaviors['stationary']):
+      setLevel('assistiveTechHigh'):
+      setTextSize(8):
+      setAlpha(0.7):
+      show()
   end
 end
 
