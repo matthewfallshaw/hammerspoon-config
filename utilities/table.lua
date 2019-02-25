@@ -1,5 +1,5 @@
 local mt = { __index = table }
-function T(t)
+function Table(t)
   return setmetatable(t or {}, mt)
 end
 
@@ -31,4 +31,12 @@ table.clone = function(self)
     end
   end
   return out
+end
+
+table.head = function(self)
+  return self[1]
+end
+
+table.tail = function(self)
+  return { select(2, table.unpack(self)) }
 end
