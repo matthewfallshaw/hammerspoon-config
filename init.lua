@@ -55,7 +55,8 @@ control_plane = require('control_plane'):start()  -- luacheck: ignore
 -- Stay replacement: Keep App windows in their places
 stay = require('stay'):start()  -- luacheck: ignore
 spoon.CaptureHotkeys:capture(
-  "Stay", "Toggle layout engine or report frontmost window",
+  "Stay", "Once, toggle layout engine; twice, report screens; thrice, report frontmost window; "..
+    "four times, report frontmost & open stay.lua for editing",
   {"⌘", "⌥", "⌃", "⇧"}, "s")
 
 

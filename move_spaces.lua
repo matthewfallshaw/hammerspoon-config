@@ -130,7 +130,8 @@ function M.showDesktopSpaceNumbers()
   end
 end
 
-M.watcher = hs.spaces.watcher.new(M.showDesktopSpaceNumbers)
+M.spacesWatcher = hs.spaces.watcher.new(M.showDesktopSpaceNumbers)
+M.screensWatcher = hs.screen.watcher.new(M.showDesktopSpaceNumbers)
 
 function M:bindHotkeys(mapping)
   self.hotkeys.right = spoon.CaptureHotkeys:bind("WindowSpacesLeftAndRight", "Right",
@@ -141,7 +142,8 @@ function M:bindHotkeys(mapping)
 end
 
 function M:start()
-  self.watcher:start()
+  self.spacesWatcher:start()
+  self.screensWatcher:start()
   self.showDesktopSpaceNumbers()
 end
 
