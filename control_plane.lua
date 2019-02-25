@@ -25,10 +25,13 @@ obj._logger = hs.logger.new('ControlPlane')
 local logger = obj._logger
 logger.i('Loading ControlPlane')
 
-local application = hs.application
-
 local ACTION_DELAY = 5 -- seconds
 local KILL_APP_RETRY_DELAY = 30 -- seconds
+
+obj.locationFactsPriority = { 'network', 'monitor', 'psu'}
+local locationFactsPriority = obj.locationFactsPriority
+
+local application = hs.application
 
 obj.locationFacts = hs.watchable.new('control-plane', true)
 local locationFacts = obj.locationFacts
@@ -48,37 +51,54 @@ obj.locationWatcher = hs.watchable.watch('control-plane.location',
   end)
 
 -- ## Utility functions ##
-local function killApp(appname)
-  local app, _ = application.find(appname)
-    -- Should check for other_app, but this happens lots, so … we're going to ignore it
-  if app then
-    logger.i('Closing ' .. appname)
-    app:kill()
-    hs.timer.doAfter(KILL_APP_RETRY_DELAY, function()
-      -- sometimes apps are hard to kill, so we try several times
-      if app:isRunning() then app:kill9() end
-      app = application.find(appname); if app then app:kill9() end
-      if application.find(appname) then logger.e('Failed to kill ' .. appname) end
-    end):start()
+require 'utilities.table'
+local function delayedRetry(delay, functions)
+-- Run first of functions after delay, stop if it returns true, keep going if false
+  if (#functions == 0) then return true end
+  hs.timer.doAfter(delay, function()
+    if (not table.head(functions)()) then
+      delayedRetry(delay, table.tail(functions))
+    end
+  end)
+end
+
+local function killApp(app_hint)
+  local apps = table.pack(application.find(app_hint))
+  if apps.n == 0 then
+    logger.i(app_hint .. " wasn't open, so I didn't close it")
   else
-    logger.i(appname .. " wasn't open, so I didn't close it")
+    hs.fnutils.ieach(apps, function(app)
+      logger.i('Closing ' .. app_hint)
+      app:kill()
+      local killer = function()
+        if app:isRunning() then
+          app:kill9(); return false
+        else
+          return true
+        end
+      end
+      -- sometimes apps are hard to kill, so we try several times
+      delayedRetry(KILL_APP_RETRY_DELAY, {
+        killer, killer, killer,
+        function() logger.e('Failed to kill ' .. app:name()) end})
+    end)
   end
 end
-local function resumeApp(appname, alt_appname)
-  local app = application.find(appname)
+local function resumeApp(app_hint, alt_appname)
+  local app = application.find(app_hint)
   if app and app:isRunning() then
-    logger.i(appname .. ' is already running')
+    logger.i(app_hint .. ' is already running')
   else
-    if application.open(appname) then
-      logger.i('Resuming ' .. appname)
+    if application.open(app_hint) then
+      logger.i('Resuming ' .. app_hint)
     elseif alt_appname and application.open(alt_appname) then
       logger.i('Resuming ' .. alt_appname)
     else
       hs.timer.doAfter(KILL_APP_RETRY_DELAY, function()
-        if (not application.find(appname)) and
+        if (not application.find(app_hint)) and
            (not application.find(alt_appname)) then
-          logger.e("Couldn't resume '" .. appname ..
-                    (alt_appname and ("' or '" .. alt_appname) or "'"))
+          logger.e("Couldn't resume '" .. app_hint ..
+                   (alt_appname and ("' or '" .. alt_appname) or "'"))
         end
       end)
     end
@@ -87,23 +107,37 @@ end
 
 -- ## Core functions ##
 function obj.updateLocation()
-  local inferred_location
-  if locationFacts.network and locationFacts.network == 'iPhone' then
-    -- At top because iPhone network is expensive; other network inferences below
-    logger.i('Inferring iPhone from network')
-    inferred_location = locationFacts.network
-  elseif locationFacts.monitor then
-    logger.i('Inferring '.. locationFacts.monitor ..' from monitor')
-    inferred_location = locationFacts.monitor
-  elseif locationFacts.psu then
-    logger.i('Inferring '.. locationFacts.psu ..' from psu')
-    inferred_location = locationFacts.psu
-  else
-    logger.i("Inferring … well, failing to infer, so falling back to 'Roaming'")
-    inferred_location = 'Roaming'
+  local priority, counts, winner, max = {}, {}, {}, nil
+  for _,fact in ipairs(locationFactsPriority) do
+    local loc = locationFacts[fact]
+    if loc then
+      if not priority.loc then priority.loc, priority.fact = loc, fact end
+      local count = (counts[fact] or 0) + 1
+      counts[fact] = count
+      if max and (count > max) then
+        max, winner.loc, winner.fact = count, loc, fact
+      elseif count == max then
+        max, winner.loc, winner.fact = nil, nil, nil
+      end
+    end
   end
-  locationFacts.location = inferred_location
-  return inferred_location
+  local loc, fact
+  if winner.loc then
+    -- Choose the most frequently selected
+    loc, fact = winner.loc, winner.fact
+  elseif priority.loc then
+    -- or choose the highest priority
+    loc, fact = priority.loc, priority.fact
+  else
+    -- or choose 'Roaming'
+    loc = 'Roaming'
+    logger.i("Inferring … well, failing to infer, so falling back to '"..loc.."'")
+    locationFacts.location = loc
+    return loc
+  end
+  logger.i('Inferring '.. loc ..' from '.. fact)
+  locationFacts.location = loc
+  return loc
 end
 
 function obj.actions()
@@ -168,7 +202,7 @@ end
 
 -- On certain events update locationFacts
 
--- Network configuration change (iPhone)
+-- Network configuration change (Expensive)
 function obj.networkConfCallback(_, keys)
   logger.i('Network config changed (' .. hs.inspect(keys) .. ')')
   -- Work out which network we're on
@@ -185,9 +219,10 @@ function obj.networkConfCallback(_, keys)
     if hs.network.interfaceDetails(pi4) and
        hs.network.interfaceDetails(pi4).Link and
        hs.network.interfaceDetails(pi4).Link.Expensive then
-      locationFacts.network = 'iPhone'
-    elseif hs.fnutils.contains({'blacknode'},
-                               hs.wifi.currentNetwork()) then
+      locationFacts.network = 'Expensive'
+    elseif hs.wifi.currentNetwork() == 'United_Wi-Fi' then
+      locationFacts.network = 'Expensive'
+    elseif hs.wifi.currentNetwork() == 'blacknode' then
       locationFacts.network = 'Canning'
     elseif hs.wifi.currentNetwork() == 'bellroy' then
       locationFacts.network = 'Fitzroy'
@@ -216,9 +251,7 @@ obj.networkConfWatcher =
 -- Attached power supply change (Canning, Fitzroy)
 function obj.powerCallback()
   logger.i('Power changed')
-  if hs.battery.psuSerial() == 3136763 then
-    locationFacts.psu = 'Canning'
-  elseif hs.battery.psuSerial() == 7411505 then
+  if hs.battery.psuSerial() == 7411505 then
     locationFacts.psu = 'Fitzroy'
   else
     locationFacts.psu = nil
@@ -229,7 +262,7 @@ obj.batteryWatcher = hs.battery.watcher.new( function() obj.powerCallback() end 
 -- Attached monitor change (Canning, Fitzroy)
 function obj.screenCallback()
   logger.i('Monitor changed')
-  if hs.screen.find(724043857) then
+  if hs.screen.find(724044049) then
     locationFacts.monitor = 'Canning'
   elseif hs.screen.find(724061396) then
     locationFacts.monitor = 'Fitzroy'
@@ -247,21 +280,43 @@ obj.screenWatcher = hs.screen.watcher.new( function() obj.screenCallback() end )
 -- ##########################
 
 local slack = require 'utilities.slack'
+local network_hungry_apps = {
+  kill = {
+    'Transmission'
+  },
+  -- These moved to being blocked by Little Snitch
+  -- kill_and_resume = {
+  --   'Dropbox',
+  --   'Google Drive File Stream',
+  --   {'Backup and Sync from Google', 'Backup and Sync'},
+  -- }
+}
 
--- iPhone
-function obj.iPhoneEntryActions()
-  logger.i('Closing Dropbox & GDrive')
-  killApp('Dropbox')
-  killApp('Backup and Sync from Google')
-  killApp('Google Drive File Stream')
-  killApp('Transmission')
+-- Expensive
+function obj.ExpensiveEntryActions()
+  hs.alert('Control Plane: I hope Little Snitch is running and blocking your expensive apps!')
+  logger.i('Closing network hungry apps')
+  local killer = function(x)
+    if type(x) == 'table' then
+      killApp(x[1])
+    else
+      killApp(x)
+    end
+  end
+  hs.fnutils.ieach(network_hungry_apps.kill, killer)
+  hs.fnutils.ieach(network_hungry_apps.kill_and_resume, killer)
 end
 
-function obj.iPhoneExitActions()
-  logger.i('Opening Dropbox & GDrive')
-  resumeApp('Dropbox')
-  resumeApp('Google Drive File Stream')
-  resumeApp('Backup and Sync from Google', 'Backup and Sync')
+function obj.ExpensiveExitActions()
+  logger.i('Opening network hungry apps')
+  local resumer = function(x)
+    if type(x) == 'table' then
+      resumeApp(table.unpack(x))
+    else
+      resumeApp(x)
+    end
+  end
+  hs.fnutils.ieach(network_hungry_apps.kill_and_resume, resumer)
 end
 
 -- Fitzroy
