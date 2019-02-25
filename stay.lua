@@ -132,12 +132,47 @@ function M:toggle_or_report()
   return self
 end
 
+-- Decorating a global!
+function hs.window.layout:active()
+  if self.screens then
+    for hint,test in pairs(self.screens) do
+      local screen = hs.screen.find(hint)
+      if screen then
+        if type(test) == 'boolean' then
+          if not test then return false end
+        else
+          local x,y = screen:position()
+          local test_geometry = hs.geometry.new(test)
+          if not x == test_geometry.x or not y == test_geometry.y then
+            return false
+          end
+        end
+      else
+        if test then  -- truthy: true or hs.geometry
+          return false
+        end
+      end
+    end
+  end
+  return true
+end
+
+function M:activeLayouts()
+  local active_layouts = {}
+  hs.fnutils.each(self.window_layouts, function(layout)
+    if layout:active() then
+      active_layouts[layout.logname] = true
+    end
+  end)
+  return active_layouts
+end
+
 function M:start()
   self.starting = true
   self:window_layouts_enable()
 
   self.hotkey = self.hotkey or hs.hotkey.new({"⌘", "⌥", "⌃", "⇧"}, "s", function() M:toggle_or_report() end)
-  self.hotkey:enable() 
+  self.hotkey:enable()
   self.starting = nil
   return self
 end
@@ -148,7 +183,7 @@ function M:stop()
 end
 
 
-chrome_tabs = require 'chrome_tabs'
+-- chrome_tabs = require 'chrome_tabs'
 -- chrome_gmail_window_filter = hs.window.filter.new()
 
 -- app_tabs = require "app_tabs"
@@ -192,7 +227,7 @@ M.window_layouts = {
       'max 1 oldest 0,0'},
   },'Laptop'),
   canningdesk = hs.window.layout.new({
-    screens={["DELL U2718Q"]=true},
+    screens={["DELL U2718Q"]=true, ['0,-1']=true},
     {{['Hammerspoon']={allowRoles='AXStandardWindow'}}, 'move 1 oldest [50,0>100,90] 0,0'},
     {{'VimR', 'MacVim'}, 'move 1 oldest [0,0>42,100] 0,-1'},
     {'iTerm2', 'move 1 oldest [62,0>100,100] 0,-1'},
@@ -202,8 +237,19 @@ M.window_layouts = {
     {'Calendar', 'max 1 oldest 0,-1'},
     {'FreeMindStarter', 'move 1 oldest [50,0>100,100] 0,-1'},
   }, 'CanningDesk'),
+  bellroydesk = hs.window.layout.new({
+    screens={["DELL U2718Q"]=true, ['1,0']=true},
+    {{['Hammerspoon']={allowRoles='AXStandardWindow'}}, 'move 1 oldest [50,0>100,90] 0,0'},
+    {{'VimR', 'MacVim'}, 'move 1 oldest [0,0>42,100] 1,0'},
+    {'iTerm2', 'move 1 oldest [62,0>100,100] 1,0'},
+    {'PivotalTracker', 'max 1 oldest 1,0'},
+    {'Asana', 'move 1 oldest [0,0>50,100] 1,0'},
+    {'Google Calendar', 'move 1 oldest [0,8>100,100] 1,0'},
+    {'Calendar', 'max 1 oldest 1,0'},
+    {'FreeMindStarter', 'move 1 oldest [50,0>100,100] 1,0'},
+  }, 'BellroyDesk'),
   miridesk = hs.window.layout.new({
-    screens={[722479055]=true},  -- DELL U2713HM
+    screens={['HP Z27']=true, ["DELL U2713HM"]=true},
     {{['Hammerspoon']={allowRoles='AXStandardWindow'}}, 'move 1 oldest [50,0>100,90] 0,0'},
     {{'VimR', 'MacVim'}, 'move 1 oldest [0,0>42,100] 0,-1'},
     {'iTerm2', 'move 1 oldest [62,0>100,100] 0,-1'},
@@ -214,7 +260,8 @@ M.window_layouts = {
     {'FreeMindStarter', 'move 1 oldest [50,0>100,100] 0,-1'},
   }, 'MiriDesk'),
   dualleft = hs.window.layout.new({
-    screens={["DELL U2718Q"]=false,['-1,0']=true,['0,-1']=false,['1,0']=false,['0,1']=false},
+    screens={["DELL U2718Q"]=false,
+             ['-1,0']=true,['0,-1']=false,['1,0']=false,['0,1']=false},
     -- {chrome_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
     -- {chrome_docs_window_filter, 'move 1 oldest [20,0>80,100] -1,0'},
     -- {safari_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
@@ -234,7 +281,8 @@ M.window_layouts = {
     {'Snagit 2018', 'move 1 oldest [15,12>85,88] -1,0'}
   },'DualLeft'),
   dualtop = hs.window.layout.new({
-    screens={["DELL U2718Q"]=false,[722479055]=false,['-1,0']=false,['0,-1']=true,['1,0']=false,['0,1']=false},
+    screens={["DELL U2718Q"]=false,['DELL U2713HM']=false,
+             ['-1,0']=false,['0,-1']=true,['1,0']=false,['0,1']=false,['-1,-1']=false},
     -- {chrome_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
     -- {chrome_docs_window_filter, 'move 1 oldest [20,0>80,100] 0,-1'},
     -- {safari_gmail_window_filter, 'move 1 oldest [0,0>60,100] 0,-1'},
