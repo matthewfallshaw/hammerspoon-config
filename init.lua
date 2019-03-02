@@ -219,24 +219,6 @@ spoon.CaptureHotkeys:capture("Slack", {
   ["Next Channel"] = { {"⌘", "⇧"}, "]" },
   ["Previous Channel"] = { {"⌘", "⇧"}, "[" },
 })
--- VimR tab switching
-logger.i("VimR hotkeys for switching tabs")
-local function slowkeys(keys)
-  -- Hack: `hs.eventtap.keyStrokes` causes random dups & omissions (':tapprrvious')
-  local delay = 5000
-  local mt = {__index=function(_,c) return {{},c,delay} end}
-  local codes = setmetatable({[':']={{'shift'},';',delay}}, mt)
-  for c in string.gmatch(keys,'.') do
-    hs.eventtap.keyStroke(table.unpack(codes[c]))
-  end
-  hs.eventtap.keyStrokes("\n")
-end
-table.insert(hks["VimR"], hs.hotkey.new({'⌘', '⇧'}, '[', function()
-  slowkeys(":tabprevious")
-end))
-table.insert(hks["VimR"], hs.hotkey.new({'⌘', '⇧'}, ']', function()
-  slowkeys(':tabNext')
-end))
 spoon.AppHotkeys:start()
 
 
