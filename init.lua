@@ -307,34 +307,49 @@ seal.plugins.useractions.actions = {
   },
   Gmail = {
     fn = function()
-      chrome_tabs.sendCommand( { focus = {
-        title="* - matthew.fallshaw@gmail.com - Gmail",
-        url="https://mail.google.com/mail/u/0/*" }})
+      chrome_tabs.sendCommand({
+        focus = {
+          profile = "default",
+          title = "* - matthew.fallshaw@gmail.com - Gmail",
+          url = "https://mail.google.com/mail/*"
+        }
+      })
     end,
     keyword = "gm"
   },
   Docs = {
     fn = function()
-      chrome_tabs.sendCommand( { focus = {
-        title="* - Google Drive",
-        url="https://drive.google.com/drive/*",
-        not_url="^https://drive.google.com/drive/u" }})
+      chrome_tabs.sendCommand({
+        focus = {
+          profile = "default",
+          title="* - Google Drive",
+          url="https://drive.google.com/drive/*"
+        }
+      })
     end,
     keyword = "docs"
   },
   ["Bellroy Docs"] = {
     fn = function()
-      chrome_tabs.sendCommand( { focus = {
-        title="* - Google Drive",
-        url="https://drive.google.com/drive/u/1/*" }})
+      chrome_tabs.sendCommand({
+        focus = {
+          profile = "bellroy",
+          title="* - Google Drive",
+          url="https://drive.google.com/drive/*"
+        }
+      })
     end,
     keyword = "bdocs"
   },
   ["MIRI Docs"] = {
     fn = function()
-      chrome_tabs.sendCommand( { focus = {
-        title="* - Google Drive",
-        url="https://drive.google.com/drive/u/2/*" }})
+      chrome_tabs.sendCommand({
+        focus = {
+          profile = "miri",
+          title="* - Google Drive",
+          url="https://drive.google.com/drive/*"
+        }
+      })
     end,
     keyword = "mdocs"
   },

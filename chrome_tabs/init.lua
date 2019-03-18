@@ -11,24 +11,21 @@ M.author = "Matthew Fallshaw <m@fallshaw.me>"
 M.license = "MIT - https://opensource.org/licenses/MIT"
 M.homepage = "https://github.com/matthewfallshaw/"
 
-local FIFO = "/tmp/chrometabsfinder.pipe"
-
 local json = require "utilities.dkjson"
 
-local logger = hs.logger.new("ChromeTabs")
+local logger = hs.logger.new("ChromeTabT")
 M._logger = logger
-
-local CHROME = 'Google Chrome'
 
 hs.window.__type = 'hs.window'
 
 
 -- ## Internal
 local function sendMessage(msg)
-  local file_handle = io.open(FIFO, "w")
-  file_handle:write(msg)
-  file_handle:flush()
-  file_handle:close()
+  if not msg then
+    hs.execute("~/bin/chrome-client getAllTabs")
+  else
+    hs.execute("~/bin/chrome-client '".. msg:gsub("'", "\\'") .."'")
+  end
 end
 
 
