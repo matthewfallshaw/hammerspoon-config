@@ -3,9 +3,9 @@
 
 --luacheck: allow defined top
 
-local consts = require 'configConsts'
-
 init = {}  -- watchers & etc.
+
+init.consts = require 'configConsts'
 
 local logger = hs.logger.new("Init")
 init.logger = logger
@@ -144,8 +144,8 @@ init.applicationWatcher:start()
 
 
 hs.loadSpoon("URLDispatcher")
-spoon.URLDispatcher.default_handler = consts.URLDispatcher.default_handler
-spoon.URLDispatcher.url_patterns = consts.URLDispatcher.url_patterns
+spoon.URLDispatcher.default_handler = init.consts.URLDispatcher.default_handler
+spoon.URLDispatcher.url_patterns = init.consts.URLDispatcher.url_patterns
 spoon.URLDispatcher.logger.setLogLevel('debug')
 spoon.URLDispatcher:start()
 -- URLs from hammerspoon:// schema
