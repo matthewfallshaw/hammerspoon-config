@@ -30,7 +30,7 @@ return {
   -- asana
   -- API key
   -- Generated in My Profile Settings -> Apps -> Manage Developer Apps -> Create New Personal Access Token
-  asanaApiKey = nil,
+  asanaApiKey = hs.execute("security find-generic-password -a ${USER} -s Asana -w | tr -d '\n'"),
   -- Names for Asana workspaces used for work and personal
   asanaWorkWorkspaceName = "bellroy.com",
   asanaPersonalWorkspaceName = "Matt & Lina"

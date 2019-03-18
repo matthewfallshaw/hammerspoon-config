@@ -264,19 +264,18 @@ move_spaces:start()
 
 hs.loadSpoon("Seal")
 local seal = spoon.Seal
+local asana = require('asana')
 seal:loadPlugins({'apps', 'calc', 'useractions'})
 seal.plugins.useractions.actions = {
-  ["New Asana task in " .. consts.asanaWorkWorkspaceName] = {
+  ["New Asana task in " .. init.consts.asanaWorkWorkspaceName] = {
     fn = function(x)
-      newAsanaTask(x, consts.asanaWorkWorkspaceName)
-      refocusAfterUserAction()
+      asana.newTask(x, init.consts.asanaWorkWorkspaceName)
     end,
     keyword = "awork"
   },
-  ["New Asana task in " .. consts.asanaPersonalWorkspaceName] = {
+  ["New Asana task in " .. init.consts.asanaPersonalWorkspaceName] = {
     fn = function(x)
-      newAsanaTask(x, consts.asanaPersonalWorkspaceName)
-      refocusAfterUserAction()
+      asana.newTask(x, init.consts.asanaPersonalWorkspaceName)
     end,
     keyword = "ahome"
   },
