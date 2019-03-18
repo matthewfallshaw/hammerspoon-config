@@ -328,6 +328,11 @@ end
 
 -- Fitzroy
 function obj.FitzroyEntryActions()
+  if hs.wifi.currentNetwork() ~= 'TheBarn' then
+    -- Connecting a Fitzroy monitor will force reconnection to TheBarn
+    -- (Sometimes get stuck connecting to United_Wi-Fi and won't reconnect to TheBarn)
+    hs.wifi.associate('TheBarn', hs.execute('security find-generic-password -a TheBarn -s AirPort -w'))
+  end
   killApp('Transmission')
   slack.setStatus('Fitzroy')
   hs.execute('~/code/utilities/Scripts/mount-external-drives', true)
