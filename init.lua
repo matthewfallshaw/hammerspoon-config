@@ -238,6 +238,15 @@ spoon.CaptureHotkeys:capture("Slack", {
 spoon.AppHotkeys:start()
 
 
+local clock = hs.loadSpoon("AClock")
+clock.format = "%H:%M:%S"
+clock.textColor = {hex="#00c403"}
+clock.textFont = "Menlo Bold"
+clock.height = 160
+clock.width = 675
+clock:init()
+
+
 -- ChromeTabs
 chrome_tabs = require('chrome_tabs')
 -- chrome_tabs.chooser = require('chrome_tabs.chrome_tab_chooser')
@@ -368,6 +377,11 @@ seal.plugins.useractions.actions = {
       })
     end,
     keyword = "mdocs"
+  },
+  Clock = {
+    fn = function()
+      spoon.AClock:toggleShowPersistent()
+    end
   },
 }
 seal:refreshAllCommands()
