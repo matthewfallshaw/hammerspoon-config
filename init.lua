@@ -142,6 +142,22 @@ logger.i("Starting Transmission VPN Guard")
 init.applicationWatcher = hs.application.watcher.new(applicationWatcherCallback)
 init.applicationWatcher:start()
 
+-- Desktop organisation
+logger.i("Reorganising Desktop")
+init.volumeWatcher = hs.fs.volume.new(function(event, info)
+  if (event == hs.fs.volume.didMount) and (info.path:match('^/Volumes/Keybase')) then
+    -- Move Keybase volume into position
+    hs.timer.doAfter(3, function ()
+      hs.osascript.applescript([[
+        tell application "Finder"
+          set keybaseFolder to first disk whose name begins with "Keybase"
+          set desktop position of keybaseFolder to {1493, 399}
+        end tell
+      ]])
+    end)
+end
+end):start()
+
 
 hs.loadSpoon("URLDispatcher")
 spoon.URLDispatcher.default_handler = init.consts.URLDispatcher.default_handler
