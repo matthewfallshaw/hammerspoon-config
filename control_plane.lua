@@ -346,8 +346,24 @@ end
 -- Canning
 function obj.CanningEntryActions()
   slack.setStatus('Canning')
+
   hs.execute('~/code/utilities/Scripts/mount-external-drives', true)
+
   if not hs.application('Lights Switch') then hs.application.open('Lights Switch') end
+
+  local setMacBookAudio = function()
+    ( hs.audiodevice.findOutputByName("External Headphones") or
+      hs.audiodevice.findOutputByName("MacBook Pro Speakers")
+    ):setDefaultOutputDevice()
+  end
+  if obj.watchers.canning == nil then obj.watchers.canning = {} end
+  obj.watchers.canning.screens =
+    obj.watchers.canning.screens or
+    hs.screen.watcher.new(function()
+      setMacBookAudio()
+    end)
+  obj.watchers.canning.screens:start()
+  setMacBookAudio()
 end
 
 function obj.CanningExitActions()
