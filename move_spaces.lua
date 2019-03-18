@@ -114,19 +114,23 @@ function M.showDesktopSpaceNumbers()
   end
 
   for _,screen in pairs(hs.screen.allScreens()) do
-    M.space_labels[screen:spacesUUID()] = hs.drawing.text(
-      hs.geometry.rect(
-        screen:frame().x + 2,
-        screen:frame().y - 21,
-        11, 11
-      ),
-      map.active_spaces[screen:spacesUUID()].space_number
-    ):
-      setBehavior(hs.drawing.windowBehaviors['stationary']):
-      setLevel('assistiveTechHigh'):
-      setTextSize(8):
-      setAlpha(0.7):
-      show()
+    if screen:spacesUUID() then
+      M.space_labels[screen:spacesUUID()] = hs.drawing.text(
+        hs.geometry.rect(
+          screen:frame().x + 2,
+          screen:frame().y - 21,
+          11, 11
+        ),
+        map.active_spaces[screen:spacesUUID()].space_number
+      ):
+        setBehavior(hs.drawing.windowBehaviors['stationary']):
+        setLevel('assistiveTechHigh'):
+        setTextSize(8):
+        setAlpha(0.7):
+        show()
+    else
+      logger.w('No spacesUUID() for screen '.. i(screen))
+    end
   end
 end
 
