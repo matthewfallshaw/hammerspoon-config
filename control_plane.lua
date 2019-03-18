@@ -28,7 +28,9 @@ logger.i('Loading ControlPlane')
 local ACTION_DELAY = 5 -- seconds
 local KILL_APP_RETRY_DELAY = 30 -- seconds
 
-obj.locationFactsPriority = { 'network', 'monitor', 'psu'}
+obj.watchers = {}
+
+obj.locationFactsPriority = { 'monitor', 'network', 'psu'}
 local locationFactsPriority = obj.locationFactsPriority
 
 local application = hs.application
@@ -145,6 +147,11 @@ function obj.actions()
     logger.i('Exit actions for Location: '.. obj.previousLocation)
     if obj[obj.previousLocation .. 'ExitActions'] then
       obj[obj.previousLocation .. 'ExitActions']()
+    end
+    if obj.watchers[obj.previousLocation] then
+      for _, w in pairs(obj.watchers[obj.previousLocation]) do
+        w:stop()
+      end
     end
   end
   if obj[locationFacts.location .. 'EntryActions'] then
@@ -284,12 +291,12 @@ local network_hungry_apps = {
   kill = {
     'Transmission'
   },
+  kill_and_resume = {
   -- These moved to being blocked by Little Snitch
-  -- kill_and_resume = {
   --   'Dropbox',
   --   'Google Drive File Stream',
   --   {'Backup and Sync from Google', 'Backup and Sync'},
-  -- }
+  }
 }
 
 -- Expensive
