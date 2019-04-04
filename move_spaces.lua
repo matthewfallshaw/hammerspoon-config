@@ -80,75 +80,12 @@ function M:nudgeOrMove(direction)
   end
 end
 
-local function spaces_map()
-  local space_number = 0
-  local screen_number = 0
-  local map = { active_spaces = {} }
-  for _, screen in pairs(spaces.raw.details()) do
-    screen_number = screen_number + 1
-    for _, space in pairs(screen.Spaces) do
-      space_number = space_number + 1
-      map[space.ManagedSpaceID] = {
-        space_number = space_number,
-        uuid = space.uuid,
-        type = space.type,
-      }
-    end
-    map.active_spaces[screen["Display Identifier"]] = {
-      screen_number = screen_number,
-      space_number = map[screen["Current Space"].ManagedSpaceID].space_number,
-      space_id = screen["Current Space"].ManagedSpaceID,
-      display_identifier = screen["Display Identifier"]
-    }
-  end
-  return map
-end
-
-function M.showDesktopSpaceNumbers()
-  local map = spaces_map()
-
-  if M.space_labels then
-    hs.fnutils.each(M.space_labels, function(l) l:delete() end)
-  else
-    M.space_labels = {}
-  end
-
-  for _,screen in pairs(hs.screen.allScreens()) do
-    if screen:spacesUUID() then
-      M.space_labels[screen:spacesUUID()] = hs.drawing.text(
-        hs.geometry.rect(
-          screen:frame().x + 2,
-          screen:frame().y - 21,
-          11, 11
-        ),
-        map.active_spaces[screen:spacesUUID()].space_number
-      ):
-        setBehavior(hs.drawing.windowBehaviors['stationary']):
-        setLevel('assistiveTechHigh'):
-        setTextSize(8):
-        setAlpha(0.7):
-        show()
-    else
-      logger.w('No spacesUUID() for screen '.. i(screen))
-    end
-  end
-end
-
-M.spacesWatcher = hs.spaces.watcher.new(M.showDesktopSpaceNumbers)
-M.screensWatcher = hs.screen.watcher.new(M.showDesktopSpaceNumbers)
-
 function M:bindHotkeys(mapping)
   self.hotkeys.right = spoon.CaptureHotkeys:bind("WindowSpacesLeftAndRight", "Right",
     mapping.right[1], mapping.right[2], function() self:nudgeOrMove("right") end)
   self.hotkeys.left  = spoon.CaptureHotkeys:bind("WindowSpacesLeftAndRight", "Left",
     mapping.left[1], mapping.left[2],  function() self:nudgeOrMove("left") end)
   return self
-end
-
-function M:start()
-  self.spacesWatcher:start()
-  self.screensWatcher:start()
-  self.showDesktopSpaceNumbers()
 end
 
 return M

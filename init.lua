@@ -162,7 +162,6 @@ end):start()
 hs.loadSpoon("URLDispatcher")
 spoon.URLDispatcher.default_handler = init.consts.URLDispatcher.default_handler
 spoon.URLDispatcher.url_patterns = init.consts.URLDispatcher.url_patterns
-spoon.URLDispatcher.logger.setLogLevel('debug')
 spoon.URLDispatcher:start()
 -- URLs from hammerspoon:// schema
 local _, unescape = require('utilities.string_escapes')()
@@ -284,7 +283,11 @@ move_spaces:bindHotkeys({
   left  = {{"⌘", "⌥", "⌃", "⇧"}, "h"},
   right = {{"⌘", "⌥", "⌃", "⇧"}, "l"},
 })
-move_spaces:start()
+
+
+-- Desktop space numbers
+desktop_space_numbers = require('desktop_space_numbers')
+desktop_space_numbers:start()
 
 
 hs.loadSpoon("Seal")
