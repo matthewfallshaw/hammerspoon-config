@@ -231,7 +231,7 @@ function obj.networkConfCallback(_, keys)
       locationFacts.network = 'Expensive'
     elseif hs.wifi.currentNetwork() == 'blacknode' then
       locationFacts.network = 'Canning'
-    elseif hs.wifi.currentNetwork() == 'bellroy' then
+    elseif hs.wifi.currentNetwork() == 'TheBarn' then
       locationFacts.network = 'Fitzroy'
     elseif hs.wifi.currentNetwork() == 'MIRICFAR UniFi' then
       locationFacts.network = 'MIRI'
@@ -258,22 +258,23 @@ obj.networkConfWatcher =
 -- Attached power supply change (Canning, Fitzroy)
 function obj.powerCallback()
   logger.i('Power changed')
-  if hs.battery.psuSerial() == 7411505 then
-    locationFacts.psu = 'Fitzroy'
-  else
+  -- if hs.battery.psuSerial() == 7411505 then
+  --   locationFacts.psu = 'Fitzroy'
+  -- else
     locationFacts.psu = nil
-  end
+  -- end
 end
 obj.batteryWatcher = hs.battery.watcher.new( function() obj.powerCallback() end )
 
 -- Attached monitor change (Canning, Fitzroy)
 function obj.screenCallback()
   logger.i('Monitor changed')
-  if hs.screen.find(724044049) then
-    locationFacts.monitor = 'Canning'
-  elseif hs.screen.find(724061396) then
-    locationFacts.monitor = 'Fitzroy'
-  elseif hs.screen.find(69992768) then
+  -- if hs.screen.find(724044049) then
+  --   locationFacts.monitor = 'Canning'
+  -- elseif hs.screen.find(724043857) then
+  --   locationFacts.monitor = 'Fitzroy'
+  if hs.screen.find(69992768) then
+  -- elseif hs.screen.find(69992768) then
     locationFacts.monitor = 'CanningServer'
   else
     locationFacts.monitor = nil
@@ -336,6 +337,11 @@ function obj.FitzroyEntryActions()
   killApp('Transmission')
   slack.setStatus('Fitzroy')
   hs.execute('~/code/utilities/Scripts/mount-external-drives', true)
+  -- Mute MacBook Pro Speakers if they're the current audio device
+  local adt = hs.audiodevice.current()
+  if adt.name == 'MacBook Pro Speakers' and adt.muted == false then
+    adt.device:setOutputMuted(true)
+  end
 end
 
 function obj.FitzroyExitActions()
@@ -352,9 +358,10 @@ function obj.CanningEntryActions()
   if not hs.application('Lights Switch') then hs.application.open('Lights Switch') end
 
   local setMacBookAudio = function()
-    ( hs.audiodevice.findOutputByName("External Headphones") or
+    local output_device = ( hs.audiodevice.findOutputByName("External Headphones") or
       hs.audiodevice.findOutputByName("MacBook Pro Speakers")
-    ):setDefaultOutputDevice()
+    )
+    if output_device then output_device:setDefaultOutputDevice() end
   end
   if obj.watchers.canning == nil then obj.watchers.canning = {} end
   obj.watchers.canning.screens =
