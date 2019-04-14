@@ -23,6 +23,7 @@ local function spaces_map()
       space_number = space_number + 1
       map[space.ManagedSpaceID] = {
         space_number = space_number,
+        space_id = screen["Current Space"].ManagedSpaceID,
         uuid = space.uuid,
         type = space.type,
       }
@@ -36,6 +37,7 @@ local function spaces_map()
   end
   return map
 end
+M.spaces_map = spaces_map
 
 function M.showDesktopSpaceNumbers()
   local map = spaces_map()
@@ -62,7 +64,7 @@ function M.showDesktopSpaceNumbers()
         setAlpha(0.7):
         show()
     else
-      logger.w('No spacesUUID() for screen '.. i(screen))
+      logger.w('No spacesUUID() for screen '.. hs.inspect(screen))
     end
   end
 end
