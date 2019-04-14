@@ -157,17 +157,18 @@ init.applicationWatcher:start()
 
 -- Desktop organisation
 logger.i("Reorganising Desktop")
+local function reorganise_desktop()
+  hs.osascript.applescript([[
+    tell application "Finder"
+      set keybaseFolder to first disk whose name begins with "Keybase"
+      set desktop position of keybaseFolder to {1493, 399}
+    end tell
+  ]])
+end
 init.volumeWatcher = hs.fs.volume.new(function(event, info)
   if (event == hs.fs.volume.didMount) and (info.path:match('^/Volumes/Keybase')) then
     -- Move Keybase volume into position
-    hs.timer.doAfter(3, function ()
-      hs.osascript.applescript([[
-        tell application "Finder"
-          set keybaseFolder to first disk whose name begins with "Keybase"
-          set desktop position of keybaseFolder to {1493, 399}
-        end tell
-      ]])
-    end)
+    hs.timer.doAfter(3, reorganise_desktop)
 end
 end):start()
 
@@ -398,6 +399,9 @@ seal.plugins.useractions.actions = {
     fn = function()
       spoon.AClock:toggleShowPersistent()
     end
+  },
+  ["Reorganise Desktop"] = {
+    fn = reorganise_desktop
   },
 }
 seal:refreshAllCommands()
