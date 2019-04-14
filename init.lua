@@ -50,6 +50,19 @@ spoon.Hammer:start()
 
 -- Control Plane replacement: Actions on change of location
 control_plane = require('control_plane'):start()  -- luacheck: ignore
+init.control_plane = hs.watchable.watch(
+  'control_plane', 'wifi_security',
+  function(_watcher, _path, _key, _old_value, new_value)
+    if new_value == 'None' then
+      hs.application.open('Private Internet Access')
+      local alert = hs.alert.show("WARNING: Insecure WiFi connection",{textSize=48},hs.screen.mainScreen(),1.8)
+      hs.timer.doAfter(2, function()
+        hs.alert.closeSpecific(alert)
+        hs.alert.show("WARNING: Insecure WiFi connection",{textSize=48},hs.screen.mainScreen(),6)
+      end)
+    end
+  end
+)
 
 
 -- Stay replacement: Keep App windows in their places
