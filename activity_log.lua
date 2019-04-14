@@ -5,17 +5,7 @@ local M = {}
 local LOGDIR = os.getenv("HOME").."/log"
 local LOGFILE = LOGDIR.."/activities.log"
 
-function M:start()
-  M.host = hs.host.localizedName()
-  for _,watcher in pairs(M.watchers) do
-    watcher:start()
-  end
-end
-function M:stop()
-  for _,watcher in pairs(M.watchers) do
-    watcher:stop()
-  end
-end
+local caffeinate_watcher = hs.caffeinate.watcher
 
 
 local function dirExists(filepath)
@@ -41,15 +31,31 @@ local caffeinate_events = {
   "systemWillSleep", "systemWillPowerOff", "systemDidWake",
 }
 for _,event in pairs(caffeinate_events) do
-  caffeinate_events[hs.caffeinate.watcher[event]] = event
+  caffeinate_events[caffeinate_watcher[event]] = event
 end
 
 M.watchers = {
-  caffeinate = hs.caffeinate.watcher.new(function(event)
+  caffeinate = caffeinate_watcher.new(function(event)
     -- write event to log
     log_activity(tostring(caffeinate_events[event]))
   end),
 }
+
+function M:start()
+  M.host = hs.host.localizedName()
+  for _,watcher in pairs(self.watchers) do
+    watcher:start()
+  end
+  log_activity('Start:'..
+    reduce(function(acc,k) return acc == '' and k or acc..','..k end, '', self.watchers))
+end
+function M:stop()
+  for _,watcher in pairs(self.watchers) do
+    watcher:stop()
+  end
+  log_activity('Stop:'..
+    reduce(function(acc,k) return acc == '' and k or acc..','..k end, '', self.watchers))
+end
 
 
 return M
