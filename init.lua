@@ -221,9 +221,9 @@ hs.loadSpoon("AppHotkeys")
 local hks = spoon.AppHotkeys.hotkeys
 -- Terminal ⌘1-9 to tab focus
 logger.i("Terminal hotkeys for switching ⌘1-9 to Tab focus")
-for i=1,8 do
-  table.insert(hks["Terminal"], hs.hotkey.new('⌘', tostring(i), function()
-    hs.osascript.applescript('tell application "Terminal" to set selected of tab ' .. i .. ' of first window to true')
+for ii=1,8 do
+  table.insert(hks["Terminal"], hs.hotkey.new('⌘', tostring(ii), function()
+    hs.osascript.applescript('tell application "Terminal" to set selected of tab ' .. ii .. ' of first window to true')
   end))
 end
 table.insert(hks["Terminal"], hs.hotkey.new('⌘', "9", function()
