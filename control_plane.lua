@@ -3,7 +3,13 @@
 -- Watch for location changes with
 --   ``` lua
 --   hs.watchable.watch(
---     'control-plane.location',
+--     'control_plane', 'location',
+--     function(watcher, path, key, old_value, new_value)
+--       -- actions
+--     end
+--   )
+--   hs.watchable.watch(
+--     'control_plane', 'wifi_security',
 --     function(watcher, path, key, old_value, new_value)
 --       -- actions
 --     end
@@ -18,6 +24,8 @@
 --    acting until they've calmed down)
 -- 3. actionTimer updates locationFacts.location
 -- 4. locationWatcher fires actions when locationFacts.location changes
+--
+-- Publishes wifi_security in its hs.watchable since it's tracking wifi changes.
 
 local obj = {}  -- module
 
@@ -35,10 +43,10 @@ local locationFactsPriority = obj.locationFactsPriority
 
 local application = hs.application
 
-obj.locationFacts = hs.watchable.new('control-plane', true)
+obj.locationFacts = hs.watchable.new('control_plane', true)
 local locationFacts = obj.locationFacts
 locationFacts.location = ''
-obj.locationFactsWatcher = hs.watchable.watch('control-plane.*',
+obj.locationFactsWatcher = hs.watchable.watch('control_plane.*',
   function(_, _, key, _, new_value)
     logger.i('Updating '.. key ..' = ' .. tostring(new_value))
     if key ~= 'location' then
@@ -46,7 +54,7 @@ obj.locationFactsWatcher = hs.watchable.watch('control-plane.*',
     end
   end)
 obj.actionTimer = hs.timer.delayed.new(ACTION_DELAY, function() obj.updateLocation() end)
-obj.locationWatcher = hs.watchable.watch('control-plane.location',
+obj.locationWatcher = hs.watchable.watch('control_plane.location',
   function(_, _, _, old_value, _)
     if old_value ~= '' then obj.previousLocation = old_value end
     obj.actions()
@@ -215,13 +223,14 @@ function obj.networkConfCallback(_, keys)
   -- Work out which network we're on
   if (hs.network.reachability.internet():status() &
         hs.network.reachability.flags.reachable) > 0 then
-    local pi4, _ = hs.network.primaryInterfaces() -- use pi4, ignore pi6
+    local pi4, pi6 = hs.network.primaryInterfaces() -- use pi4, ignore pi6
     if pi4 then
       logger.i('Primary interface is '.. pi4)
     else
       logger.w('hs.network.reachability.internet():status() == '..
                hs.network.reachability.internet():status() ..
-               ' but hs.network.primaryInterfaces() == false… which is confusing')
+               ' but hs.network.primaryInterfaces() == false… which is confusing\n'..
+               'pi4: '..tostring(pi4)..' pi6:'..tostring(pi6))
     end
     if hs.network.interfaceDetails(pi4) and
        hs.network.interfaceDetails(pi4).Link and
@@ -243,6 +252,9 @@ function obj.networkConfCallback(_, keys)
     logger.i('No primary interface')
     locationFacts.network = nil
   end
+
+  -- Update wifi_security key in watchable, since we have this anyway
+  locationFacts.wifi_security = hs.wifi.interfaceDetails("en0").security
 end
 obj.networkConfWatcher =
   hs.network.configuration.open():setCallback(
