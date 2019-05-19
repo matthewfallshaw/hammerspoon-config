@@ -304,6 +304,14 @@ desktop_space_numbers = require('desktop_space_numbers')
 desktop_space_numbers:start()
 
 
+-- Keycastr
+keycastr = require('keycastr')
+keycastr:bindHotkeys({
+
+})
+keycastr:start()
+
+
 hs.loadSpoon("Seal")
 local seal = spoon.Seal
 local asana = require('asana')
