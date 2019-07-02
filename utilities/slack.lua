@@ -24,28 +24,35 @@ if not fileExists(cli) then
   " there (insert your API token and `chmod u+x ...`).")
 end
 
-function obj.setStatus(location)
+local function retry_fn(try_count)
+  local setStatusRetry = function(exitCode, stdOut, stdErr)
+    if exitCode ~= 0 then  -- if task fails, try again after 30s
+      logger.w('Slack status update failed - exitCode:' .. tostring(exitCode) ..
+      " stdOut:" .. tostring(stdOut) .. " stdErr:" .. tostring(stdErr)
+      )
+      if try_count < 5 then
+        hs.timer.doAfter((try_count == 1) and 30 or (2^(try_count-1) * 60),
+          function() hs.task.new(cli, setStatusRetry, {location}) end
+        ):start()
+      end
+    else
+      logger.i('Slack status update successful')
+    end
+  end
+  return setStatusRetry
+end
+
+
+function obj.setStatus(location, try_count)
+  if not try_count then try_count = 1 end
+
   if location == '' then
     logger.i('Slack status -')
   else
     logger.i('Slack status ' .. location)
   end
 
-  -- recreate the retry fuction so that it captures the right `location`
-  local function setStatusRetry(exitCode, stdOut, stdErr)
-    if exitCode ~= 0 then  -- if task fails, try again after 30s
-      logger.w('Slack status update failed - exitCode:' .. tostring(exitCode) ..
-        " stdOut:" .. tostring(stdOut) .. " stdErr:" .. tostring(stdErr)
-      )
-      hs.timer.doAfter(30,
-        function() hs.task.new(cli, setStatusRetry, {location}) end
-      ):start()
-    else
-      logger.i('Slack status update successful')
-    end
-  end
-
-  hs.task.new(cli, setStatusRetry, {location}):start()
+  hs.task.new(cli, retry_fn(try_count), {location}):start()
 end
 
 return obj

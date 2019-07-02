@@ -1,5 +1,7 @@
 -- Log screen & power events
 
+local fun = require 'fun'
+
 local M = {}
 
 local LOGDIR = os.getenv("HOME").."/log"
@@ -47,14 +49,14 @@ function M:start()
     watcher:start()
   end
   log_activity('Start:'..
-    reduce(function(acc,k) return acc == '' and k or acc..','..k end, '', self.watchers))
+    fun.reduce(function(acc,k) return acc == '' and k or acc..','..k end, '', self.watchers))
 end
 function M:stop()
   for _,watcher in pairs(self.watchers) do
     watcher:stop()
   end
   log_activity('Stop:'..
-    reduce(function(acc,k) return acc == '' and k or acc..','..k end, '', self.watchers))
+    fun.reduce(function(acc,k) return acc == '' and k or acc..','..k end, '', self.watchers))
 end
 
 

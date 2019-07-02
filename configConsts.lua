@@ -15,7 +15,12 @@ return {
   URLDispatcher = {
     url_patterns = {
       -- { <url pattern>, <application bundle ID> },
-      { "https?://www.pivotaltracker.com/.*",  "org.epichrome.app.PivotalTrack" },
+      { "https?://www.pivotaltracker.com/n/.*",  "org.epichrome.app.PivotalTrack" },
+      { "https?://www.pivotaltracker.com/story/.*",  "org.epichrome.app.PivotalTrack" },
+      { "https?://www.pivotaltracker.com/dashboard",  "org.epichrome.app.PivotalTrack" },
+      { "https?://www.pivotaltracker.com/reports/.*",  "org.epichrome.app.PivotalTrack" },
+      { "https?://www.pivotaltracker.com/projects/.*",  "org.epichrome.app.PivotalTrack" },
+      { "https?://www.pivotaltracker.com/epic/.*",  "org.epichrome.app.PivotalTrack" },
       { "https?://app.asana.com/.*",           "org.epichrome.app.Asana" },
       { "https?://morty.trikeapps.com/.*",     "org.epichrome.app.Morty" },
       { "https?://app.greenhouse.io/.*",       "org.epichrome.app.Greenhouse" },

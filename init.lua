@@ -1,7 +1,16 @@
+-- Enable this to do live debugging in ZeroBrane Studio
+ -- local ZBS = "/Applications/ZeroBraneStudio.app/Contents/ZeroBraneStudio"
+ -- package.path = package.path .. ";" .. ZBS .. "/lualibs/?/?.lua;" .. ZBS .. "/lualibs/?.lua"
+ -- package.cpath = package.cpath .. ";" .. ZBS .. "/bin/?.dylib;" .. ZBS .. "/bin/clibs53/?.dylib"
+ -- require("mobdebug").start()
+
 -- p = require 'utilities.profile'
 -- p:start()
 
---luacheck: allow defined top
+-- luacheck: allow defined top
+
+local _ENV = require 'std.strict' (_G) -- luacheck: no unused
+local fun = require 'fun'
 
 init = {}  -- watchers & etc.
 
@@ -11,7 +20,7 @@ local logger = hs.logger.new("Init")
 init.logger = logger
 hs.console.clearConsole()
 
-i = hs.inspect.inspect  -- luacheck: ignore
+i = hs.inspect.inspect  -- luacheck: no global
 
 -- # Setup for everything else #
 --
@@ -49,24 +58,41 @@ spoon.Hammer:start()
 
 
 -- Control Plane replacement: Actions on change of location
-control_plane = require('control_plane'):start()  -- luacheck: ignore
-init.control_plane = hs.watchable.watch(
-  'control_plane', 'wifi_security',
-  function(_watcher, _path, _key, _old_value, new_value)
-    if new_value == 'None' then
+control_plane = require('control_plane'):start()  -- luacheck: no global
+local function is_trusted_network()
+  local trusted_open_networks = {"Blackthorne"}
+  return not not (fun.index(trusted_open_networks,
+                            require('control_plane').locationFacts.wifi_ssid))
+end
+local function insecure_network_actions(security_mode)
+  if security_mode == 'None' then
+    if is_trusted_network() then
+      hs.alert.show("WARNING: Insecure WiFi connection",{textSize=48},hs.screen.mainScreen(),1.8)
+      hs.alert.show("*not* locking you down since '"..
+        tostring(require('control_plane').locationFacts.wifi_ssid)..
+        "' is a trusted network")
+    else
       hs.application.open('Private Internet Access')
       local alert = hs.alert.show("WARNING: Insecure WiFi connection",{textSize=48},hs.screen.mainScreen(),1.8)
-      hs.timer.doAfter(2, function()
+      hs.timer.doAfter(2, function()  -- delay to allow network facts to be collected
         hs.alert.closeSpecific(alert)
         hs.alert.show("WARNING: Insecure WiFi connection",{textSize=48},hs.screen.mainScreen(),6)
       end)
     end
+  else  -- luacheck: ignore 542
+    -- do nothing
+  end
+end
+init.control_plane_wifi_security_watcher = hs.watchable.watch(
+  'control_plane', 'wifi_security',
+  function(_, _, _, _, new_value)
+    hs.timer.doAfter(1, function() insecure_network_actions(new_value) end)
   end
 )
 
 
 -- Stay replacement: Keep App windows in their places
-stay = require('stay'):start()  -- luacheck: ignore
+stay = require('stay'):start()  -- luacheck: no global
 spoon.CaptureHotkeys:capture(
   "Stay", "Once, toggle layout engine; twice, report screens; thrice, report frontmost window; "..
     "four times, report frontmost & open stay.lua for editing",
@@ -119,11 +145,18 @@ local function usbDeviceCallback(data)
       log:and_alert(data['productName'].. ' added, launching ScanSnap Home')
       hs.application.launchOrFocus('ScanSnapHomeMain')
     elseif (data['eventType'] == 'removed') then
-      hs.fnutils.ieach(table.pack(hs.application.find("ScanSnap")), function(app)
-        log:and_alert(data['productName'].. ' removed, closing '.. app:name())
-        app:kill()
-      end)
-      if hs.application.get('AOUMonitor') then hs.application.get('AOUMonitor'):kill9() end
+      local scansnaps = table.pack(hs.application.find("ScanSnap"))
+      if scansnaps.n > 0 then
+        fun.each(function(app)
+                   log:and_alert(data['productName'].. ' removed, closing '.. app:name())
+                   app:kill()
+                 end,
+                 scansnaps)
+      else  -- luacheck: ignore 542
+        -- do nothing
+      end
+      local aou_mon = hs.application.get('AOUMonitor')
+      if aou_mon then aou_mon:kill9() end
     end
   end
 end
@@ -185,6 +218,7 @@ local function URLDispatcherCallback(_, params)
   spoon.URLDispatcher:dispatchURL(parts.scheme, parts.host, parts.parameterString, fullUrl)
 end
 spoon.URLDispatcher.url_dispatcher = hs.urlevent.bind("URLDispatcher", URLDispatcherCallback)
+spoon.URLDispatcher.logger.setLogLevel('debug')  -- to track redirections, which often fail
 
 
 hs.loadSpoon("MouseCircle")
@@ -221,28 +255,39 @@ hs.loadSpoon("AppHotkeys")
 local hks = spoon.AppHotkeys.hotkeys
 -- Terminal ⌘1-9 to tab focus
 logger.i("Terminal hotkeys for switching ⌘1-9 to Tab focus")
-for ii=1,8 do
-  table.insert(hks["Terminal"], hs.hotkey.new('⌘', tostring(ii), function()
-    hs.osascript.applescript('tell application "Terminal" to set selected of tab ' .. ii .. ' of first window to true')
-  end))
-end
-table.insert(hks["Terminal"], hs.hotkey.new('⌘', "9", function()
-  hs.osascript.applescript('tell application "Terminal" to set selected of last tab of first window to true')
-end))
+hks.Terminal = fun.map(
+  function(hotkey)
+    if hotkey == 9 then
+      return hs.hotkey.new('⌘',
+                           tostring(hotkey),
+                           function()
+                             hs.osascript.applescript('tell application "Terminal" to set selected of last tab '..
+                                                      'of first window to true')
+                           end)
+    else
+      return hs.hotkey.new('⌘',
+                           tostring(hotkey),
+                           function()
+                             hs.osascript.applescript('tell application "Terminal" to set selected of tab '..
+                                                      hotkey .. ' of first window to true')
+                           end)
+    end
+  end,
+  fun.range(9))
 spoon.CaptureHotkeys:capture("Terminal", {
   ["Select tab n"] = { {"⌘"}, "n" },
   ["Select last tab"] = { {"⌘"}, "9" },
 })
 -- Slack usability improvements
 logger.i("Slack usability hotkeys")
-table.insert(hks["Slack"], hs.hotkey.new('⌘', 'w', function()
-  hs.eventtap.keyStrokes("/leave ")
-  hs.timer.doAfter(0.3, function() hs.application.get("Slack"):activate(); hs.eventtap.keyStroke({}, "return") end)
-end))
-table.insert(hks["Slack"],
-             hs.hotkey.new('⌘⇧', ']', function() hs.eventtap.keyStroke({'alt'}, 'down') end))
-table.insert(hks["Slack"],
-             hs.hotkey.new('⌘⇧', '[', function() hs.eventtap.keyStroke({'alt'}, 'up') end))
+hks.Slack = {
+  hs.hotkey.new('⌘', 'w', function()
+    hs.eventtap.keyStrokes("/leave ")
+    hs.timer.doAfter(0.3, function() hs.application.get("Slack"):activate(); hs.eventtap.keyStroke({}, "return") end)
+  end),
+  hs.hotkey.new('⌘⇧', ']', function() hs.eventtap.keyStroke({'alt'}, 'down') end),
+  hs.hotkey.new('⌘⇧', '[', function() hs.eventtap.keyStroke({'alt'}, 'up') end),
+}
 spoon.CaptureHotkeys:capture("Slack", {
   ["Close Channel"] = { {"⌘"}, "w" },
   ["Next Channel"] = { {"⌘", "⇧"}, "]" },
@@ -307,10 +352,13 @@ desktop_space_numbers:start()
 -- Keycastr
 keycastr = require('keycastr')
 keycastr:bindHotkeys({
-
+  togger = { toggle = {{"cmd", "shift", "ctrl"}, 'P'} }
 })
 keycastr:start()
 
+
+-- Remember & restore active spaces per screen layout
+-- TODO
 
 hs.loadSpoon("Seal")
 local seal = spoon.Seal
@@ -447,9 +495,26 @@ if hs.host.localizedName() == "notnux2" then
   activity_log:start()
 
   -- mission_control_hotkeys = require('mission_control_hotkeys')
+
+  -- Reorganise desktop
+  reorganise_desktop()
 end
 
+
+
+-- p = require 'utilities.profile'
+-- dd_timer = hs.timer.delayed.new(15, function()
+--   p:stop()
+--   p:writeReport('build/profile.'..os.date('%Y-%m-%d_%H-%M-%S')..'.txt')
+-- end)
+-- dd = hs.caffeinate.watcher.new(function(_)
+--   if p.has_finished then
+--     p:start()
+--   end
+--   dd_timer:start()
+-- end):start()
+
 -- p:stop()
--- p:writeReport('build/profile.txt')
+-- p:writeReport('build/profile.'..os.date('%Y-%m-%d_%H-%M-%S')..'.txt')
 
 hs.loadSpoon("FadeLogo"):start()

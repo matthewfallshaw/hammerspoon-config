@@ -25,7 +25,7 @@
 -- 3. actionTimer updates locationFacts.location
 -- 4. locationWatcher fires actions when locationFacts.location changes
 --
--- Publishes wifi_security in its hs.watchable since it's tracking wifi changes.
+-- Publishes wifi_security and wifi_ssid in its hs.watchable since it's tracking wifi changes.
 
 local obj = {}  -- module
 
@@ -254,7 +254,9 @@ function obj.networkConfCallback(_, keys)
   end
 
   -- Update wifi_security key in watchable, since we have this anyway
-  locationFacts.wifi_security = hs.wifi.interfaceDetails("en0").security
+  local wifi_interface_details = hs.wifi.interfaceDetails("en0")
+  locationFacts.wifi_ssid = wifi_interface_details.ssid
+  locationFacts.wifi_security = wifi_interface_details.security
 end
 obj.networkConfWatcher =
   hs.network.configuration.open():setCallback(

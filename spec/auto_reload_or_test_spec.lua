@@ -37,7 +37,7 @@ expose("Auto-reload or test library", function()
       fix.an_init_module_under_test.mod,
       fix.a_subdir_module_under_test.mod }
   end)
-  
+
   describe("is_module_under_test", function()
     it("returns true when module listed in modules_under_test", function()
       assert.is_true(arot.is_module_under_test(fix.a_module_under_test.mod))
