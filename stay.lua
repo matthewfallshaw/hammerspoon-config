@@ -1,5 +1,7 @@
 -- Stay replacement: Keep App windows in their places
 
+-- luacheck: globals hs
+
 local hs_geometry = hs.geometry
 local fun = require 'fun'
 
@@ -222,139 +224,11 @@ function M:stop()
 end
 
 
--- chrome_tabs = require 'chrome_tabs'
--- chrome_gmail_window_filter = hs.window.filter.new()
-
--- app_tabs = require 'app_tabs'
--- chrome_gmail_window_filter = app_tabs.window_filter.new({['Google Chrome'] = {
-    -- tab1 = {url_pattern = '^https://mail%.google%.com/mail/u/0/#'} }})
--- chrome_docs_window_filter = app_tabs.window_filter.new({['Google Chrome' ]= {
-    -- tab1 = {url_pattern = '^https://drive%.google%.com/drive/..[^0]'} }})
--- safari_gmail_window_filter = app_tabs.window_filter.new({Safari = {
---     tab1 = {url_pattern = '^https://mail%.google%.com/mail/u/0/'} }})
--- safari_docs_window_filter = app_tabs.window_filter.new({Safari = {
---     tab1 = {url_pattern = '^https://drive%.google%.com/drive/u/0/'} }})
-
-M.window_layouts = {
-  shared = hs.window.layout.new({
-    {{['Hammerspoon']={allowRoles='AXStandardWindow'}}, 'move 1 oldest [50,0>100,90] 0,0'},
-    {'Morty', 'move 1 oldest [0,0>70,100] 0,0'},
-    {'GitX', 'max all 0,0'},
-    {{['nvALT']={allowRoles='AXStandardWindow'}}, 'move 1 oldest [63,0>100,79] 0,0'},
-    {'Finder','move 1 oldest [35,37>87,80] 0,0'},
-    {'Skype', 'move 1 oldest [60,0>100,86] 0,0'},
-    {'Messages', 'move 1 oldest [53,0>100,71] 0,0'},
-    {'Activity Monitor', 'move 1 oldest [0,42>61,100] 0,0'},
-    {'Slack', 'move 1 oldest [40,0>100,100] 0,0'},
-    {{['Quicksilver']={allowRoles='AXStandardWindow'}}, 'move 1 oldest [24,12>84,86] 0,0'},
-    {'Lights Switch', 'move 1 oldest [59,0>87,67] 0,0'},
-  },'Shared'),
-  laptop = hs.window.layout.new({
-    screens={['Color LCD']='0,0',
-             ['-1,0']=false,['0,-1']=false,['1,0']=false,['0,1']=false}, -- when no external screens
-    -- {chrome_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
-    -- {chrome_docs_window_filter, 'move 1 oldest [0,0>80,100] 0,0'},
-    -- {safari_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
-    -- {safari_docs_window_filter, 'move 1 oldest [0,0>80,100] 0,0'},
-    -- {'Opera', 'move 1 closest [0,0>77,100] 0,0'},
-    -- {'Opera', 'move 1 closest [0,0>80,100] 0,0'},
-    -- {'Gmail', 'move 1 oldest [0,0>77,100] 0,0'},
-    -- {'Google Drive', 'move 1 oldest [0,0>80,100] 0,0'},
-    {'VimR', 'move 1 oldest [0,0>65,100] 0,0'},
-    -- {'MacVim', 'move 1 oldest [0,0>65,100] 0,0'},
-    {'iTerm2', 'move 1 oldest [50,0>100,100] 0,0'},
-    {{'PivotalTracker','Asana','Google Calendar','Calendar'},
-      'max 1 oldest 0,0'},
-  },'Laptop'),
-  melbournedesk = hs.window.layout.new({
-    screens={['DELL U2718Q']=true, ['1,0']=true},
-    {'VimR', 'move 1 oldest [0,0>42,100] 1,0'},
-    -- {'MacVim', 'move 1 oldest [0,0>42,100] 1,0'},
-    {'iTerm2', 'move 1 oldest [42,0>84,100] 1,0'},
-    {'PivotalTracker', 'max 1 oldest 1,0'},
-    {'Asana', 'move 1 oldest [0,0>50,100] 1,0'},
-    {'Google Calendar', 'move 1 oldest [0,8>100,100] 1,0'},
-    {'Calendar', 'max 1 oldest 1,0'},
-    {'FreeMindStarter', 'move 1 oldest [50,0>100,100] 1,0'},
-  }, 'MelbourneDesk'),
-  miridesk = hs.window.layout.new({
-    screens={['HP Z27']=true, ['DELL U2713HM']=true},
-    {'VimR', 'move 1 oldest [0,0>35,100] 0,-1'},
-    -- {'MacVim', 'move 1 oldest [0,0>42,100] 0,-1'},
-    {'iTerm2', 'move 1 oldest [35,0>70,100] 0,-1'},
-    {'PivotalTracker', 'max 1 oldest 0,-1'},
-    {'Asana', 'move 1 oldest [0,10>100,100] -1,0'},
-    {'Google Calendar', 'move 1 oldest [0,8>100,100] 0,-1'},
-    {'Calendar', 'max 1 oldest 0,-1'},
-    {'FreeMindStarter', 'move 1 oldest [50,0>100,100] 0,-1'},
-  }, 'MiriDesk'),
-  berkeleydesk = hs.window.layout.new({
-    screens={['LG HDR 5K']=true, ['0,-1']=true},
-    {'VimR', 'move 1 oldest [0,0>28,100] 0,-1'},
-    -- {'MacVim', 'move 1 oldest [0,0>28,100] 0,-1'},
-    {'iTerm2', 'move 1 oldest [28,0>56,100] 0,-1'},
-    {'PivotalTracker', 'max 1 oldest 0,-1'},
-    {'Asana', 'move 1 oldest [0,0>33,100] 0,-1'},
-    {'Google Calendar', 'move 1 oldest [0,8>100,100] 0,-1'},
-    {'Calendar', 'max 1 oldest 0,-1'},
-    {'FreeMindStarter', 'move 1 oldest [50,0>100,100] 0,-1'},
-  }, 'BerkeleyDesk'),
-  dualleft = hs.window.layout.new({
-    screens={['DELL U2718Q']=false,
-             ['-1,0']=true,['0,-1']=false,['1,0']=false,['0,1']=false},
-    -- {chrome_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
-    -- {chrome_docs_window_filter, 'move 1 oldest [20,0>80,100] -1,0'},
-    -- {safari_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
-    -- {safari_docs_window_filter, 'move 1 oldest [20,0>80,100] -1,0'},
-    -- {'Opera', 'move 1 closest [0,0>77,100] 0,0'},
-    -- {'Opera', 'move 1 closest [20,0>80,100] -1,0'},
-    -- {'Gmail', 'move 1 oldest [0,0>77,100] 0,0'},
-    -- {'Google Drive', 'move 1 oldest [20,0>80,100] -1,0'},
-    {'VimR', 'move 1 oldest [0,0>50,100] -1,0'},
-    -- {'MacVim', 'move 1 oldest [0,0>50,100] -1,0'},
-    {'iTerm2', 'move 1 oldest [50,0>100,100] -1,0'},
-    {'PivotalTracker', 'max 1 oldest -1,0'},
-    {'Asana', 'move 1 oldest [0,0>66,100] -1,0'},
-    {'Google Calendar', 'max 2 oldest -1,0'},
-    {'Calendar', 'max 1 oldest -1,0'},
-    {'FreeMindStarter', 'move 1 oldest [50,0>100,100] -1,0'},
-    {'Snagit 2018', 'move 1 oldest [15,12>85,88] -1,0'}
-  },'DualLeft'),
-  dualtop = hs.window.layout.new({
-    screens={['0,-1']=true,
-             ['DELL U2718Q']=false,['DELL U2713HM']=false,['LG HDR 5K']=false,
-             ['-1,0']=false,['1,0']=false,['0,1']=false,['-1,-1']=false},
-    -- {chrome_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
-    -- {chrome_docs_window_filter, 'move 1 oldest [20,0>80,100] 0,-1'},
-    -- {safari_gmail_window_filter, 'move 1 oldest [0,0>60,100] 0,-1'},
-    -- {safari_docs_window_filter, 'move 1 oldest [0,0>80,100] 0,0'},
-    -- {'Opera', 'move 1 closest [0,0>60,100] 0,-1'},
-    -- {'Opera', 'move 1 closest [0,0>80,100] 0,0'},
-    -- {'Gmail', 'move 1 oldest [0,0>60,100] 0,-1'},
-    -- {'Google Drive', 'move 1 oldest [0,0>80,100] 0,0'},
-    {'VimR', 'move 1 oldest [0,0>50,100] 0,-1'},
-    -- {'MacVim', 'move 1 oldest [0,0>50,100] 0,-1'},
-    {'iTerm2', 'move 1 oldest [50,0>100,100] 0,-1'},
-    {'PivotalTracker', 'max 1 oldest 0,-1'},
-    {'Asana', 'move 1 oldest [0,0>67,100] 0,-1'},
-    {'Google Calendar', 'max 2 oldest 0,-1'},
-    {'Calendar', 'max 1 oldest 0,-1'},
-    {'FreeMindStarter', 'move 1 oldest [50,0>100,100] 0,-1'},
-  },'DualTop'),
-  oldcanningdesk = hs.window.layout.new({
-    screens={['DELL U2718Q']=true, ['0,-1']=true},
-    {'VimR', 'move 1 oldest [0,0>42,100] 0,-1'},
-    -- {'MacVim', 'move 1 oldest [0,0>42,100] 0,-1'},
-    {'iTerm2', 'move 1 oldest [62,0>100,100] 0,-1'},
-    {'PivotalTracker', 'max 1 oldest 0,-1'},
-    {'Asana', 'move 1 oldest [0,0>50,100] 0,-1'},
-    {'Google Calendar', 'move 1 oldest [0,8>100,100] 0,-1'},
-    {'Calendar', 'max 1 oldest 0,-1'},
-    {'FreeMindStarter', 'move 1 oldest [50,0>100,100] 0,-1'},
-  }, 'OldCanningDesk'),
-}
-for _,layout in pairs(M.window_layouts) do
-  for _,rule in pairs(layout.rules) do
+-- config in init.consts.window_layouts
+for layout_name,layout in pairs(init.consts.window_layouts) do
+  local window_layout = hs.window.layout.new(layout, layout_name)
+  M.window_layouts[layout_name] = window_layout
+  for _,rule in pairs(window_layout.rules) do
     rule.windowfilter:setOverrideFilter({visible=true})
   end
 end
