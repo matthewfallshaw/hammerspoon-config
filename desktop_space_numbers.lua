@@ -1,5 +1,7 @@
 -- Report space numbers in menubar
 
+-- luacheck: globals hs
+
 local M = {}
 
 M._logger = hs.logger.new("Space #s")
@@ -49,7 +51,7 @@ function M.showDesktopSpaceNumbers()
   end
 
   for _,screen in pairs(hs.screen.allScreens()) do
-    if screen:spacesUUID() then
+    if screen:spacesUUID() and screen:frame() then
       M.space_labels[screen:spacesUUID()] = hs.drawing.text(
         hs.geometry.rect(
           screen:frame().x + 2,
@@ -64,7 +66,11 @@ function M.showDesktopSpaceNumbers()
         setAlpha(0.7):
         show()
     else
-      logger.w('No spacesUUID() for screen '.. hs.inspect(screen))
+      if not screen:spacesUUID() then
+        logger.w('No :spacesUUID() for screen '.. hs.inspect(screen))
+      elseif not screen:frame() then
+        logger.w('No :frame() for screen '.. hs.inspect(screen))
+      end
     end
   end
 end
