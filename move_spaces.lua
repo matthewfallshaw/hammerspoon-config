@@ -1,5 +1,7 @@
 -- Move windows between spaces
 
+-- luacheck: globals hs spoon
+
 local M = { hotkeys = {}, hotkey_timer = nil }
 
 M._logger = hs.logger.new("Move spaces")

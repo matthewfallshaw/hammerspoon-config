@@ -8,8 +8,9 @@
 -- p:start()
 
 -- luacheck: allow defined top
+-- luacheck: globals hs spoon
 
-local _ENV = require 'std.strict' (_G) -- luacheck: no unused
+-- local _ENV = require 'std.strict' (_G) -- luacheck: no unused
 local fun = require 'fun'
 
 init = {}  -- watchers & etc.
@@ -65,19 +66,30 @@ local function is_trusted_network()
                             require('control_plane').locationFacts.wifi_ssid))
 end
 local function insecure_network_actions(security_mode)
-  if security_mode == 'None' then
+  if security_mode == 'None' and not hs.application('Private Internet Access') then
     if is_trusted_network() then
       hs.alert.show("WARNING: Insecure WiFi connection",{textSize=48},hs.screen.mainScreen(),1.8)
       hs.alert.show("*not* locking you down since '"..
-        tostring(require('control_plane').locationFacts.wifi_ssid)..
-        "' is a trusted network")
+        tostring(require('control_plane').locationFacts.wifi_ssid).. "' is a trusted network")
     else
-      hs.application.open('Private Internet Access')
-      local alert = hs.alert.show("WARNING: Insecure WiFi connection",{textSize=48},hs.screen.mainScreen(),1.8)
-      hs.timer.doAfter(2, function()  -- delay to allow network facts to be collected
-        hs.alert.closeSpecific(alert)
-        hs.alert.show("WARNING: Insecure WiFi connection",{textSize=48},hs.screen.mainScreen(),6)
-      end)
+      hs.alert.show("WARNING: Insecure WiFi connection",{textSize=48},hs.screen.mainScreen(),1.8)
+      local launch_button = 'Launch VPN'
+      hs.focus()
+      hs.dialog.alert(
+        300, 300,  -- location x,y
+        function(result)
+          if result == launch_button then
+            hs.application.open("Private Internet Access")
+            logger.i('Launching PVN')
+          else
+            logger.i('Doing nothing; leaving our undergarments exposed')
+          end
+        end,  -- callback
+        'Launch VPN?',  -- message
+        'WARNING: Insecure WiFi connection',  -- informative text
+        launch_button, 'Cancel',  -- buttons
+        'warning'  -- style
+      )
     end
   else  -- luacheck: ignore 542
     -- do nothing
@@ -86,9 +98,11 @@ end
 init.control_plane_wifi_security_watcher = hs.watchable.watch(
   'control_plane', 'wifi_security',
   function(_, _, _, _, new_value)
+    logger.i('WiFi network changed, checking WiFi security')
     hs.timer.doAfter(1, function() insecure_network_actions(new_value) end)
   end
 )
+insecure_network_actions(hs.wifi.interfaceDetails().security)  -- run on startup
 
 
 -- Stay replacement: Keep App windows in their places
@@ -97,6 +111,43 @@ spoon.CaptureHotkeys:capture(
   "Stay", "Once, toggle layout engine; twice, report screens; thrice, report frontmost window; "..
     "four times, report frontmost & open stay.lua for editing",
   {"⌘", "⌥", "⌃", "⇧"}, "s")
+
+
+local mwm = hs.loadSpoon("MiroWindowsManager")
+mwm.sizes = {2, 3/2, 3}
+mwm.fullScreenSizes = {1, 4/3, 2, 'c'}
+mwm.GRID = {w = 24, h = 12}
+mwm.stickySides = true
+mwm:bindHotkeys({
+  up          = {{    '⌥',    '⌘'}, 'k'},
+  down        = {{    '⌥',    '⌘'}, 'j'},
+  left        = {{    '⌥',    '⌘'}, 'h'},
+  right       = {{    '⌥',    '⌘'}, 'l'},
+  fullscreen  = {{    '⌥',    '⌘'}, 'f'},
+  center      = {{    '⌥',    '⌘'}, 'c'},
+  move        = {{    '⌥',    '⌘'}, "v"},
+  resize      = {{    '⌥',    '⌘'}, "d" },
+})
+
+
+hs.loadSpoon("WindowScreenLeftAndRight")
+spoon.WindowScreenLeftAndRight:bindHotkeys({
+   screen_left  = { {"ctrl", "alt", "cmd"}, "h" },
+   screen_right = { {"ctrl", "alt", "cmd"}, "l" },
+})
+
+
+-- Move windows between spaces
+move_spaces = require('move_spaces')
+move_spaces:bindHotkeys({
+  left  = {{"⌘", "⌥", "⌃", "⇧"}, "h"},
+  right = {{"⌘", "⌥", "⌃", "⇧"}, "l"},
+})
+
+
+-- Desktop space numbers
+desktop_space_numbers = require('desktop_space_numbers')
+desktop_space_numbers:start()
 
 
 -- Jettison replacement: Eject ejectable drives on sleep
@@ -187,24 +238,6 @@ end
 logger.i("Starting Transmission VPN Guard")
 init.applicationWatcher = hs.application.watcher.new(applicationWatcherCallback)
 init.applicationWatcher:start()
-
--- Desktop organisation
-logger.i("Reorganising Desktop")
-local function reorganise_desktop()
-  hs.osascript.applescript([[
-    tell application "Finder"
-      set keybaseFolder to first disk whose name begins with "Keybase"
-      set desktop position of keybaseFolder to {1493, 399}
-    end tell
-  ]])
-end
-init.volumeWatcher = hs.fs.volume.new(function(event, info)
-  if (event == hs.fs.volume.didMount) and (info.path:match('^/Volumes/Keybase')) then
-    -- Move Keybase volume into position
-    hs.timer.doAfter(3, reorganise_desktop)
-end
-end):start()
-
 
 hs.loadSpoon("URLDispatcher")
 spoon.URLDispatcher.default_handler = init.consts.URLDispatcher.default_handler
@@ -312,47 +345,10 @@ chrome_tabs = require('chrome_tabs')
 --     {'⌘','⇧','⌃'}, 'n', function() chrome_tabs.chooser.show() end)
 
 
-local mwm = hs.loadSpoon("MiroWindowsManager")
-mwm.sizes = {2, 3/2, 3}
-mwm.fullScreenSizes = {1, 4/3, 2, 'c'}
-mwm.GRID = {w = 24, h = 12}
-mwm.stickySides = true
-mwm:bindHotkeys({
-  up          = {{    '⌥',    '⌘'}, 'k'},
-  down        = {{    '⌥',    '⌘'}, 'j'},
-  left        = {{    '⌥',    '⌘'}, 'h'},
-  right       = {{    '⌥',    '⌘'}, 'l'},
-  fullscreen  = {{    '⌥',    '⌘'}, 'f'},
-  center      = {{    '⌥',    '⌘'}, 'c'},
-  move        = {{    '⌥',    '⌘'}, "v"},
-  resize      = {{    '⌥',    '⌘'}, "d" },
-})
-
-
-hs.loadSpoon("WindowScreenLeftAndRight")
-spoon.WindowScreenLeftAndRight:bindHotkeys({
-   screen_left  = { {"ctrl", "alt", "cmd"}, "h" },
-   screen_right = { {"ctrl", "alt", "cmd"}, "l" },
-})
-
-
--- Move windows between spaces
-move_spaces = require('move_spaces')
-move_spaces:bindHotkeys({
-  left  = {{"⌘", "⌥", "⌃", "⇧"}, "h"},
-  right = {{"⌘", "⌥", "⌃", "⇧"}, "l"},
-})
-
-
--- Desktop space numbers
-desktop_space_numbers = require('desktop_space_numbers')
-desktop_space_numbers:start()
-
-
 -- Keycastr
 keycastr = require('keycastr')
 keycastr:bindHotkeys({
-  togger = { toggle = {{"cmd", "shift", "ctrl"}, 'P'} }
+  toggle = { toggle = {{"cmd", "shift", "ctrl"}, 'P'} }
 })
 keycastr:start()
 
@@ -500,9 +496,6 @@ if hs.host.localizedName() == "notnux2" then
   reorganise_desktop()
 end
 
-
-
--- p = require 'utilities.profile'
 -- dd_timer = hs.timer.delayed.new(15, function()
 --   p:stop()
 --   p:writeReport('build/profile.'..os.date('%Y-%m-%d_%H-%M-%S')..'.txt')
@@ -518,3 +511,5 @@ end
 -- p:writeReport('build/profile.'..os.date('%Y-%m-%d_%H-%M-%S')..'.txt')
 
 hs.loadSpoon("FadeLogo"):start()
+
+if stay then print('Stay: Active layout is '.. tostring(stay:activeLayouts())) end
