@@ -121,6 +121,8 @@ end
 ---     * html: A copy of the input string html-escaped, with matching letters
 ---       surrounded by <b> and </b>.
 function M.fuzzyMatch(str, abbreviation)
+  if type(str) ~= "string" then str = tostring(str) end
+
   if (abbreviation == "") then
     local r = {
       score = str == "" and M.SCORE_CONTINUE_MATCH or M.PENALTY_NOT_COMPLETE,
