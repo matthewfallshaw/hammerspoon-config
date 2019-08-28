@@ -51,7 +51,7 @@ function M.showDesktopSpaceNumbers()
   end
 
   for _,screen in pairs(hs.screen.allScreens()) do
-    if screen:spacesUUID() and screen:frame() then
+    if screen:spacesUUID() and screen:frame() and map.active_spaces[screen:spacesUUID()] then
       M.space_labels[screen:spacesUUID()] = hs.drawing.text(
         hs.geometry.rect(
           screen:frame().x + 2,
@@ -70,6 +70,9 @@ function M.showDesktopSpaceNumbers()
         logger.w('No :spacesUUID() for screen '.. hs.inspect(screen))
       elseif not screen:frame() then
         logger.w('No :frame() for screen '.. hs.inspect(screen))
+      elseif not map.active_spaces[screen:spacesUUID()] then
+        logger.w('spacesUUID '..screen:spacesUUID()..' not in spaces_map.active_spaces '..
+          hs.inspect(map.active_spaces))
       end
     end
   end
