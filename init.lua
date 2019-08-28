@@ -473,6 +473,14 @@ seal.plugins.useractions.actions = {
   ["Reorganise Desktop"] = {
     fn = reorganise_desktop
   },
+  ["Bundle Id"] = {
+    fn = function()
+      local _, id = hs.osascript.applescript(
+        'id of app "'.. hs.application.frontmostApplication():name() ..'"')
+      hs.pasteboard.setContents(id)
+      hs.alert.show("BundleId: ".. id)
+    end
+  }
 }
 seal:refreshAllCommands()
 seal:bindHotkeys({ toggle = {{'⌃','⌥','⌘'}, 'space'}, })
