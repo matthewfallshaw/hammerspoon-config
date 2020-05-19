@@ -41,24 +41,29 @@ local function spaces_map()
 end
 M.spaces_map = spaces_map
 
+local function clear_space_labels()
+  if M.space_labels then
+    hs.fnutils.each(M.space_labels, function(l) if l then l:delete() end end)
+  end
+  M.space_labels = {}
+end
+M.clear_space_labels = clear_space_labels
+
 function M.showDesktopSpaceNumbers()
   local map = spaces_map()
-
-  if M.space_labels then
-    hs.fnutils.each(M.space_labels, function(l) l:delete() end)
-  else
-    M.space_labels = {}
-  end
+  clear_space_labels()
 
   for _,screen in pairs(hs.screen.allScreens()) do
     if screen:spacesUUID() and screen:frame() and map.active_spaces[screen:spacesUUID()] then
+      local label = tostring(map.active_spaces[screen:spacesUUID()].space_number)
+      local text_size = hs.drawing.getTextDrawingSize(label)
       M.space_labels[screen:spacesUUID()] = hs.drawing.text(
         hs.geometry.rect(
-          screen:frame().x + 2,
-          screen:frame().y - 21,
-          11, 11
+          screen:frame().x + 4,
+          screen:frame().y - 15,
+          text_size.w, text_size.h
         ),
-        map.active_spaces[screen:spacesUUID()].space_number
+        label
       ):
         setBehavior(hs.drawing.windowBehaviors['stationary']):
         setLevel('assistiveTechHigh'):
@@ -71,7 +76,7 @@ function M.showDesktopSpaceNumbers()
       elseif not screen:frame() then
         logger.w('No :frame() for screen '.. hs.inspect(screen))
       elseif not map.active_spaces[screen:spacesUUID()] then
-        logger.w('spacesUUID '..screen:spacesUUID()..' not in spaces_map.active_spaces '..
+        logger.w('spacesUUID '..screen:spacesUUID()..' not in `spaces_map.active_spaces` '..
           hs.inspect(map.active_spaces))
       end
     end
@@ -90,7 +95,7 @@ end
 
 function M:stop()
   hs.fnutils.each(self.watchers, function(w) w:stop() end)
-  if M.space_labels then hs.fnutils.each(M.space_labels, function(l) l:delete() end) end
+  clear_space_labels()
 end
 
 return M

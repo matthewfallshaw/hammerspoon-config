@@ -31,6 +31,7 @@ local obj = {}  -- module
 
 obj._logger = hs.logger.new('ControlPlane')
 local logger = obj._logger
+logger.setLogLevel('info')
 logger.i('Loading ControlPlane')
 
 local ACTION_DELAY = 5 -- seconds
@@ -221,16 +222,20 @@ end
 function obj.networkConfCallback(_, keys)
   logger.d('Network config changed (' .. hs.inspect(keys) .. ')')
   -- Work out which network we're on
-  if (hs.network.reachability.internet():status() &
-        hs.network.reachability.flags.reachable) > 0 then
+  local inet = hs.network.reachability.internet()
+  if (inet and inet:status() and
+      hs.network.reachability.flags.reachable) > 0 then
     local pi4, pi6 = hs.network.primaryInterfaces() -- use pi4, ignore pi6
     if pi4 then
       logger.d('Primary interface is '.. pi4)
     else
+      local interface = hs.network.interfaceDetails()
       logger.w('hs.network.reachability.internet():status() == '..
-               hs.network.reachability.internet():status() ..
-               ' but hs.network.primaryInterfaces() == false… which is confusing\n'..
-               'pi4: '..tostring(pi4)..' pi6:'..tostring(pi6))
+               inet:status() ..
+               ' but hs.network.primaryInterfaces() is falsey… which is confusing\n'..
+               'pi4: '..tostring(pi4)..' pi6:'..tostring(pi6)..'\n'..
+               hs.inspect({IPv4 = interface and interface.IPv4 or "nil",
+                           IPv6 = interface and interface.IPv6 or "nil"}))
     end
     if hs.network.interfaceDetails(pi4) and
        hs.network.interfaceDetails(pi4).Link and
@@ -244,6 +249,8 @@ function obj.networkConfCallback(_, keys)
       locationFacts.network = 'Fitzroy'
     elseif hs.wifi.currentNetwork() == 'MIRICFAR UniFi' then
       locationFacts.network = 'MIRI'
+    elseif hs.wifi.currentNetwork() == 'fixingthethings' then
+      locationFacts.network = 'DwightWay'
     else
       logger.d('Unknown network')
       locationFacts.network = nil
@@ -290,6 +297,8 @@ function obj.screenCallback()
   if hs.screen.find(69992768) then
   -- elseif hs.screen.find(69992768) then
     locationFacts.monitor = 'CanningServer'
+  elseif hs.screen.find(459142197) then
+    locationFacts.monitor = 'DwightWay'
   else
     locationFacts.monitor = nil
   end

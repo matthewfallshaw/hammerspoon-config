@@ -4,16 +4,36 @@
  -- package.cpath = package.cpath .. ";" .. ZBS .. "/bin/?.dylib;" .. ZBS .. "/bin/clibs53/?.dylib"
  -- require("mobdebug").start()
 
--- p = require 'utilities.profile'
--- p:start()
+-- nix makes global luarocks hard, use local
+package.path = package.path ..
+  ";" .. os.getenv("HOME") .. "/.luarocks/share/lua/5.3/?.lua" ..
+  ";" .. os.getenv("HOME") .. "/.luarocks/share/lua/5.3/?/init.lua"
+package.cpath = package.cpath ..
+  ";" .. os.getenv("HOME") .. "/.luarocks/lib/lua/5.3/?.so"
+
+profile = {
+  start = function()
+    p = require 'utilities.profile'
+    p:start()
+  end,
+  stop = function()
+    p:stop()
+    p:writeReport('build/profile.'..os.date('%Y-%m-%d_%H-%M-%S')..'.txt')
+  end
+}
+-- profile.start()
 
 -- luacheck: allow defined top
 -- luacheck: globals hs spoon
 
--- local _ENV = require 'std.strict' (_G) -- luacheck: no unused
+local _ENV = require 'std.strict' (_G) -- luacheck: no unused
 local fun = require 'fun'
 
 init = {}  -- watchers & etc.
+
+-- Auto-reload config
+init.auto_reload_or_test = require 'auto_reload_or_test'
+init.auto_reload_or_test:start()
 
 init.consts = require 'configConsts'
 
@@ -30,10 +50,6 @@ hs.loadSpoon("CaptureHotkeys")
 spoon.CaptureHotkeys:bindHotkeys({show = {{ "⌘", "⌥", "⌃", "⇧" }, "k"}}):start()
 
 local log = require('utilities.log').new(logger)
-
--- Auto-reload config
-init.auto_reload_or_test = require 'auto_reload_or_test'
-init.auto_reload_or_test:start()
 
 -- # / Setup #
 
@@ -181,8 +197,8 @@ local gpmdp_hotkeymap = {
   playpause  = {{"⌥", "⌃", "⇧"},      "f8"},
   next       = {{"⌥", "⌃", "⇧"},      "f9"},
   previous   = {{"⌥", "⌃", "⇧"},      "f7"},
-  like       = {{"⌥", "⌃", "⇧"},      "l"},
-  dislike    = {{"⌥", "⌃", "⇧"},      "d"},
+  -- like       = {{"⌥", "⌃", "⇧"},      "l"},
+  -- dislike    = {{"⌥", "⌃", "⇧"},      "d"},
   hide       = {{"⌥", "⌃", "⇧"},      "h"},
   quit       = {{"⌥", "⌃", "⇧"},      "q"},
   mute       = {{"⌥", "⌃", "⇧"},      "f10"},
@@ -206,9 +222,10 @@ trash_recent.hotkey = spoon.CaptureHotkeys:bind(
 
 
 -- ScanSnap: Start ScanSnap's horrendous array of apps when scanner attached, and kill them when detatched
-logger.i("Loading ScanSnap USB watcher")
+logger.i("Loading USB watcher")
 local function usbDeviceCallback(data)
   logger.d(data['productName']..' '..data['eventType'])
+  -- ScanSnap
   -- ScanSnap Home's apps are not properly registered (named) and there are several of them, so matches and arrays…
   if (data["productName"]:match("^ScanSnap")) then
     if (data['eventType'] == 'added') then
@@ -230,7 +247,7 @@ local function usbDeviceCallback(data)
     end
   end
 end
-logger.i("Starting ScanSnap USB watcher")
+logger.i("Starting USB watcher")
 init.usbWatcher = hs.usb.watcher.new(usbDeviceCallback)
 init.usbWatcher:start()
 
@@ -375,10 +392,37 @@ keycastr:start()
 -- Remember & restore active spaces per screen layout
 -- TODO
 
+----------------------------
+-- Audio device functions --
+----------------------------
+
+-- Switches audio input/output device
+-- For some Bluetooth devices like AirPods they don't show up in list of available devices
+-- For these devices, if not found in device list, Applescript is used to manipulate Volume menu item to connect them
+function changeAudioDevice(deviceName)
+  fun.each(function(x) logger.e(x:name()); x:setDefaultInputDevice() end,
+           fun.filter(function(x) return x:name():match(deviceName) end,
+                      hs.audiodevice.allInputDevices()))
+  fun.each(function(x) logger.e(x:name()); x:setDefaultOutputDevice() end,
+           fun.filter(function(x) return x:name():match(deviceName) end,
+                      hs.audiodevice.allOutputDevices()))
+
+  -- hs.audiodevice.findInputByName(deviceName):setDefaultInputDevice()
+  -- hs.audiodevice.findOutputByName(deviceName):setDefaultOutputDevice()
+
+  if hs.audiodevice.defaultOutputDevice():name():match(deviceName) then
+    hs.notify.show("Audio Device", "",
+                   hs.audiodevice.defaultOutputDevice():name() .. " connected")
+  else
+    hs.notify.show("Audio Device", "", "Failed to conncet to " .. deviceName)
+  end
+end
+
+
 hs.loadSpoon("Seal")
 local seal = spoon.Seal
 local asana = require('asana')
-seal:loadPlugins({'apps', 'calc', 'useractions'})
+seal:loadPlugins({'calc', 'useractions'})
 seal.plugins.useractions.actions = {
   ["New Asana task in " .. init.consts.asanaWorkWorkspaceName] = {
     fn = function(x)
@@ -442,6 +486,9 @@ seal.plugins.useractions.actions = {
     end,
     keyword = "docs"
   },
+  -- Audio devices commands
+  ["Connect AirPods"]    = { fn = function() changeAudioDevice("AirPod") end },
+  ["Connect Built-in"]   = { fn = function() changeAudioDevice("MacBook Pro") end },
   ["Bellroy Docs"] = {
     fn = function()
       chrome_tabs.sendCommand({
@@ -481,7 +528,48 @@ seal.plugins.useractions.actions = {
       hs.pasteboard.setContents(id)
       hs.alert.show("BundleId: ".. id)
     end
-  }
+  },
+  ["Activity log"] = {
+    fn = function()
+      local ms = hs.screen.mainScreen():frame()
+      local voffset, hoffset = 30, ms.w / 4
+      local rect = hs.geometry.rect(
+        ms.x + hoffset, ms.y + voffset, ms.w - 2 * hoffset, ms.h - 2 * voffset)
+      local logview = hs.webview.newBrowser(rect):closeOnEscape(true)
+      local html = [[
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <style>
+      pre { margin-left: 2em; }
+    </style>
+    <title>Activity Log</title>
+  </head>
+  <body>
+    <pre><code>
+]].. hs.execute("tail -n50 ~/log/activities.log") ..[[
+    </code></pre>
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+  </body>
+</html>
+      ]]
+      logview:html(html)
+      logview:bringToFront()
+      logview:show(0.5)
+      logview:hswindow():focus()
+    end
+  },
 }
 seal:refreshAllCommands()
 seal:bindHotkeys({ toggle = {{'⌃','⌥','⌘'}, 'space'}, })
@@ -534,8 +622,7 @@ end
 --   dd_timer:start()
 -- end):start()
 
--- p:stop()
--- p:writeReport('build/profile.'..os.date('%Y-%m-%d_%H-%M-%S')..'.txt')
+-- profile.stop()
 
 hs.loadSpoon("FadeLogo"):start()
 
