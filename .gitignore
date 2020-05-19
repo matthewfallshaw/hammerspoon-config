@@ -41,6 +41,9 @@ luac.out
 *.x86_64
 *.hex
 
+# MacOS
+.DS_Store
+
 # Insufficient on their own, must run make install from repo - see https://github.com/asmagill/hs._asm.undocumented.spaces
 hs/_asm/undocumented/hs._asm.undocumented.spaces/docs.json
 hs/_asm/undocumented/hs._asm.undocumented.spaces/init.lua
