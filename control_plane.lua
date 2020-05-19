@@ -219,13 +219,13 @@ end
 
 -- Network configuration change (Expensive)
 function obj.networkConfCallback(_, keys)
-  logger.i('Network config changed (' .. hs.inspect(keys) .. ')')
+  logger.d('Network config changed (' .. hs.inspect(keys) .. ')')
   -- Work out which network we're on
   if (hs.network.reachability.internet():status() &
         hs.network.reachability.flags.reachable) > 0 then
     local pi4, pi6 = hs.network.primaryInterfaces() -- use pi4, ignore pi6
     if pi4 then
-      logger.i('Primary interface is '.. pi4)
+      logger.d('Primary interface is '.. pi4)
     else
       logger.w('hs.network.reachability.internet():status() == '..
                hs.network.reachability.internet():status() ..
@@ -245,11 +245,11 @@ function obj.networkConfCallback(_, keys)
     elseif hs.wifi.currentNetwork() == 'MIRICFAR UniFi' then
       locationFacts.network = 'MIRI'
     else
-      logger.i('Unknown network')
+      logger.d('Unknown network')
       locationFacts.network = nil
     end
   else
-    logger.i('No primary interface')
+    logger.d('No primary interface')
     locationFacts.network = nil
   end
 
@@ -271,7 +271,7 @@ obj.networkConfWatcher =
 
 -- Attached power supply change (Canning, Fitzroy)
 function obj.powerCallback()
-  logger.i('Power changed')
+  logger.d('Power changed')
   -- if hs.battery.psuSerial() == 7411505 then
   --   locationFacts.psu = 'Fitzroy'
   -- else
@@ -282,7 +282,7 @@ obj.batteryWatcher = hs.battery.watcher.new( function() obj.powerCallback() end 
 
 -- Attached monitor change (Canning, Fitzroy)
 function obj.screenCallback()
-  logger.i('Monitor changed')
+  logger.d('Monitor changed')
   -- if hs.screen.find(724044049) then
   --   locationFacts.monitor = 'Canning'
   -- elseif hs.screen.find(724043857) then

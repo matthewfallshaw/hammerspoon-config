@@ -60,8 +60,9 @@ spoon.Hammer:start()
 
 -- Control Plane replacement: Actions on change of location
 control_plane = require('control_plane'):start()  -- luacheck: no global
+control_plane._logger.setLogLevel('info')
 local function is_trusted_network()
-  local trusted_open_networks = {"Blackthorne"}
+  local trusted_open_networks = configConsts.trusted_open_networks
   return not not (fun.index(trusted_open_networks,
                             require('control_plane').locationFacts.wifi_ssid))
 end
