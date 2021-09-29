@@ -46,6 +46,10 @@ local function clear_space_labels()
     hs.fnutils.each(M.space_labels, function(l) if l then l:delete() end end)
   end
   M.space_labels = {}
+  if M.space_label_backgrounds then
+    hs.fnutils.each(M.space_label_backgrounds, function(l) if l then l:delete() end end)
+  end
+  M.space_label_backgrounds = {}
 end
 M.clear_space_labels = clear_space_labels
 
@@ -55,21 +59,36 @@ function M.showDesktopSpaceNumbers()
 
   for _,screen in pairs(hs.screen.allScreens()) do
     if screen:spacesUUID() and screen:frame() and map.active_spaces[screen:spacesUUID()] then
-      local label = tostring(map.active_spaces[screen:spacesUUID()].space_number)
-      local text_size = hs.drawing.getTextDrawingSize(label)
+      local labeltext = tostring(map.active_spaces[screen:spacesUUID()].space_number)
+      local styledtextformat = { color = { white=0, alpha=1 },
+        shadow = { offset=0, blurRadius=4, color={ white=1, alpha=1 } },
+        font = { size=10 },
+        paragraphStyle = { alignment = 'center' },
+      }
+      local labelstyledtext = hs.styledtext.new(labeltext, styledtextformat)
+      local text_size = hs.drawing.getTextDrawingSize(hs.styledtext.new('00', styledtextformat))
+      local offsets = { x=4, y=-24 }
       M.space_labels[screen:spacesUUID()] = hs.drawing.text(
         hs.geometry.rect(
-          screen:frame().x + 4,
-          screen:frame().y - 15,
+          screen:frame().x + offsets.x,
+          screen:frame().y + offsets.y,
           text_size.w, text_size.h
         ),
-        label
-      ):
-        setBehavior(hs.drawing.windowBehaviors['stationary']):
-        setLevel('assistiveTechHigh'):
-        setTextSize(8):
-        setAlpha(0.7):
-        show()
+        labelstyledtext
+      ):setBehavior(hs.drawing.windowBehaviors['stationary'])
+       :setLevel('help')
+       :show()
+      M.space_label_backgrounds[screen:spacesUUID()] = hs.drawing.ellipticalArc(
+        hs.geometry.rect(
+          screen:frame().x + offsets.x - 3,
+          screen:frame().y + offsets.y - 1,
+          text_size.w + 2 * 3, text_size.h + 2
+        )
+      ):setBehavior(hs.drawing.windowBehaviors['stationary'])
+       :setLevel('overlay')
+       :setFillColor({white=1, alpha=0.7})
+       :setStroke(false)
+       :show()
     else
       if not screen:spacesUUID() then
         logger.w('No :spacesUUID() for screen '.. hs.inspect(screen))

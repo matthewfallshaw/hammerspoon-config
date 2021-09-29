@@ -6,6 +6,8 @@ local M = {}
 
 local LOGDIR = os.getenv("HOME").."/log"
 local LOGFILE = LOGDIR.."/activities.log"
+M.LOGDIR = LOGDIR
+M.LOGFILE = LOGFILE
 
 local caffeinate_watcher = hs.caffeinate.watcher
 

@@ -89,7 +89,9 @@ end
 
 function M:window_layouts_enable()
   if not self.window_layouts_enabled then
-    for _,layout in pairs(self.window_layouts) do layout:start() end
+    for _,layout in pairs(self.window_layouts) do
+      layout:start()
+    end
     self.window_layouts_enabled = true
   end
   return self
@@ -111,21 +113,29 @@ local function toggle_window_layouts_enabled_descripton()
   end
 end
 local choices_list = {
+  app_modes =       { text = 'App modes',
+                      subText = 'Show apps with alternate modes',
+                      fn = function() app_modes() end
+                    },
   toggle =          { text = 'Toggle layout engine',
                       subText = toggle_window_layouts_enabled_descripton(),
-                      fn = function() M:toggle_window_layouts_enabled() end },
+                      fn = function() M:toggle_window_layouts_enabled() end
+                    },
   screens =         { text = 'Screens',
                       subText = 'Report screen details',
-                      fn = function() M:report_screens() end },
+                      fn = function() M:report_screens() end
+                    },
   report =          { text = 'Report',
                       subText = 'Report frontmost window position',
-                      fn = function() M:report_frontmost_window() end },
+                      fn = function() M:report_frontmost_window() end
+                    },
   report_and_open = { text = 'Report and open',
                       subText = 'Report frontmost window position and open config',
                       fn = function()
                         M:report_frontmost_window()
-                        hs.execute('/usr/bin/open '.. debug.getinfo(1).short_src)
-                      end },
+                        hs.execute('/usr/bin/open -a VimR '.. debug.getinfo(1).short_src)
+                      end
+                    },
 }
 local function completionFn(choice) if choice then choices_list[choice.key].fn() end end
 local function choicesFn()
@@ -144,6 +154,10 @@ end
 M.chooser = hs.chooser.new(completionFn):
               choices(choicesFn):
               searchSubText(true)
+
+local function app_modes()
+  
+end
 
 function M:toggle_or_choose()
   if not self.double_tap_timer then

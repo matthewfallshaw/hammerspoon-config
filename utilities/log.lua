@@ -10,6 +10,8 @@ log.author = "Matthew Fallshaw <m@fallshaw.me>"
 log.homepage = "https://github.com/matthewfallshaw/hammerspoon-config"
 log.license = "MIT - https://opensource.org/licenses/MIT"
 
+log.ERROR,log.WARNING,log.INFO,log.DEBUG,log.VERBOSE=1,2,3,4,5
+
 log._logger = hs.logger.new("Log")
 local logger = log._logger
 logger.i("Loading Log")
@@ -21,11 +23,11 @@ function log.new(logger)
 end
 
 local levels = {
-  ['error'] = 'e', e = 'e',
-  warning   = 'w', w = 'w',
-  info      = 'i', i = 'i',
-  debug     = 'd', d = 'd',
-  verbose   = 'v', v = 'v',
+  ['error'] = 'e', e = 'e', [log.ERROR] = 'e',
+  warning   = 'w', w = 'w', [log.WARNING] = 'w',
+  info      = 'i', i = 'i', [log.INFO] = 'i',
+  debug     = 'd', d = 'd', [log.DEBUG] = 'd',
+  verbose   = 'v', v = 'v', [log.VERBOSE] = 'v',
 }
 local level_words = {
   e = 'Error', w = 'Warning', i = 'Info', d = 'Debug', v = 'Verbose'

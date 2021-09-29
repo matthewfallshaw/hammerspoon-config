@@ -17,13 +17,12 @@ M.homepage = "https://github.com/matthewfallshaw/"
 local logger = hs.logger.new("AutoReload")
 M._logger = logger
 
-local lfs = require 'lfs'
 local consts = require 'configConsts'
 local escape, unescape = require('utilities.string_escapes')()
 
 function M.hs_configdir()
   local dir = hs.configdir
-  local target = lfs.symlinkattributes(hs.configdir).target
+  local target = hs.fs.symlinkAttributes(hs.configdir) and hs.fs.symlinkAttributes(hs.configdir).target
   if target then
     if target:sub(1,7) == '/Users/' then
       dir = target

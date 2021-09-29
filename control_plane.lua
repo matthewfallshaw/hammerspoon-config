@@ -241,16 +241,8 @@ function obj.networkConfCallback(_, keys)
        hs.network.interfaceDetails(pi4).Link and
        hs.network.interfaceDetails(pi4).Link.Expensive then
       locationFacts.network = 'Expensive'
-    elseif hs.wifi.currentNetwork() == 'United_Wi-Fi' then
-      locationFacts.network = 'Expensive'
-    elseif hs.wifi.currentNetwork() == 'blacknode' then
-      locationFacts.network = 'Canning'
-    elseif hs.wifi.currentNetwork() == 'TheBarn' then
-      locationFacts.network = 'Fitzroy'
-    elseif hs.wifi.currentNetwork() == 'MIRICFAR UniFi' then
-      locationFacts.network = 'MIRI'
-    elseif hs.wifi.currentNetwork() == 'fixingthethings' then
-      locationFacts.network = 'DwightWay'
+    elseif init.consts.control_plane.locationFacts.network[hs.wifi.currentNetwork()]
+      then locationFacts.network = init.consts.control_plane.locationFacts.network[hs.wifi.currentNetwork()]
     else
       logger.d('Unknown network')
       locationFacts.network = nil
@@ -276,7 +268,7 @@ obj.networkConfWatcher =
   'State:/Network/Global/DNS',
 })
 
--- Attached power supply change (Canning, Fitzroy)
+-- Attached power supply change (Wright, Fitzroy)
 function obj.powerCallback()
   logger.d('Power changed')
   -- if hs.battery.psuSerial() == 7411505 then
@@ -287,19 +279,23 @@ function obj.powerCallback()
 end
 obj.batteryWatcher = hs.battery.watcher.new( function() obj.powerCallback() end )
 
--- Attached monitor change (Canning, Fitzroy)
+-- Attached monitor change (Wright, Fitzroy)
 function obj.screenCallback()
   logger.d('Monitor changed')
   -- if hs.screen.find(724044049) then
-  --   locationFacts.monitor = 'Canning'
+  --   locationFacts.monitor = 'Wright'
   -- elseif hs.screen.find(724043857) then
   --   locationFacts.monitor = 'Fitzroy'
-  if hs.screen.find(69992768) then
-  -- elseif hs.screen.find(69992768) then
-    locationFacts.monitor = 'CanningServer'
-  elseif hs.screen.find(459142197) then
-    locationFacts.monitor = 'DwightWay'
-  else
+    -- if init.consts.control_plane.locationFacts.monitor[hs.wifi.currentNetwork()]
+    --   then locationFacts.network = init.consts.control_plane.locationFacts.network[hs.wifi.currentNetwork()]
+  local found = false
+  for _,screen in pairs(hs.screen.allScreens()) do
+    if init.consts.control_plane.locationFacts.monitor[screen:id()] then
+      found = true
+      locationFacts.monitor = init.consts.control_plane.locationFacts.monitor[screen:id()]
+    end
+  end
+  if not found then
     locationFacts.monitor = nil
   end
 end
@@ -311,17 +307,7 @@ obj.screenWatcher = hs.screen.watcher.new( function() obj.screenCallback() end )
 -- ##########################
 
 local slack = require 'utilities.slack'
-local network_hungry_apps = {
-  kill = {
-    'Transmission'
-  },
-  kill_and_resume = {
-  -- These moved to being blocked by Little Snitch
-  --   'Dropbox',
-  --   'Google Drive File Stream',
-  --   {'Backup and Sync from Google', 'Backup and Sync'},
-  }
-}
+local network_hungry_apps = init.consts.control_plane.network_hungry_apps
 
 -- Expensive
 function obj.ExpensiveEntryActions()
@@ -372,9 +358,9 @@ function obj.FitzroyExitActions()
   hs.wifi.setPower(true)
 end
 
--- Canning
-function obj.CanningEntryActions()
-  slack.setStatus('Canning')
+-- Wright
+function obj.WrightEntryActions()
+  slack.setStatus('Wright')
 
   hs.execute('~/code/utilities/Scripts/mount-external-drives', true)
 
@@ -386,17 +372,17 @@ function obj.CanningEntryActions()
     )
     if output_device then output_device:setDefaultOutputDevice() end
   end
-  if obj.watchers.canning == nil then obj.watchers.canning = {} end
-  obj.watchers.canning.screens =
-    obj.watchers.canning.screens or
+  if obj.watchers.wright == nil then obj.watchers.wright = {} end
+  obj.watchers.wright.screens =
+    obj.watchers.wright.screens or
     hs.screen.watcher.new(function()
       setMacBookAudio()
     end)
-  obj.watchers.canning.screens:start()
+  obj.watchers.wright.screens:start()
   setMacBookAudio()
 end
 
-function obj.CanningExitActions()
+function obj.WrightExitActions()
   slack.setStatus('')
   killApp('Transmission')
   hs.wifi.setPower(true)

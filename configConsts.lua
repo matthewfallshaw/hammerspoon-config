@@ -15,17 +15,11 @@ return {
   URLDispatcher = {
     url_patterns = {
       -- { <url pattern>, <application bundle ID> },
-       { "https?://www.pivotaltracker.com/n/.*",        "com.fluidapp.FluidApp2.PivotalTracker" },
-       { "https?://www.pivotaltracker.com/story/.*",    "com.fluidapp.FluidApp2.PivotalTracker" },
-       { "https?://www.pivotaltracker.com/dashboard",   "com.fluidapp.FluidApp2.PivotalTracker" },
-       { "https?://www.pivotaltracker.com/reports/.*",  "com.fluidapp.FluidApp2.PivotalTracker" },
-       { "https?://www.pivotaltracker.com/projects/.*", "com.fluidapp.FluidApp2.PivotalTracker" },
-       { "https?://www.pivotaltracker.com/epic/.*",     "com.fluidapp.FluidApp2.PivotalTracker" },
-       { "https?://app.asana.com/.*",                   "org.epichrome.eng.Asana" },
-       { "https?://morty.trikeapps.com/.*",             "org.epichrome.eng.Morty" },
-       { "https?://app.greenhouse.io/.*",               "org.epichrome.eng.Greenhouse" },
-       { "https?://calendar.google.com/.*",             "org.epichrome.eng.GoogleCalend " },
-       { "https?://www.google.com/calendar/.*",         "org.epichrome.eng.GoogleCalend" },
+       -- { "https?://app.asana.com/%-/login.*",           "com.google.Chrome" },
+       { "https?://app.asana.com/.*",                   "com.fluidapp.FluidApp2.Asana" },
+       { "https?://calendar.google.com/.*",             "com.webcatalog.juli.google-calendar" },
+       { "https?://www.google.com/calendar/.*",         "com.webcatalog.juli.google-calendar" },
+       { "https?://meet.google.com/.*",                 "com.webcatalog.juli.hangouts-meet" },
     },
     default_handler = "com.google.Chrome"
   },
@@ -37,6 +31,26 @@ return {
   -- Names for Asana workspaces used for work and personal
   asanaWorkWorkspaceName = "bellroy.com",
   asanaPersonalWorkspaceName = "Matt & Lina",
+
+  -- miro window manager
+  mwm = {
+    sizes = {2, 3/2, 3, 4, 4/3},
+    -- 0.5, 0.66, 0.33, 0.25, 0.75
+    -- 6,   8,    4,    3,    9
+    fullScreenSizes = {1, 4/3, 2, 'c'},
+    GRID = {w = 24, h = 12},
+    stickySides = true,
+    hotkeys = {
+      up          = {{    '⌥',    '⌘'}, 'k'},
+      down        = {{    '⌥',    '⌘'}, 'j'},
+      left        = {{    '⌥',    '⌘'}, 'h'},
+      right       = {{    '⌥',    '⌘'}, 'l'},
+      fullscreen  = {{    '⌥',    '⌘'}, 'f'},
+      center      = {{    '⌥',    '⌘'}, 'c'},
+      move        = {{    '⌥',    '⌘'}, "v"},
+      resize      = {{    '⌥',    '⌘'}, "d" },
+    },
+  },
 
   -- stay
 
@@ -56,19 +70,17 @@ return {
   window_layouts = {
     Shared = {
       {{['Hammerspoon']={allowRoles='AXStandardWindow'}}, 'move 1 closest [50,0>100,90] 0,0'},
-      -- {'Superhuman', 'move 1 oldest [0,0>90,100] 0,0'},
-      {'MailMate', 'move 1 oldest [0,0>60,100] 0,0'},
-      {'Morty', 'move 1 oldest [0,0>70,100] 0,0'},
       {'GitX', 'max 1 oldest 0,0'},
       {{['nvALT']={allowRoles='AXStandardWindow'}}, 'move 1 oldest [60,0>100,100] 0,0'},
-      {'Notable', 'move 1 oldest [33,0>100,100] 0,0'},
-      {{['Finder']={currentSpace=true}},'move 1 closest [35,37>87,80] 0,0'},
+      -- {{['Finder']={currentSpace=true}},'move 1 closest [35,37>87,80] 0,0'},
       {'Skype', 'move 1 oldest [60,0>100,86] 0,0'},
       {'Messages', 'move 1 oldest [53,0>100,71] 0,0'},
-      {'Activity Monitor', 'move 1 oldest [0,42>61,100] 0,0'},
+      {'Signal', 'move 1 oldest [50,0>100,83] 0,0'},
       {'Slack', 'move 1 oldest [40,0>100,100] 0,0'},
+      {'Google Meet', 'move all oldest [23,0>79,63] 0,0'},
+      {'Activity Monitor', 'move 1 oldest [0,42>61,100] 0,0'},
       {{['Quicksilver']={allowRoles='AXStandardWindow'}}, 'move 1 oldest [24,12>84,86] 0,0'},
-      {'Lights Switch', 'move 1 oldest [59,0>87,67] 0,0'},
+      {'Toggl Track', 'move 1 oldest [0,0>18,87] 0,0'},
     },
     Laptop = {
       screens={['Color LCD']='0,0',
@@ -79,17 +91,27 @@ return {
       -- {safari_docs_window_filter, 'move 1 oldest [0,0>80,100] 0,0'},
       -- {'VimR', 'move 1 closest [0,0>65,100] 0,0'},
       {'iTerm2', 'move 1 oldest [0,0>100,100] 0,0'},
-      {'kitty', 'move 1 oldest [0,0>100,100] 0,0'},
       {{'PivotalTracker','Asana','Google Calendar'}, 'max 1 oldest 0,0'},
     },
-    MelbourneDesk = {
+    FitzroyDesk = {
       screens={['DELL U2718Q']=true, ['1,0']=true},
       -- {'VimR', 'move 1 closest [0,0>35,100] 1,0'},
       {'iTerm2', 'move 1 oldest [30,0>100,100] 1,0'},
       {'PivotalTracker', 'max 1 oldest 1,0'},
-      {'Asana', 'move 1 oldest [0,0>50,100] 1,0'},
-      {'Google Calendar', 'move 1 oldest [0,8>100,100] 1,0'},
+      {'Asana', 'move 1 oldest [0,0>60,100] 1,0'},
+      {'Google Calendar', 'move 1 oldest [0,25>100,100] 1,0'},
       {'FreeMindStarter', 'move 1 oldest [50,0>100,100] 1,0'},
+      -- {{['Finder']={currentSpace=true,allowRegions=hs.geometry({x1=3609,y1=395,x2=4838,y2=993})}},'move 1 closest [35,37>87,80] 1,0'},
+    },
+    MelbourneDesk = {
+      screens={['DELL U2720Q']=true, ['1,0']=true},
+      -- {'VimR', 'move 1 closest [0,0>35,100] 1,0'},
+      {'iTerm2', 'move 1 oldest [30,0>100,100] 1,0'},
+      {'PivotalTracker', 'max 1 oldest 1,0'},
+      {'Asana', 'move 1 oldest [0,0>60,100] 1,0'},
+      {'Google Calendar', 'move 1 oldest [0,25>100,100] 1,0'},
+      {'FreeMindStarter', 'move 1 oldest [50,0>100,100] 1,0'},
+      -- {{['Finder']={currentSpace=true,allowRegions=hs.geometry({x1=3609,y1=395,x2=4838,y2=993})}},'move 1 closest [35,37>87,80] 1,0'},
     },
     MiriDesk1 = {  -- left monitor sometimes detects as '-1,-1'
       screens={['HP Z27']=true, ['DELL U2713HM']=true, ['1,-1']=true},
@@ -97,7 +119,7 @@ return {
       {'iTerm2', 'move 1 oldest [0,0>100,100] 0,-1'},
       {'PivotalTracker', 'max 1 oldest 0,-1'},
       {'Asana', 'move 1 oldest [0,10>100,100] 1,-1'},
-      {'Google Calendar', 'move 1 oldest [0,8>100,100] 0,-1'},
+      {'Google Calendar', 'move 1 oldest [0,25>100,100] 1,0'},
       {'FreeMindStarter', 'move 1 oldest [50,0>100,100] 0,-1'},
     },
     MiriDesk2 = {  -- left monitor sometimes detects as '-1,0'
@@ -106,7 +128,7 @@ return {
       {'iTerm2', 'move 1 oldest [0,0>100,100] 0,-1'},
       {'PivotalTracker', 'max 1 oldest 0,-1'},
       {'Asana', 'move 1 oldest [0,10>100,100] 1,0'},
-      {'Google Calendar', 'move 1 oldest [0,8>100,100] 0,-1'},
+      {'Google Calendar', 'move 1 oldest [0,25>100,100] 1,0'},
       {'FreeMindStarter', 'move 1 oldest [50,0>100,100] 0,-1'},
     },
     BerkeleyDesk = {
@@ -115,7 +137,7 @@ return {
       {'iTerm2', 'move 1 oldest [0,0>60,100] 1,0'},
       {'PivotalTracker', 'max 1 oldest 1,0'},
       {'Asana', 'move 1 oldest [0,0>33,100] 1,0'},
-      {'Google Calendar', 'move 1 oldest [0,8>100,100] 1,0'},
+      {'Google Calendar', 'move 1 oldest [0,25>100,100] 1,0'},
       {'FreeMindStarter', 'move 1 oldest [50,0>100,100] 1,0'},
     },
     DualLeft = {
@@ -142,6 +164,46 @@ return {
     },
   },
 
-  -- control_plane_wifi_security_watcher
-  trusted_open_networks = {"Blackthorne"}
+  -- WIP: Stay modal control to throw apps to an alternate position
+  --   Offer [Apps → Default
+  --               → <option name>]
+  window_layouts_alt = {
+    ['Google Meet Right'] = {
+      Shared = {
+        {'Google Meet', 'move 1 oldest [23,0>79,63] 1,0'},
+      },
+    },
+  },
+
+  -- control_plane
+  control_plane = {
+    -- wifi_security_watcher
+    trusted_open_networks = {"Blackthorne"},
+
+    locationFacts = {
+      network = {
+        ['United_Wi-Fi'] = 'Expensive',
+        ['blacknode'] = 'Wright',
+        ['TheBarn'] = 'Fitzroy',
+        ['MIRICFAR UniFi'] = 'MIRI',
+        ['fixingthethings'] = 'DwightWay',
+      },
+      monitor = {
+        [69992768] = 'WrightServer',
+        [459142197] = 'DwightWay',
+      },
+    },
+
+    network_hungry_apps = {
+      kill = {
+        'Transmission'
+      },
+      kill_and_resume = {
+      -- These moved to being blocked by Little Snitch
+      --   'Dropbox',
+      --   'Google Drive File Stream',
+      --   {'Backup and Sync from Google', 'Backup and Sync'},
+      }
+    }
+  },
 }

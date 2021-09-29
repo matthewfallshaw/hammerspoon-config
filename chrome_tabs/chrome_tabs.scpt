@@ -1,3 +1,4 @@
+#@osa-lang:AppleScript
 on all_windows_and_tabs()
 	tell application "Google Chrome"
 		set _windows to {}
@@ -136,4 +137,3 @@ end focus_window
 		end tell
 	end tell
 	*)
-

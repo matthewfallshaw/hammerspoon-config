@@ -7,7 +7,9 @@
 -- nix makes global luarocks hard, use local
 package.path = package.path ..
   ";" .. os.getenv("HOME") .. "/.luarocks/share/lua/5.3/?.lua" ..
-  ";" .. os.getenv("HOME") .. "/.luarocks/share/lua/5.3/?/init.lua"
+  ";" .. os.getenv("HOME") .. "/.luarocks/share/lua/5.3/?/init.lua" ..
+  ";" .. os.getenv("HOME") .. "/.nix-profile/share/lua/5.3/?.lua" ..
+  ";" .. os.getenv("HOME") .. "/.nix-profile/share/lua/5.3/?/init.lua"
 package.cpath = package.cpath ..
   ";" .. os.getenv("HOME") .. "/.luarocks/lib/lua/5.3/?.so"
 
@@ -78,7 +80,7 @@ spoon.Hammer:start()
 control_plane = require('control_plane'):start()  -- luacheck: no global
 control_plane._logger.setLogLevel('info')
 local function is_trusted_network()
-  local trusted_open_networks = configConsts.trusted_open_networks
+  local trusted_open_networks = init.consts.trusted_open_networks
   return not not (fun.index(trusted_open_networks,
                             require('control_plane').locationFacts.wifi_ssid))
 end
@@ -149,20 +151,11 @@ end):start()
 
 
 local mwm = hs.loadSpoon("MiroWindowsManager")
-mwm.sizes = {2, 3/2, 3}
-mwm.fullScreenSizes = {1, 4/3, 2, 'c'}
-mwm.GRID = {w = 24, h = 12}
+mwm.sizes = init.consts.mwm.sizes
+mwm.fullScreenSizes = init.consts.mwm.fullScreenSizes
+mwm.GRID = init.consts.mwm.GRID
 mwm.stickySides = true
-mwm:bindHotkeys({
-  up          = {{    '⌥',    '⌘'}, 'k'},
-  down        = {{    '⌥',    '⌘'}, 'j'},
-  left        = {{    '⌥',    '⌘'}, 'h'},
-  right       = {{    '⌥',    '⌘'}, 'l'},
-  fullscreen  = {{    '⌥',    '⌘'}, 'f'},
-  center      = {{    '⌥',    '⌘'}, 'c'},
-  move        = {{    '⌥',    '⌘'}, "v"},
-  resize      = {{    '⌥',    '⌘'}, "d" },
-})
+mwm:bindHotkeys(init.consts.mwm.hotkeys)
 
 
 hs.loadSpoon("WindowScreenLeftAndRight")
@@ -190,28 +183,65 @@ desktop_space_numbers:start()
 -- jettison:start()
 
 
--- Google Play Music Desktop Player Hotkeys
-gpmdp = require('gpmdp')
-gpmdp.hotkeys = {}
-local gpmdp_hotkeymap = {
-  playpause  = {{"⌥", "⌃", "⇧"},      "f8"},
-  next       = {{"⌥", "⌃", "⇧"},      "f9"},
-  previous   = {{"⌥", "⌃", "⇧"},      "f7"},
-  -- like       = {{"⌥", "⌃", "⇧"},      "l"},
-  -- dislike    = {{"⌥", "⌃", "⇧"},      "d"},
-  hide       = {{"⌥", "⌃", "⇧"},      "h"},
-  quit       = {{"⌥", "⌃", "⇧"},      "q"},
-  mute       = {{"⌥", "⌃", "⇧"},      "f10"},
-  volumeDown = {{"⌥", "⌃", "⇧"},      "f11"},
-  volumeUp   = {{"⌥", "⌃", "⇧"},      "f12"},
-  ff         = {{"⌥", "⌃", "⇧", "⌘"}, "f9"},
-  rw         = {{"⌥", "⌃", "⇧", "⌘"}, "f7"},
-  displayCurrentTrack = {{"⌥", "⌃", "⇧"}, "t"},
-}
-for fn_name, map in pairs(gpmdp_hotkeymap) do
-  gpmdp.hotkeys[fn_name] = hs.hotkey.bind(map[1], map[2], function() gpmdp[fn_name]() end)
-end
-spoon.CaptureHotkeys:capture("GPMDP", gpmdp_hotkeymap)
+-- Spotify controls
+-- spotify = { hotkeys = {}, volume = hs.spotify.getVolume(), mute = false }
+-- local spotify_hotkeymap = {
+--   playpause  = {{"⌥", "⌃", "⇧"},      "f8"},
+--   next       = {{"⌥", "⌃", "⇧"},      "f9"},
+--   previous   = {{"⌥", "⌃", "⇧"},      "f7"},
+--   hide       = {{"⌥", "⌃", "⇧"},      "h"},
+--   quit       = {{"⌥", "⌃", "⇧"},      "q"},
+--   mute       = {{"⌥", "⌃", "⇧"},      "f10"},
+--   volumeDown = {{"⌥", "⌃", "⇧"},      "f11"},
+--   volumeUp   = {{"⌥", "⌃", "⇧"},      "f12"},
+--   ff         = {{"⌥", "⌃", "⇧", "⌘"}, "f9"},
+--   rw         = {{"⌥", "⌃", "⇧", "⌘"}, "f7"},
+--   displayCurrentTrack = {{"⌥", "⌃", "⇧"}, "t"},
+-- }
+-- local spotify_app = hs.application.get("Spotify")
+-- local fns = {
+--   hide = function() if spotify_app then return spotify_app:isHidden()
+--     and (spotify_app:activate() or true)
+--     or spotify_app:hide() end end,
+--   quit = function() if spotify_app then spotify_app:kill() end end,
+--   mute = function() if spotify_app then
+--     if spotify.mute then
+--       spotify.mute = false
+--       hs.spotify.setVolume(spotify.volume)
+--     else
+--       spotify.mute = true
+--       spotify.volume = hs.spotify.getVolume()
+--       hs.spotify.setVolume(0)
+--     end
+--   end end
+-- }
+-- for fn_name, map in pairs(spotify_hotkeymap) do
+--   spotify.hotkeys[fn_name] = spoon.CaptureHotkeys:bind("Spotify", fn_name ,map[1], map[2],
+--     type(hs.spotify[fn_name])=='function' and
+--       function() return hs.spotify[fn_name]() end or
+--       function() return fns[fn_name]() end
+--     -- function()
+--     --   if type(hs.spotify[fn_name])~='function' then
+--     --     return hs.spotify[fn_name]()
+--     --   end
+--     --   local fns = {
+--     --     hide = function() if spotify_app then return spotify_app:hide() end end,
+--     --     quit = function() if spotify_app then spotify_app:kill() end end,
+--     --     mute = function() if spotify_app then
+--     --       if spotify.mute then
+--     --         spotify.mute = false
+--     --         hs.spotify.setVolume(spotify.volume)
+--     --       else
+--     --         spotify.mute = true
+--     --         spotify.volume = hs.spotify.getVolume()
+--     --         hs.spotify.setVolume(0)
+--     --       end
+--     --     end end
+--     --   }
+--     --   return fns[fn_name]()
+--     -- end
+--   )
+-- end
 
 
 -- Trash recent downloads
@@ -230,13 +260,13 @@ local function usbDeviceCallback(data)
   if (data["productName"]:match("^ScanSnap")) then
     if (data['eventType'] == 'added') then
       log:and_alert(data['productName'].. ' added, launching ScanSnap Home')
-      hs.application.launchOrFocus('ScanSnapHomeMain')
+      hs.application.launchOrFocus('ScanSnap Manager')
     elseif (data['eventType'] == 'removed') then
       local scansnaps = table.pack(hs.application.find("ScanSnap"))
       if scansnaps.n > 0 then
         fun.each(function(app)
-                   log:and_alert(data['productName'].. ' removed, closing '.. app:name())
                    app:kill()
+                   log:and_alert(data['productName'].. ' removed, closing '.. app:name())
                  end,
                  scansnaps)
       else  -- luacheck: ignore 542
@@ -311,13 +341,13 @@ init.caffeine_screen_lock_watcher = hs.caffeinate.watcher.new(function(event)
 end):start()
 
 
-hs.loadSpoon("HeadphoneAutoPause")
-spoon.HeadphoneAutoPause.control['vox'] = false
-spoon.HeadphoneAutoPause.control['deezer'] = false
-spoon.HeadphoneAutoPause.control['Google Play Music Desktop Player'] = true
-spoon.HeadphoneAutoPause.controlfns['Google Play Music Desktop Player'] =
-  gpmdp.spoons.HeadphoneAutoPause.controlfns['Google Play Music Desktop Player']
-spoon.HeadphoneAutoPause:start()
+-- hs.loadSpoon("HeadphoneAutoPause")
+-- spoon.HeadphoneAutoPause.control['vox'] = false
+-- spoon.HeadphoneAutoPause.control['deezer'] = false
+-- spoon.HeadphoneAutoPause.control['Google Play Music Desktop Player'] = true
+-- spoon.HeadphoneAutoPause.controlfns['Google Play Music Desktop Player'] =
+--   gpmdp.spoons.HeadphoneAutoPause.controlfns['Google Play Music Desktop Player']
+-- spoon.HeadphoneAutoPause:start()
 
 
 hs.loadSpoon("AppHotkeys")
@@ -361,6 +391,18 @@ spoon.CaptureHotkeys:capture("Slack", {
   ["Close Channel"] = { {"⌘"}, "w" },
   ["Next Channel"] = { {"⌘", "⇧"}, "]" },
   ["Previous Channel"] = { {"⌘", "⇧"}, "[" },
+})
+-- Signal usability improvements
+logger.i("Signal usability hotkeys")
+hks.Signal = {
+  hs.hotkey.new('⌥', 'return', function() hs.eventtap.keyStroke({'⇧'}, 'return') end),
+  hs.hotkey.new('⌘⇧', ']', function() hs.eventtap.keyStroke({'alt'}, 'down') end),
+  hs.hotkey.new('⌘⇧', '[', function() hs.eventtap.keyStroke({'alt'}, 'up') end),
+}
+spoon.CaptureHotkeys:capture("Signal", {
+  ["New line"] = { {"⌥"}, "⏎" },
+  ["Next Conversation"] = { {"⌘", "⇧"}, "]" },
+  ["Previous Conversation"] = { {"⌘", "⇧"}, "[" },
 })
 spoon.AppHotkeys:start()
 
@@ -462,57 +504,9 @@ seal.plugins.useractions.actions = {
     end,
     keyword = "hsdocs"
   },
-  Gmail = {
-    fn = function()
-      chrome_tabs.sendCommand({
-        focus = {
-          profile = "default",
-          title = "* - matthew.fallshaw@gmail.com - Gmail",
-          url = "https://mail.google.com/mail/*"
-        }
-      })
-    end,
-    keyword = "gm"
-  },
-  Docs = {
-    fn = function()
-      chrome_tabs.sendCommand({
-        focus = {
-          profile = "default",
-          title="* - Google Drive",
-          url="https://drive.google.com/drive/*"
-        }
-      })
-    end,
-    keyword = "docs"
-  },
   -- Audio devices commands
   ["Connect AirPods"]    = { fn = function() changeAudioDevice("AirPod") end },
   ["Connect Built-in"]   = { fn = function() changeAudioDevice("MacBook Pro") end },
-  ["Bellroy Docs"] = {
-    fn = function()
-      chrome_tabs.sendCommand({
-        focus = {
-          profile = "bellroy",
-          title="* - Google Drive",
-          url="https://drive.google.com/drive/*"
-        }
-      })
-    end,
-    keyword = "bdocs"
-  },
-  ["MIRI Docs"] = {
-    fn = function()
-      chrome_tabs.sendCommand({
-        focus = {
-          profile = "miri",
-          title="* - Google Drive",
-          url="https://drive.google.com/drive/*"
-        }
-      })
-    end,
-    keyword = "mdocs"
-  },
   Clock = {
     fn = function()
       spoon.AClock:toggleShowPersistent()
@@ -571,6 +565,88 @@ seal.plugins.useractions.actions = {
     end
   },
 }
+
+local chrome_tabs_seal = {
+  ['https://drive.google.com/drive/*'] = {
+    default = {
+      name = 'Docs',
+      title = '* - Google Drive',
+      keyword = 'gd',
+    },
+    bellroy = {
+      name = 'Docs Bellroy',
+      title = '* - Google Drive',
+      keyword = 'gdb',
+    },
+    miri = {
+      name = 'Docs MIRI',
+      title = '* - Google Drive',
+      keyword = 'gdm',
+    },
+  },
+  ['https://mail.google.com/mail/*'] = {
+    default = {
+      name = 'Gmail',
+      title = '* - matthew.fallshaw@gmail.com - Gmail',
+      keyword = 'gm',
+    },
+    bellroy = {
+      name = 'Gmail Bellroy',
+      title = '* - matt@bellroy.com - Bellroy Mail',
+      keyword = 'gmb',
+    },
+    miri = {
+      name = 'Gmail MIRI',
+      title = '* - matt@intelligence.org - Machine Intelligence Research Institute Mail',
+      keyword = 'gmm',
+    },
+  },
+}
+for url, p in pairs(chrome_tabs_seal) do
+  for profile, props in pairs(p) do
+    seal.plugins.useractions.actions[props.name] = {
+      fn = function()
+        chrome_tabs.sendCommand({
+          focus = {
+            profile = profile,
+            title = props.title,
+            url = url,
+          }
+        })
+      end,
+      keyword = props.keyword,
+    }
+  end
+end
+
+local chrome_windows_seal = {
+  Default = {
+    name = 'Chrome Window Personal',
+    keyword = 'cwp',
+  },
+  Bellroy = {
+    name = 'Chrome Window Bellroy',
+    keyword = 'cwb',
+  },
+  MIRI = {
+    name = 'Chrome Window MIRI',
+    keyword = 'cwm',
+  },
+}
+for profile, props in pairs(chrome_windows_seal) do
+  seal.plugins.useractions.actions[props.name] = {
+    fn = function()
+      local result
+      result = hs.execute('~/.nix-profile/bin/fish -c "~/bin/gchrome '..profile..'"')
+      if not string.match(result,'^ *$') then
+        logger.e('Seal '..props.name..' had problems creating a new window for profile '..profile': '..result)
+        print('bad stuff')
+      end
+    end,
+    keyword = props.keyword,
+  }
+end
+
 seal:refreshAllCommands()
 seal:bindHotkeys({ toggle = {{'⌃','⌥','⌘'}, 'space'}, })
 seal:start()
@@ -586,7 +662,7 @@ seal:start()
 
 -- # notnux only #
 --
-if hs.host.localizedName() == "notnux2" then
+if hs.host.localizedName() == "notnux5" then
 
   -- Export hotkeys to build/Hammerspoon.kcustom
   local kce = spoon.CaptureHotkeys.exporters.keyCue
@@ -602,8 +678,71 @@ if hs.host.localizedName() == "notnux2" then
   -- hs.execute("rm " .. out_old)
 
   -- Activity log
-  activity_log = require('activity_log')
-  activity_log:start()
+  init.activity_log = require('activity_log')
+  init.activity_log:start()
+
+  -- Kill Google Drive File Stream on sleep
+  log._logger.level = log.DEBUG
+  local function countdown(count, event)
+    return function()
+      local gdfs = hs.application('Google Drive File Stream')
+      if gdfs then
+        hs.caffeinate.declareUserActivity()  -- prevent sleep to give us time
+        gdfs:kill()
+        init.gd_file_stream.state = 1
+        if count == 5 then
+          log:and_alert('gd_file_stream watcher: Killing Google Drive File Stream',log.INFO)
+        elseif count < 1 then
+          log:and_alert('gd_file_stream watcher: Failed to kill Goodle Drive File Stream!',log.WARN)
+          return false
+        end
+        if gdfs:isRunning() then
+          hs.timer.doAfter(2,countdown(count - 1, event))
+        else
+          if event == hs.caffeinate.watcher.systemWillSleep then
+            hs.caffeinate.systemSleep()
+          elseif event == hs.caffeinate.watcher.screensDidLock then
+            hs.caffeinate.lockScreen()
+          else
+            log:and_alert('Unexpected event: '..event,log.ERROR)
+          end
+        end
+      end
+    end
+  end
+  local fs_watcher_onsleepfn = function(event) countdown(5, event)() end
+  local fs_watcher_onwakefn = function(event)
+    if init.gd_file_stream.state == 1 then
+      local gdfs = hs.application('Google Drive File Stream')
+      if gdfs then
+        log:and_alert('gd_file_stream watcher: Google Drive File Stream running on wake; should have been killed on sleep',log.WARN)
+      else
+        hs.application.open('Google Drive File Stream')
+        log:and_alert('gd_file_stream watcher: Restarting Google Drive File Stream',log.INFO)
+      end
+      init.gd_file_stream.state = 0
+    end
+  end
+
+  local fs_watcher_events = {
+    [hs.caffeinate.watcher.systemWillSleep]  = fs_watcher_onsleepfn,
+    [hs.caffeinate.watcher.systemDidWake]    = fs_watcher_onwakefn,
+    [hs.caffeinate.watcher.screensDidLock]   = fs_watcher_onsleepfn,  -- Catalina: systemWillSleep does not fire
+    [hs.caffeinate.watcher.screensDidUnlock] = fs_watcher_onwakefn
+  }
+  local fs_watcherfn = function(event)
+    if fs_watcher_events[event] then
+      fs_watcher_events[event](event)
+    else
+      --
+    end
+  end
+  local fs_watcher = hs.caffeinate.watcher.new(fs_watcherfn)
+  init.gd_file_stream = { watcher = fs_watcher
+                        , state   = 0 }
+  init.gd_file_stream.start = function() fs_watcher:start() end
+  init.gd_file_stream.stop  = function() fs_watcher:stop()  end
+  init.gd_file_stream.start()
 
   -- mission_control_hotkeys = require('mission_control_hotkeys')
 
