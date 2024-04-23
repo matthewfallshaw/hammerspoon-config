@@ -4,9 +4,11 @@
 
 local M = { hotkeys = {}, hotkey_timer = nil }
 
-M._logger = hs.logger.new("Move spaces")
+M._logger = hs.logger.new("Move spaces", 'debug')
 local logger = M._logger
 logger.i("Loading Move spaces tools")
+
+local i = hs.inspect
 
 -- # Usage
 -- require 'move_spaces'
@@ -15,14 +17,18 @@ logger.i("Loading Move spaces tools")
 --   right = {{"⌘", "⌥", "⌃", "⇧"}, "l"},
 -- })
 
-hs.settings.set("_ASMundocumentedSpacesRaw", true)
-local spaces = require "hs._asm.undocumented.spaces" -- https://github.com/asmagill/hs._asm.undocumented.spaces
+-- hs.settings.set("_ASMundocumentedSpacesRaw", true)
+-- local spaces = require "hs._asm.undocumented.spaces" -- https://github.com/asmagill/hs._asm.undocumented.spaces
+local spaces = require "hs.spaces" -- https://github.com/asmagill/hs._asm.spaces
 
 function M.changeSpace(direction)
+  -- this fails to work for reasons I do not understand (or 'cos the OS doesn't allow it)
   hs.eventtap.keyStroke({"ctrl"}, direction)
 end
 
 function M.moveWindowOneSpace(direction)
+  logger.i('MoveWindowOneSpace '..direction)
+
   local direction_map = {
     left = "left",
     ["←"] = "left",
@@ -33,36 +39,51 @@ function M.moveWindowOneSpace(direction)
 
   local win = hs.window.frontmostWindow()
 
-  if #win:spaces() > 1 then
-    logger.i("Frontmost window present on multiple spaces so just taking you ".. direction)
-    hs.eventtap.keyStroke({"ctrl"}, direction)
-  else
-    local screen = win:screen()
-    local screenUUID = screen:spacesUUID()
-    local currentSpaceUUID = spaces.spacesByScreenUUID(spaces.masks.currentSpaces)[screenUUID][1]
+  local screen = win:screen()
+  local screenUUID = screen:getUUID()
+  local spacesForScreen = spaces.spacesForScreen(screenUUID)
+  local activeSpace = spaces.activeSpaceOnScreen(screenUUID)
+  local currentSpaceIndex = hs.fnutils.indexOf(spacesForScreen, activeSpace)
 
-    local spacesForScreen = spaces.layout()[screenUUID]
-    local currentSpaceIndex = hs.fnutils.indexOf(spacesForScreen, tonumber(currentSpaceUUID))
+  logger.i(i({
+    screen = screen,
+    screenUUID = screenUUID,
+    spacesForScreen = spacesForScreen,
+    activeSpace = activeSpace,
+    currentSpaceIndex = currentSpaceIndex
+  }))
 
-    if (direction == "left" and currentSpaceIndex == 1) or
-      (direction == "right" and currentSpaceIndex == #spacesForScreen) then
-      -- already at end of spaces
-      return nil
-    end
-
-    local targetSpaceUUID = spacesForScreen[direction == "left" and currentSpaceIndex - 1 or currentSpaceIndex + 1]
-    win:spacesMoveTo(targetSpaceUUID)
+  if (direction == 'left' and currentSpaceIndex == 1) or
+    (direction == 'right' and currentSpaceIndex == #spacesForScreen) then
+    -- already at end of spaces
+    logger.i('… already at end of spaces; doing nothing')
+    return nil
   end
+
+  local targetSpaceID = spacesForScreen[direction == "left" and currentSpaceIndex - 1 or currentSpaceIndex + 1]
+  logger.d('screen='..i(screen).. ' screenUUID='..i(screenUUID)..
+    ' activeSpace='..i(activeSpace).. ' spacesForScreen='..i(spacesForScreen)..
+    ' currentSpaceIndex='..i(currentSpaceIndex).. ' targetSpaceID='..i(targetSpaceID))
+
+  spaces.moveWindowToSpace(win:id(), targetSpaceID)
 
   return win
 end
 
 function M.moveWindowOneSpaceAndFocus(direction)
   local win = M.moveWindowOneSpace(direction)
+  logger.i('…AndFocus ')
 
   if win then
-    win:focus()  -- focusing the window will change the active space
-    hs.fnutils.each({ 0.2, 0.4, 0.6 }, function(delay) hs.timer.doAfter(delay, function() win:focus() end) end)
+    local windowSpaces = spaces.windowSpaces(win:id())
+
+    if #windowSpaces > 1 then
+      logger.i('Frontmost window present on multiple spaces so just taking you '.. direction)
+      M.changeSpace(direction)
+    else
+      win:focus()  -- focusing the window will change the active space
+      hs.fnutils.each({ 0.2, 0.4, 0.6 }, function(delay) hs.timer.doAfter(delay, function() win:focus() end) end)
+    end
   end
 end
 
