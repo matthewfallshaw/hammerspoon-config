@@ -28,6 +28,11 @@
 -- Publishes wifi_security and wifi_ssid in its hs.watchable since it's tracking wifi changes.
 
 local obj = {}  -- module
+local function background(launchPath, arguments)
+  if arguments then hs.task.new(launchPath, nil, arguments)
+  else hs.task.new(launchPath, nil)
+  end
+end
 
 obj._logger = hs.logger.new('ControlPlane')
 local logger = obj._logger
@@ -345,7 +350,7 @@ function obj.FitzroyEntryActions()
   end
   killApp('Transmission')
   slack.setStatus('Fitzroy')
-  hs.execute('~/code/utilities/Scripts/mount-external-drives', true)
+  background('~/code/utilities/Scripts/mount-external-drives')
   -- Mute MacBook Pro Speakers if they're the current audio device
   local adt = hs.audiodevice.current()
   if adt.name == 'MacBook Pro Speakers' and adt.muted == false then
@@ -362,24 +367,26 @@ end
 function obj.WrightEntryActions()
   slack.setStatus('Wright')
 
-  hs.execute('~/code/utilities/Scripts/mount-external-drives', true)
+  logger.i('Mount external drives')
+  background('~/code/utilities/Scripts/mount-external-drives')
 
-  if not hs.application('Lights Switch') then hs.application.open('Lights Switch') end
+  -- logger.i('Set audio device')
+  -- local setMacBookAudio = function()
+  --   local output_device = ( hs.audiodevice.findOutputByName("Matt Fallshaw's AirPods Pro") or
+  --     hs.audiodevice.findOutputByName("External Headphones") or
+  --     hs.audiodevice.findOutputByName("MacBook Pro Speakers")
+  --   )
+  --   if output_device then output_device:setDefaultOutputDevice() end
+  -- end
 
-  local setMacBookAudio = function()
-    local output_device = ( hs.audiodevice.findOutputByName("External Headphones") or
-      hs.audiodevice.findOutputByName("MacBook Pro Speakers")
-    )
-    if output_device then output_device:setDefaultOutputDevice() end
-  end
-  if obj.watchers.wright == nil then obj.watchers.wright = {} end
-  obj.watchers.wright.screens =
-    obj.watchers.wright.screens or
-    hs.screen.watcher.new(function()
-      setMacBookAudio()
-    end)
-  obj.watchers.wright.screens:start()
-  setMacBookAudio()
+  -- if obj.watchers.wright == nil then obj.watchers.wright = {} end
+  -- obj.watchers.wright.screens =
+  --   obj.watchers.wright.screens or
+  --   hs.screen.watcher.new(function()
+  --     setMacBookAudio()
+  --   end)
+  -- obj.watchers.wright.screens:start()
+  -- setMacBookAudio()
 end
 
 function obj.WrightExitActions()

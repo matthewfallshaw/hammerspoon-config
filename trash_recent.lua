@@ -4,7 +4,7 @@ logger.i("Trash recent downloads")
 
 local const = {}
 const.DOWNLOADS_DIRECTORY = "~/Downloads/"
-const.TRASH_COMMAND = "/usr/local/bin/trash"
+const.TRASH_COMMAND = "/opt/homebrew/bin/trash"
 const.LOG_FILE = "/tmp/trash-most-recent.log"
 
 local M = {}

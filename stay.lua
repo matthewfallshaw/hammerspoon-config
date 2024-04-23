@@ -133,7 +133,7 @@ local choices_list = {
                       subText = 'Report frontmost window position and open config',
                       fn = function()
                         M:report_frontmost_window()
-                        hs.execute('/usr/bin/open -a VimR '.. debug.getinfo(1).short_src)
+                        hs.execute('/usr/bin/open -a VimR ~/.hammerspoon/configConsts.lua')
                       end
                     },
 }
@@ -156,7 +156,7 @@ M.chooser = hs.chooser.new(completionFn):
               searchSubText(true)
 
 local function app_modes()
-  
+
 end
 
 function M:toggle_or_choose()

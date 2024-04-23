@@ -13,22 +13,26 @@ package.path = package.path ..
 package.cpath = package.cpath ..
   ";" .. os.getenv("HOME") .. "/.luarocks/lib/lua/5.3/?.so"
 
+local profiler = require 'utilities.profile'
+local overrides = {
+                    fW = 80, -- Change the file column to 100 characters (from 20)
+                    fnW = 30, -- Change the function column to 120 characters (from 28)
+                  }
+profiler.configuration(overrides)
 profile = {
-  start = function()
-    p = require 'utilities.profile'
-    p:start()
+  start = function() profiler.start() end,
+  stop = function ()
+    profiler.stop()
+    profiler.report('build/profile.'..os.date('%Y-%m-%d_%H-%M-%S')..'.txt')
   end,
-  stop = function()
-    p:stop()
-    p:writeReport('build/profile.'..os.date('%Y-%m-%d_%H-%M-%S')..'.txt')
-  end
 }
 -- profile.start()
+
 
 -- luacheck: allow defined top
 -- luacheck: globals hs spoon
 
-local _ENV = require 'std.strict' (_G) -- luacheck: no unused
+-- local _ENV = require 'std.strict' (_G) -- luacheck: no unused
 local fun = require 'fun'
 
 init = {}  -- watchers & etc.
@@ -47,6 +51,10 @@ i = hs.inspect.inspect  -- luacheck: no global
 
 -- # Setup for everything else #
 --
+-- Hyper hotkeys
+hyper = require 'hyper'
+hyper:start()
+
 -- Capture spoon (and other) hotkeys
 hs.loadSpoon("CaptureHotkeys")
 spoon.CaptureHotkeys:bindHotkeys({show = {{ "⌘", "⌥", "⌃", "⇧" }, "k"}}):start()
@@ -63,6 +71,7 @@ init.clearConsoleHotkey = {
       {"⌘", "⌥", "⌃", "⇧"}, "c",
       function() hs.console.clearConsole() end)
 }
+hyper.bindKey({}, 'c', function() hs.console.clearConsole() end)
 
 
 hs.loadSpoon('Hammer')
@@ -72,6 +81,8 @@ spoon.Hammer:bindHotkeys({
   toggle_console={{"⌘", "⌥", "⌃", "⇧"}, "d"},
 })
 spoon.Hammer:start()
+hyper.bindKey({}, 'r', function() hs.reload() end)
+hyper.bindKey({}, 'd', hs.toggleConsole)
 
 -- # / HS config #
 
@@ -252,6 +263,7 @@ trash_recent.hotkey = spoon.CaptureHotkeys:bind(
 
 
 -- ScanSnap: Start ScanSnap's horrendous array of apps when scanner attached, and kill them when detatched
+logger.setLogLevel(4)
 logger.i("Loading USB watcher")
 local function usbDeviceCallback(data)
   logger.d(data['productName']..' '..data['eventType'])
@@ -260,7 +272,7 @@ local function usbDeviceCallback(data)
   if (data["productName"]:match("^ScanSnap")) then
     if (data['eventType'] == 'added') then
       log:and_alert(data['productName'].. ' added, launching ScanSnap Home')
-      hs.application.launchOrFocus('ScanSnap Manager')
+      hs.application.launchOrFocus('ScanSnapHomeMain')  -- 'ScanSnap Home' is called... that 🥺
     elseif (data['eventType'] == 'removed') then
       local scansnaps = table.pack(hs.application.find("ScanSnap"))
       if scansnaps.n > 0 then
@@ -284,7 +296,7 @@ init.usbWatcher:start()
 
 -- Transmission safety: Keep VPN running when Transmission is running
 logger.i("Loading Transmission VPN Guard")
-local function applicationWatcherCallback(appname, event, _)
+local function applicationTransmissionWatcherCallback(appname, event, _)
   if appname == "Transmission" and event == hs.application.watcher.launching then
     if not hs.application.get("Private Internet Access") then
       log:and_alert("Transmission launch detected… launching PIA")
@@ -302,8 +314,8 @@ local function applicationWatcherCallback(appname, event, _)
   end
 end
 logger.i("Starting Transmission VPN Guard")
-init.applicationWatcher = hs.application.watcher.new(applicationWatcherCallback)
-init.applicationWatcher:start()
+init.applicationTransmissionWatcher = hs.application.watcher.new(applicationTransmissionWatcherCallback)
+init.applicationTransmissionWatcher:start()
 
 hs.loadSpoon("URLDispatcher")
 spoon.URLDispatcher.default_handler = init.consts.URLDispatcher.default_handler
@@ -312,12 +324,32 @@ spoon.URLDispatcher:start()
 -- URLs from hammerspoon:// schema
 local _, unescape = require('utilities.string_escapes')()
 local function URLDispatcherCallback(_, params)
+
+  spoon.URLDispatcher.logger.e('Started profiling for URLDispatcherCallback')
+  profile.start()  -- TODO FIXME
+
   local fullUrl = unescape.url(params.uri)
   local parts = hs.http.urlParts(fullUrl)
   spoon.URLDispatcher:dispatchURL(parts.scheme, parts.host, parts.parameterString, fullUrl)
+
+  spoon.URLDispatcher.logger.e('Stopping profiling for URLDispatcherCallback')
+  profile.stop()  -- TODO FIXME
+
 end
 spoon.URLDispatcher.url_dispatcher = hs.urlevent.bind("URLDispatcher", URLDispatcherCallback)
 spoon.URLDispatcher.logger.setLogLevel('debug')  -- to track redirections, which often fail
+
+
+-- Kill Apple Music, which pops up randomly after taking off AirPods
+local function applicationAppleMusicWatcherCallback(appname, event, _)
+  if appname == "Music" and event == hs.application.watcher.launching then
+    log:and_alert("Apple Music launch detected; killing it")
+    hs.application.get("Music"):kill9()
+  end
+end
+logger.i("Starting Apple Music killer")
+init.applicationAppleMusicWatcher = hs.application.watcher.new(applicationAppleMusicWatcherCallback)
+init.applicationAppleMusicWatcher:start()
 
 
 hs.loadSpoon("MouseCircle")
@@ -555,14 +587,13 @@ if hs.host.localizedName() == "notnux5" then
 end
 
 -- dd_timer = hs.timer.delayed.new(15, function()
---   p:stop()
---   p:writeReport('build/profile.'..os.date('%Y-%m-%d_%H-%M-%S')..'.txt')
+--   profile.stop()
 -- end)
 -- dd = hs.caffeinate.watcher.new(function(_)
---   if p.has_finished then
---     p:start()
+--   if profile._lib.has_finished then
+--     profile.start()
 --   end
---   dd_timer:start()
+--   dd_timer.start()
 -- end):start()
 
 -- profile.stop()
