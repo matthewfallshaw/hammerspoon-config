@@ -117,6 +117,82 @@ seal.plugins.useractions.actions = {
       logview:hswindow():focus()
     end
   },
+  ["Diff Texts"] = {
+    fn = function()
+      local diff_webview
+      local usercontent = hs.webview.usercontent.new("compareHandler")
+        :setCallback(function(message)
+          local text1 = message.body.text1
+          local text2 = message.body.text2
+
+          local tmpPath = hs.fs.temporaryDirectory()
+          local file1Path = tmpPath .. "text1.txt"
+          local file2Path = tmpPath .. "text2.txt"
+
+          local file1 = io.open(file1Path, "w")
+          file1:write(text1)
+          file1:close()
+
+          local file2 = io.open(file2Path, "w")
+          file2:write(text2)
+          file2:close()
+
+          -- Use hs.task to run opendiff in the background
+          local task = hs.task.new("/usr/bin/opendiff", nil, {file1Path, file2Path})
+          task:start()
+
+          -- Close and clean up webview
+          if diff_webview then
+            diff_webview:delete()
+            diff_webview = nil
+          end
+        end)
+
+      diff_webview = hs.webview.newBrowser({x=100, y=100, w=600, h=350}, {developerExtrasEnabled = true}, usercontent)
+        :windowCallback(function(action, webview, state)
+          if action == "closing" then
+            if diff_webview then
+              diff_webview:delete()
+              diff_webview = nil
+            end
+          end
+        end)
+        :windowStyle("utility") -- Optional: set as utility window
+        :level(hs.drawing.windowLevels.floating) -- Make sure it floats above other apps
+
+      diff_webview:html([[
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body { font-family: Arial, sans-serif; padding: 20px; }
+                textarea { width: 95%; height: 100px; margin-bottom: 10px; padding: 8px; font-size: 14px; }
+                button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+            </style>
+        </head>
+        <body>
+            <textarea id="text1" placeholder="Enter text 1 here"></textarea><br>
+            <textarea id="text2" placeholder="Enter text 2 here"></textarea><br>
+            <button onclick="submitForm()">Compare</button>
+
+            <script>
+                function submitForm() {
+                    var text1 = document.getElementById('text1').value;
+                    var text2 = document.getElementById('text2').value;
+                    try {
+                        webkit.messageHandlers.compareHandler.postMessage({text1: text1, text2: text2});
+                    } catch(error) {
+                        console.error('Error:', error);
+                    }
+                }
+            </script>
+        </body>
+        </html>
+      ]])
+      diff_webview:show()
+    end,
+    keyword = "diff"
+  }
 }
 
 local chrome_tabs_seal = {
