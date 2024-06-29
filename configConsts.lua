@@ -15,9 +15,9 @@ return {
   URLDispatcher = {
     url_patterns = {
       -- { <url pattern>, <application bundle ID> },
-       -- { "https?://app.asana.com/%-/login.*",           "com.google.Chrome" },
        { "https?://www.google.com/url%?sa=j&url=https%%3A%%2F%%2Fapp.asana.com%%2F.*", "com.webcatalog.juli.asana" },
-       { "https?://app.asana.com/.*",                   "com.webcatalog.juli.asana" },
+       { "https?://app.asana.com/%-/login.*",           "com.google.Chrome" },
+       { "https?://app.asana.com/.*",                   "com.electron.asana" },
        { "https?://calendar.google.com/.*",             "com.webcatalog.juli.google-calendar" },
        { "https?://www.google.com/calendar/.*",         "com.webcatalog.juli.google-calendar" },
        -- { "https?://meet.google.com/.*",                 "com.webcatalog.juli.hangouts-meet" },
