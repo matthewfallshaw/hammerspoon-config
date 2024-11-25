@@ -162,7 +162,6 @@ function M.showDesktopSpaceNumbers()
   for _,screen in pairs(hs.screen.allScreens()) do
     local activeSpaceOnScreen = spaces.activeSpaceOnScreen(screen)
     if screen:frame() and spaces_map.active_spaces[activeSpaceOnScreen] then
-logger.e(i({activeSpaceOnScreen_spaceID = activeSpaceOnScreen, spaceNumberOnScreen = spaces_map.active_spaces[activeSpaceOnScreen].spaceNumberOnScreen}))
       -- local labeltext = tostring(spaces_map.active_spaces[activeSpaceOnScreen].spaceNumberOnScreen) --OnScreen)
       local labeltext = tostring(spaces_map.active_spaces[activeSpaceOnScreen].spaceNumber)
       local styledtextformat = { color = { white=0, alpha=1 },

@@ -7,7 +7,7 @@ _G.hs.fnutils = require 'fnutils'
 _G.hs.inspect = require 'inspect'
 _G.hs.timer = { delayed = { new = function() end } }
 _G.hs.chooser = {
-  new = function() return {
+  new = function(completionFn) return {
         choices = function() end,
         queryChangedCallback = function() end,
         query = function() return "" end,

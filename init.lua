@@ -13,6 +13,8 @@ package.path = package.path ..
 package.cpath = package.cpath ..
   ";" .. os.getenv("HOME") .. "/.luarocks/lib/lua/5.3/?.so"
 
+require("hs.ipc")  -- command line interface
+
 local profiler = require 'utilities.profile'
 local overrides = {
                     fW = 80, -- Change the file column to 100 characters (from 20)
