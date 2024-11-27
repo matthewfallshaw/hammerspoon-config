@@ -471,11 +471,11 @@ chrome_tabs = require('chrome_tabs')
 pp("after require chrome_tabs")
 
 -- Keycastr
-keycastr = require('keycastr')
-keycastr:bindHotkeys({
-  toggle = { toggle = {{"cmd", "shift", "ctrl"}, 'P'} }
-})
-keycastr:start()
+-- keycastr = require('keycastr')
+-- keycastr:bindHotkeys({
+--   toggle = { toggle = {{"cmd", "shift", "ctrl"}, 'P'} }
+-- })
+-- keycastr:start()
 
 
 -- Remember & restore active spaces per screen layout
