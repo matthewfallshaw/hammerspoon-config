@@ -13,8 +13,6 @@ package.path = package.path ..
 package.cpath = package.cpath ..
   ";" .. os.getenv("HOME") .. "/.luarocks/lib/lua/5.3/?.so"
 
-require("hs.ipc")  -- command line interface
-
 local profiler = require 'utilities.profile'
 local overrides = {
                     fW = 80, -- Change the file column to 100 characters (from 20)
@@ -30,24 +28,35 @@ profile = {
 }
 -- profile.start()
 
+pp = require 'utilities.profile_log'
+-- pp:start()
+
 
 -- luacheck: allow defined top
 -- luacheck: globals hs spoon
 
+init = {}  -- watchers & etc.
+
+local logger = hs.logger.new("Init")
+init.logger = logger
+hs.console.clearConsole()
+
 -- local _ENV = require 'std.strict' (_G) -- luacheck: no unused
 local fun = require 'fun'
 
-init = {}  -- watchers & etc.
+pp("after require fun")
+
+require("hs.ipc")  -- command line interface
+
+pp("after require hs.ipc")
 
 -- Auto-reload config
 init.auto_reload_or_test = require 'auto_reload_or_test'
 init.auto_reload_or_test:start()
 
-init.consts = require 'configConsts'
+pp("after require auto_reload_or_test")
 
-local logger = hs.logger.new("Init")
-init.logger = logger
-hs.console.clearConsole()
+init.consts = require 'configConsts'
 
 i = hs.inspect.inspect  -- luacheck: no global
 
@@ -57,11 +66,17 @@ i = hs.inspect.inspect  -- luacheck: no global
 hyper = require 'hyper'
 hyper:start()
 
+pp("after require hyper")
+
 -- Capture spoon (and other) hotkeys
 hs.loadSpoon("CaptureHotkeys")
 spoon.CaptureHotkeys:bindHotkeys({show = {{ "⌘", "⌥", "⌃", "⇧" }, "k"}}):start()
 
+pp("after require CaptureHotkeys")
+
 local log = require('utilities.log').new(logger)
+
+pp("after require utilities.log")
 
 -- # / Setup #
 
@@ -85,6 +100,8 @@ spoon.Hammer:bindHotkeys({
 spoon.Hammer:start()
 hyper.bindKey({}, 'r', function() hs.reload() end)
 hyper.bindKey({}, 'd', hs.toggleConsole)
+
+pp("after require Hammer")
 
 -- # / HS config #
 
@@ -136,14 +153,17 @@ init.control_plane_wifi_security_watcher = hs.watchable.watch(
 )
 insecure_network_actions(hs.wifi.interfaceDetails().security)  -- run on startup
 
+pp("after require control_plane")
 
 -- Stay replacement: Keep App windows in their places
-stay = require('stay'):start()  -- luacheck: no global
+stay = require('stay')  -- luacheck: no global
+stay:start()
 spoon.CaptureHotkeys:capture(
   "Stay", "Once, toggle layout engine; twice, report screens; thrice, report frontmost window; "..
     "four times, report frontmost & open stay.lua for editing",
   {"⌘", "⌥", "⌃", "⇧"}, "s")
 
+pp("after require stay")
 
 -- Desktop organisation
 logger.i("Reorganising Desktop")
@@ -170,6 +190,7 @@ mwm.GRID = init.consts.mwm.GRID
 mwm.stickySides = true
 mwm:bindHotkeys(init.consts.mwm.hotkeys)
 
+pp("after require MiroWindowsManager")
 
 hs.loadSpoon("WindowScreenLeftAndRight")
 spoon.WindowScreenLeftAndRight:bindHotkeys({
@@ -177,6 +198,7 @@ spoon.WindowScreenLeftAndRight:bindHotkeys({
    screen_right = { {"ctrl", "alt", "cmd"}, "l" },
 })
 
+pp("after require WindowScreenLeftAndRight")
 
 -- Move windows between spaces
 move_spaces = require('move_spaces')
@@ -185,11 +207,13 @@ move_spaces:bindHotkeys({
   right = {{"⌘", "⌥", "⌃", "⇧"}, "l"},
 })
 
+pp("after require move_spaces")
 
 -- Desktop space numbers
 desktop_space_numbers = require('desktop_space_numbers')
 desktop_space_numbers:start()
 
+pp("after require desktop_space_numbers")
 
 -- Jettison replacement: Eject ejectable drives on sleep
 -- jettison = require('jettison')
@@ -263,6 +287,7 @@ trash_recent.hotkey = spoon.CaptureHotkeys:bind(
   "Trash recent download", "trashRecentDownload", {"⌥", "⌃", "⇧", "⌘"}, "t",
   trash_recent.trashRecentDownload)
 
+pp("after require trash_recent")
 
 -- ScanSnap: Start ScanSnap's horrendous array of apps when scanner attached, and kill them when detatched
 logger.setLogLevel(4)
@@ -295,6 +320,7 @@ logger.i("Starting USB watcher")
 init.usbWatcher = hs.usb.watcher.new(usbDeviceCallback)
 init.usbWatcher:start()
 
+pp("after USB watcher")
 
 -- Transmission safety: Keep VPN running when Transmission is running
 logger.i("Loading Transmission VPN Guard")
@@ -319,6 +345,8 @@ logger.i("Starting Transmission VPN Guard")
 init.applicationTransmissionWatcher = hs.application.watcher.new(applicationTransmissionWatcherCallback)
 init.applicationTransmissionWatcher:start()
 
+pp("after Transmission VPN Guard")
+
 hs.loadSpoon("URLDispatcher")
 spoon.URLDispatcher.default_handler = init.consts.URLDispatcher.default_handler
 spoon.URLDispatcher.url_patterns = init.consts.URLDispatcher.url_patterns
@@ -326,21 +354,18 @@ spoon.URLDispatcher:start()
 -- URLs from hammerspoon:// schema
 local _, unescape = require('utilities.string_escapes')()
 local function URLDispatcherCallback(_, params)
-
   spoon.URLDispatcher.logger.e('Started profiling for URLDispatcherCallback')
-  profile.start()  -- TODO FIXME
 
   local fullUrl = unescape.url(params.uri)
   local parts = hs.http.urlParts(fullUrl)
   spoon.URLDispatcher:dispatchURL(parts.scheme, parts.host, parts.parameterString, fullUrl)
 
   spoon.URLDispatcher.logger.e('Stopping profiling for URLDispatcherCallback')
-  profile.stop()  -- TODO FIXME
-
 end
 spoon.URLDispatcher.url_dispatcher = hs.urlevent.bind("URLDispatcher", URLDispatcherCallback)
 spoon.URLDispatcher.logger.setLogLevel('debug')  -- to track redirections, which often fail
 
+pp("after require URLDispatcher")
 
 -- Kill Apple Music, which pops up randomly after taking off AirPods
 local function applicationAppleMusicWatcherCallback(appname, event, _)
@@ -353,10 +378,12 @@ logger.i("Starting Apple Music killer")
 init.applicationAppleMusicWatcher = hs.application.watcher.new(applicationAppleMusicWatcherCallback)
 init.applicationAppleMusicWatcher:start()
 
+pp("after Apple Music killer")
 
 hs.loadSpoon("MouseCircle")
 spoon.MouseCircle:bindHotkeys({ show = {{"⌘", "⌥", "⌃", "⇧"}, "m"}})
 
+pp("after require MouseCircle")
 
 hs.loadSpoon("Caffeine")
 spoon.Caffeine:bindHotkeys({ toggle = {{"⌥", "⌃", "⇧"}, "c"}})
@@ -374,6 +401,7 @@ init.caffeine_screen_lock_watcher = hs.caffeinate.watcher.new(function(event)
   end
 end):start()
 
+pp("after require Caffeine")
 
 -- hs.loadSpoon("HeadphoneAutoPause")
 -- spoon.HeadphoneAutoPause.control['vox'] = false
@@ -440,6 +468,7 @@ spoon.CaptureHotkeys:capture("Signal", {
 })
 spoon.AppHotkeys:start()
 
+pp("after require AppHotkeys")
 
 local clock = hs.loadSpoon("AClock")
 clock.format = "%H:%M:%S"
@@ -449,6 +478,7 @@ clock.height = 160
 clock.width = 675
 clock:init()
 
+pp("after require AClock")
 
 -- ChromeTabs
 chrome_tabs = require('chrome_tabs')
@@ -456,6 +486,7 @@ chrome_tabs = require('chrome_tabs')
 -- chrome_tabs.chooser.hotkey = spoon.CaptureHotkeys:bind("ChromeTabs", "Find & focus a Chrome tab",
 --     {'⌘','⇧','⌃'}, 'n', function() chrome_tabs.chooser.show() end)
 
+pp("after require chrome_tabs")
 
 -- Keycastr
 keycastr = require('keycastr')
@@ -509,6 +540,9 @@ if hs.host.localizedName() == "notnux5" then
   -- hs.execute("mv " .. out .. " " .. out_old)
   --
   kce:export_to_file()
+
+  pp("after kce:export_to_file()")
+
   --
   -- local diff_command = "/usr/bin/diff -q <(/usr/bin/sort "..out.." ) <( /usr/bin/sort "..out_old.." )"
   -- local output, status, t, rc = hs.execute(diff_command)
@@ -581,6 +615,7 @@ if hs.host.localizedName() == "notnux5" then
   init.gd_file_stream.start = function() fs_watcher:start() end
   init.gd_file_stream.stop  = function() fs_watcher:stop()  end
   init.gd_file_stream.start()
+  pp("after require activity_log")
 
   -- mission_control_hotkeys = require('mission_control_hotkeys')
 
@@ -598,6 +633,7 @@ end
 --   dd_timer.start()
 -- end):start()
 
+pp:stop()
 -- profile.stop()
 
 hs.loadSpoon("FadeLogo"):start()
