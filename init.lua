@@ -165,24 +165,6 @@ spoon.CaptureHotkeys:capture(
 
 pp("after require stay")
 
--- Desktop organisation
-logger.i("Reorganising Desktop")
-local function reorganise_desktop()
-  hs.osascript.applescript([[
-    tell application "Finder"
-      set keybaseFolder to first disk whose name begins with "Keybase"
-      set desktop position of keybaseFolder to {1493, 399}
-    end tell
-  ]])
-end
-init.volumeWatcher = hs.fs.volume.new(function(event, info)
-  if (event == hs.fs.volume.didMount) and (info.path:match('^/Volumes/Keybase')) then
-    -- Move Keybase volume into position
-    hs.timer.doAfter(3, reorganise_desktop)
-end
-end):start()
-
-
 local mwm = hs.loadSpoon("MiroWindowsManager")
 mwm.sizes = init.consts.mwm.sizes
 mwm.fullScreenSizes = init.consts.mwm.fullScreenSizes
@@ -553,74 +535,9 @@ if hs.host.localizedName() == "notnux5" then
   init.activity_log = require('activity_log')
   init.activity_log:start()
 
-  -- Kill Google Drive File Stream on sleep
-  log._logger.level = log.DEBUG
-  local function countdown(count, event)
-    return function()
-      local gdfs = hs.application('Google Drive File Stream')
-      if gdfs then
-        hs.caffeinate.declareUserActivity()  -- prevent sleep to give us time
-        gdfs:kill()
-        init.gd_file_stream.state = 1
-        if count == 5 then
-          log:and_alert('gd_file_stream watcher: Killing Google Drive File Stream',log.INFO)
-        elseif count < 1 then
-          log:and_alert('gd_file_stream watcher: Failed to kill Goodle Drive File Stream!',log.WARN)
-          return false
-        end
-        if gdfs:isRunning() then
-          hs.timer.doAfter(2,countdown(count - 1, event))
-        else
-          if event == hs.caffeinate.watcher.systemWillSleep then
-            hs.caffeinate.systemSleep()
-          elseif event == hs.caffeinate.watcher.screensDidLock then
-            hs.caffeinate.lockScreen()
-          else
-            log:and_alert('Unexpected event: '..event,log.ERROR)
-          end
-        end
-      end
-    end
-  end
-  local fs_watcher_onsleepfn = function(event) countdown(5, event)() end
-  local fs_watcher_onwakefn = function(event)
-    if init.gd_file_stream.state == 1 then
-      local gdfs = hs.application('Google Drive File Stream')
-      if gdfs then
-        log:and_alert('gd_file_stream watcher: Google Drive File Stream running on wake; should have been killed on sleep',log.WARN)
-      else
-        hs.application.open('Google Drive File Stream')
-        log:and_alert('gd_file_stream watcher: Restarting Google Drive File Stream',log.INFO)
-      end
-      init.gd_file_stream.state = 0
-    end
-  end
-
-  local fs_watcher_events = {
-    [hs.caffeinate.watcher.systemWillSleep]  = fs_watcher_onsleepfn,
-    [hs.caffeinate.watcher.systemDidWake]    = fs_watcher_onwakefn,
-    [hs.caffeinate.watcher.screensDidLock]   = fs_watcher_onsleepfn,  -- Catalina: systemWillSleep does not fire
-    [hs.caffeinate.watcher.screensDidUnlock] = fs_watcher_onwakefn
-  }
-  local fs_watcherfn = function(event)
-    if fs_watcher_events[event] then
-      fs_watcher_events[event](event)
-    else
-      --
-    end
-  end
-  local fs_watcher = hs.caffeinate.watcher.new(fs_watcherfn)
-  init.gd_file_stream = { watcher = fs_watcher
-                        , state   = 0 }
-  init.gd_file_stream.start = function() fs_watcher:start() end
-  init.gd_file_stream.stop  = function() fs_watcher:stop()  end
-  init.gd_file_stream.start()
   pp("after require activity_log")
 
   -- mission_control_hotkeys = require('mission_control_hotkeys')
-
-  -- Reorganise desktop
-  reorganise_desktop()
 end
 
 -- dd_timer = hs.timer.delayed.new(15, function()
