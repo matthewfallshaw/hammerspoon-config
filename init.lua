@@ -513,7 +513,7 @@ end
 
 -- # notnux only #
 --
-if hs.host.localizedName() == "notnux5" then
+if hs.host.localizedName() == "notnux6" then
 
   -- Export hotkeys to build/Hammerspoon.kcustom
   local kce = spoon.CaptureHotkeys.exporters.keyCue
