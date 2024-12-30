@@ -511,6 +511,14 @@ end
 -- Seal
 seal = require('seal_config')
 
+-- Modal commands
+-- Modal = require('modal_commands')
+-- Modal.createCategory({"⌥", "⇧"}, "space", "LLMs", "LLM assistants")
+--   :addCommand("Claude", "Claude, by Anthropic", function() hs.eventtap.keyStroke({'⌘', '⌥', '⌃'}, 'j') end, "j")
+--   :addCommand("ChatGPT", "ChatGPT, by OpenAI", function() hs.eventtap.keyStroke({'⌘', '⌥', '⌃'}, 'k') end, "k")
+
+-- pp("after require Modal")
+
 -- # notnux only #
 --
 if hs.host.localizedName() == "notnux6" then
