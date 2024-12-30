@@ -509,7 +509,7 @@ end
 
 
 -- Seal
--- seal = require('seal_config')
+seal = require('seal_config')
 
 -- # notnux only #
 --
