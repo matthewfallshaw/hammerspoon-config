@@ -1,0 +1,2 @@
+This is my local Hammerspoon (HS) config. You should have access to HS docs via @Hammerspoon.
+HS works via Lua and LuaSkin, and is single threaded. Avoid any long running tasks, and consider Lua coroutines when you can't avoid them.

@@ -368,6 +368,23 @@ spoon.MouseCircle:bindHotkeys({ show = {{"⌘", "⌥", "⌃", "⇧"}, "m"}})
 pp("after require MouseCircle")
 
 hs.loadSpoon("Caffeine")
+-- Persist Caffeine state across restarts
+local caffeine_state = hs.settings.get("caffeine_state")
+logger.e("Caffeine state: " .. tostring(caffeine_state))
+if caffeine_state ~= nil then
+  -- Wait a bit for the spoon to be ready
+  hs.timer.doAfter(0.1, function()
+    logger.e("Setting Caffeine state to " .. tostring(caffeine_state))
+    spoon.Caffeine:setState(caffeine_state)
+  end)
+end
+-- Save state when it changes
+local original_clicked = spoon.Caffeine.clicked
+spoon.Caffeine.clicked = function()
+  original_clicked()
+  hs.settings.set("caffeine_state", hs.caffeinate.get("displayIdle"))
+end
+
 spoon.Caffeine:bindHotkeys({ toggle = {{"⌥", "⌃", "⇧"}, "c"}})
 spoon.Caffeine:start()
 -- Turn off Caffeine if screen is locked or system sent to sleep
