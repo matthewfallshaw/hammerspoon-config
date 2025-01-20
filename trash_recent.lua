@@ -2,10 +2,72 @@
 local logger = hs.logger.new("Trash Recent Downloads")
 logger.i("Trash recent downloads")
 
+-- Private functions for file operations
+local function expandPath(path)
+  if path:sub(1,1) == "~" then
+    return os.getenv("HOME") .. path:sub(2)
+  end
+  return path
+end
+
+local function fileExists(filepath)
+  return hs.fs.attributes(expandPath(filepath), 'mode') == 'file'
+end
+
+local function shellEscape(str)
+  return "'"..string.gsub(str, "'", "'\\''").."'"
+end
+
+-- Find the trash command (pure function)
+local function findTrashCommand(preferred_command)
+  -- First try user's preferred command if specified
+  if preferred_command then
+    if fileExists(preferred_command) then
+      return preferred_command
+    end
+    logger.w(string.format("🔍 Specified trash command '%s' not found - will try to find an alternative", preferred_command))
+  end
+
+  -- Common locations to check
+  local possible_paths = {
+    "/opt/homebrew/bin/trash",
+    "/usr/local/bin/trash",
+    "/usr/bin/trash"
+  }
+
+  -- Check explicit paths
+  for _, path in ipairs(possible_paths) do
+    if fileExists(path) then
+      if preferred_command then
+        logger.i(string.format("✨ Found working alternative trash command at '%s'", path))
+      end
+      return path
+    end
+  end
+
+  -- Try PATH
+  local which_result = io.popen("which trash 2>/dev/null"):read("*a"):gsub("%s+$", "")
+  if which_result ~= "" and fileExists(which_result) then
+    if preferred_command then
+      logger.i(string.format("✨ Found working alternative trash command at '%s'", which_result))
+    end
+    return which_result
+  end
+
+  -- No working trash command found
+  local install_msg = "Please install it (e.g., `brew install trash` or via your package manager)"
+  if preferred_command then
+    logger.e(string.format("❌ Could not find specified trash command '%s' or any alternatives. %s", preferred_command, install_msg))
+  else
+    logger.e(string.format("❌ Could not find 'trash' command. %s", install_msg))
+  end
+  return nil
+end
+
 -- Module definition with configuration
 local M = {
   -- Public configuration (can be modified by users)
-  config = {
+  config = setmetatable({
     -- File system paths
     downloadsDirectory = "~/Downloads/",
     trashCommand = nil,  -- Optional: User can specify their preferred trash command
@@ -24,7 +86,15 @@ local M = {
 
     -- UI behavior
     pollInterval = 0.1,          -- Seconds between selection checks
-  },
+  }, {
+    __newindex = function(t, k, v)
+      rawset(t, k, v)
+      -- If trashCommand is changed, update the module's command
+      if k == "trashCommand" then
+        M._trashCommand = findTrashCommand(v)
+      end
+    end
+  }),
 
   -- Private state
   _preview_cache = {},          -- Cache of generated previews
@@ -33,64 +103,11 @@ local M = {
   _selection_timer = nil,       -- Timer for checking selection changes
   _preview_window = nil,        -- Preview window instance
   _pending_tasks = {},          -- Track running qlmanage tasks
+  _trashCommand = nil,          -- The actual trash command to use
 }
 
--- Find the trash command (pure function)
-local function findTrashCommand(preferred_command)
-  -- First try user's preferred command if specified
-  if preferred_command then
-    if hs.fs.attributes(preferred_command, 'mode') == 'file' then
-      return preferred_command
-    end
-    -- If preferred command is specified but doesn't exist, log it
-    logger.w(string.format("Specified trash command '%s' not found", preferred_command))
-  end
-
-  -- Common locations to check
-  local possible_paths = {
-    "/opt/homebrew/bin/trash",
-    "/usr/local/bin/trash",
-    "/usr/bin/trash"
-  }
-
-  -- Check explicit paths
-  for _, path in ipairs(possible_paths) do
-    if hs.fs.attributes(path, 'mode') == 'file' then
-      if preferred_command then
-        logger.i(string.format("Using alternative trash command found at '%s'", path))
-      end
-      return path
-    end
-  end
-
-  -- Try PATH
-  local which_result = io.popen("which trash 2>/dev/null"):read("*a"):gsub("%s+$", "")
-  if which_result ~= "" and hs.fs.attributes(which_result, 'mode') == 'file' then
-    if preferred_command then
-      logger.i(string.format("Using alternative trash command found at '%s'", which_result))
-    end
-    return which_result
-  end
-
-  -- No working trash command found
-  if preferred_command then
-    logger.e(string.format("Neither specified trash command '%s' nor any alternatives found", preferred_command))
-  else
-    logger.e("Could not find 'trash' command. Please install it (e.g., `brew install trash` or via your package manager)")
-  end
-  return nil
-end
-
--- Initialize with found trash command
-local trashCommand = findTrashCommand(M.config.trashCommand)
-if not trashCommand then
-  return nil
-end
-
--- Private functions for file operations
-local function fileExists(filepath)
-  return hs.fs.attributes(filepath, 'mode') == 'file'
-end
+-- Initialize the trash command
+M._trashCommand = findTrashCommand(M.config.trashCommand)
 
 local function ensurePreviewCacheDir()
   if not fileExists(M.config.previewCacheDir) then
@@ -135,11 +152,11 @@ local function getCachedPreview(file_path)
 end
 
 local function filePath(choice_text)
-  local file_path = M.config.downloadsDirectory .. choice_text
+  local file_path = expandPath(M.config.downloadsDirectory) .. choice_text
   if fileExists(file_path) then
     return file_path
   else
-    error("Erm... I can't find '".. file_path .."', which is rather perplexing! 🤔")
+    error("🤔 Can't find '".. file_path .."' - did something move it?")
   end
 end
 
@@ -287,16 +304,16 @@ function M._chooserCallback(choice)
     return nil
   else
     local file_path = filePath(choice.text)
-    os.execute(trashCommand .." '".. file_path .."'")
+    os.execute(M._trashCommand .. " " .. shellEscape(file_path))
 
-    local log_message = "'".. file_path .."' moved to Trash"
-    local logfile = io.open(M.config.logFile, 'a')
-    logfile:write(log_message)
+    local log_message = string.format("🗑️ '%s' moved to Trash", file_path)
+    local logfile = io.open(expandPath(M.config.logFile), 'a')
+    logfile:write(log_message .. "\n")  -- Add newline for better log readability
     logfile:close()
 
     logger.i(log_message)
     hs.notify.new(nil, {
-      title = "Download trashed",
+      title = "Download Trashed",
       subTitle = log_message,
       informativeText = choice.subText,
       setIdImage = hs.image.imageFromName(hs.image.systemImageNames.TrashFull)
@@ -308,7 +325,9 @@ end
 
 function M._chooserFileList()
   local ret = {}
-  local pipe = io.popen('/bin/ls -UltpTh '.. M.config.downloadsDirectory ..' | egrep -v "^total|/$"')
+  local cmd = string.format('/bin/ls -UltpTh %s | egrep -v "^total|/$"',
+                          shellEscape(expandPath(M.config.downloadsDirectory)))
+  local pipe = io.popen(cmd)
   for line in pipe:lines() do
     local size, creation_date, file_name =
       line:match("^[-bclsp][-rwSsxTt]+[ @]+%d+ +%w+ +%w+ +([%d.]+%w) +(%w+ +%d+ +[%d:]+ +%d+) +(.+)")
@@ -336,6 +355,15 @@ end
 
 -- Public interface
 function M.trashRecentDownload()
+  -- Ensure we have a working trash command before proceeding
+  if not M._trashCommand then
+    M._trashCommand = findTrashCommand(M.config.trashCommand)
+    if not M._trashCommand then
+      hs.alert.show("🗑️ Trash command not available!")
+      return
+    end
+  end
+
   local chooser = hs.chooser.new(M._chooserCallback)
   M._current_chooser = chooser
   chooser:choices(M._chooserFileList)
