@@ -1,7 +1,7 @@
 local pp = {
     log = nil,
     startTime = nil,
-    filePath = hs.fs.pathToAbsolute("~/Downloads/log.log") or os.getenv("HOME") .. "/Downloads/log.log"
+    filePath = hs.fs.pathToAbsolute("./build/pp_log.log")
 }
 
 -- Start profiling
