@@ -1,5 +1,3 @@
-require 'spec.spec_helper'
-
 describe("Path library functions:", function()
   local path = require 'utilities.path'
 

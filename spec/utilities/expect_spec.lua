@@ -1,5 +1,3 @@
-require 'spec.spec_helper'
-
 describe("Expect library functions", function()
   local expect = require 'utilities.expect'
 

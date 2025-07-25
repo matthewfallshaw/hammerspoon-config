@@ -195,59 +195,6 @@ seal.plugins.useractions.actions = {
   }
 }
 
-local chrome_tabs_seal = {
-  ['https://drive.google.com/drive/*'] = {
-    default = {
-      name = 'Docs',
-      title = '* - Google Drive',
-      keyword = 'gd',
-    },
-    bellroy = {
-      name = 'Docs Bellroy',
-      title = '* - Google Drive',
-      keyword = 'gdb',
-    },
-    miri = {
-      name = 'Docs MIRI',
-      title = '* - Google Drive',
-      keyword = 'gdm',
-    },
-  },
-  ['https://mail.google.com/mail/*'] = {
-    default = {
-      name = 'Gmail',
-      title = '* - matthew.fallshaw@gmail.com - Gmail',
-      keyword = 'gm',
-    },
-    bellroy = {
-      name = 'Gmail Bellroy',
-      title = '* - matt@bellroy.com - Bellroy Mail',
-      keyword = 'gmb',
-    },
-    miri = {
-      name = 'Gmail MIRI',
-      title = '* - matt@intelligence.org - Machine Intelligence Research Institute Mail',
-      keyword = 'gmm',
-    },
-  },
-}
-M.chrome_tabs_seal = chrome_tabs_seal
-for url, p in pairs(chrome_tabs_seal) do
-  for profile, props in pairs(p) do
-    seal.plugins.useractions.actions[props.name] = {
-      fn = function()
-        chrome_tabs.sendCommand({
-          focus = {
-            profile = profile,
-            title = props.title,
-            url = url,
-          }
-        })
-      end,
-      keyword = props.keyword,
-    }
-  end
-end
 
 local chrome_windows_seal = {
   Default = {

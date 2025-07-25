@@ -50,12 +50,6 @@ require("hs.ipc")  -- command line interface
 
 pp("after require hs.ipc")
 
--- Auto-reload config
-init.auto_reload_or_test = require 'auto_reload_or_test'
-init.auto_reload_or_test:start()
-
-pp("after require auto_reload_or_test")
-
 init.consts = require 'configConsts'
 
 i = hs.inspect.inspect  -- luacheck: no global
@@ -92,7 +86,7 @@ hyper.bindKey({}, 'c', function() hs.console.clearConsole() end)
 
 
 hs.loadSpoon('Hammer')
-spoon.Hammer.auto_reload_config = false
+spoon.Hammer.auto_reload_config = true  -- Enable auto-reload
 spoon.Hammer:bindHotkeys({
   config_reload ={{"⌘", "⌥", "⌃", "⇧"}, "r"},
   toggle_console={{"⌘", "⌥", "⌃", "⇧"}, "d"},
@@ -479,13 +473,6 @@ clock:init()
 
 pp("after require AClock")
 
--- ChromeTabs
-chrome_tabs = require('chrome_tabs')
--- chrome_tabs.chooser = require('chrome_tabs.chrome_tab_chooser')
--- chrome_tabs.chooser.hotkey = spoon.CaptureHotkeys:bind("ChromeTabs", "Find & focus a Chrome tab",
---     {'⌘','⇧','⌃'}, 'n', function() chrome_tabs.chooser.show() end)
-
-pp("after require chrome_tabs")
 
 -- Keycastr
 -- keycastr = require('keycastr')

@@ -1,10 +1,11 @@
 return {
   _all = {
-    coverage = true
+    coverage = false,
   },
   default = {
     verbose = true,
     ROOT = {"spec"},
+    helper = "./spec/spec_helper.lua",
   },
 }
 

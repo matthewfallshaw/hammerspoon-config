@@ -1,5 +1,3 @@
-require 'spec.spec_helper'
-
 describe("log", function()
   describe("and_alert", function()
     it("should send message to the right logger", function()

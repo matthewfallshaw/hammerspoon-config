@@ -1,5 +1,7 @@
-package.path = '/Applications/Hammerspoon.app/Contents/Resources/extensions/hs/?/init.lua;\z
-    ../?/?.lua;'.. package.path
+package.path = '/Applications/Hammerspoon.app/Contents/Resources/extensions/hs/?.lua;\z
+    /Applications/Hammerspoon.app/Contents/Resources/extensions/hs/?/init.lua;\z
+    ./?.lua;\z
+    ' .. package.path
 
 _G.hs = {}
 _G.hs.logger = require 'logger'
@@ -7,21 +9,38 @@ _G.hs.fnutils = require 'fnutils'
 _G.hs.inspect = require 'inspect'
 _G.hs.timer = { delayed = { new = function() end } }
 _G.hs.chooser = {
-  new = function(completionFn) return {
-        choices = function() end,
-        queryChangedCallback = function() end,
-        query = function() return "" end,
-      } end,
+  new = function(completionFn) 
+    local chooser = {
+      choices = function(self) return self end,
+      queryChangedCallback = function(self) return self end,
+      query = function() return "" end,
+      searchSubText = function(self) return self end,
+    }
+    return chooser
+  end,
 }
 _G.hs.osascript = function() end
+_G.hs.execute = function() return "" end
 _G.hs.hotkey = { setLogLevel = function() end }
-_G.hs.window = {}
+_G.hs.window = {
+  filter = {
+    setLogLevel = function() end
+  }
+}
+_G.hs.filter = {}
 _G.hs.doc = {
     hsdocs = {
-      forceExternalBrowser = function() end
+      forceExternalBrowser = function() end,
+      moduleEntitiesInSidebar = function() end
     }
   }
 _G.hs.application = { enableSpotlightForNameSearches = function() end }
 _G.hs.allowAppleScript = function() end
+_G.hs.watchable = {
+  new = function() return {
+    change = function() end
+  } end,
+  watch = function() return {} end
+}
 _G.hs.configdir = os.getenv("HOME").."/.hammerspoon"
 consts = require 'configConsts'
