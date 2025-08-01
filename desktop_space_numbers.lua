@@ -8,6 +8,9 @@ M._logger = hs.logger.new("Space #s")
 local logger = M._logger
 logger.i("Loading Desktop Space Numbers")
 
+-- Configuration constants
+local SPACES_MAP_CACHE_TTL = 5.0 -- Cache for 5 seconds
+
 -- # Usage
 -- desktop_space_numbers = require('desktop_space_numbers')
 -- desktop_space_numbers:start()
@@ -88,8 +91,9 @@ M.reduce = reduce
 
 -- ## Utility functions
 
-local function spaces_map()
-  local spaces_map = { active_spaces = {} }
+-- Helper: build spaces map data
+local function buildSpacesMap()
+  local spaces_map = {}
   local allSpaces = spaces.allSpaces()
   local spaceNumber = 1
 
@@ -133,13 +137,126 @@ local function spaces_map()
           spaceNumber = spaceNumber + 1
         end
       end
-      local activeSpaceId = spaces.activeSpaceOnScreen(screen)
-      spaces_map.active_spaces[activeSpaceId] = spaces_map[activeSpaceId]
     end
   end
+
   return spaces_map
 end
+
+-- Helper: build translation tables from spaces map
+local function buildTranslationTables(spaces_map)
+  local space_number_to_id = {}
+  local space_id_to_number = {}
+  local space_id_to_display = {}
+
+  for space_id, space_info in pairs(spaces_map) do
+    if space_info.spaceNumber then
+      space_number_to_id[space_info.spaceNumber] = space_id
+      space_id_to_number[space_id] = space_info.spaceNumber
+
+      -- Find which display contains this space
+      for _, screen in ipairs(hs.screen.allScreens()) do
+        local screen_spaces = spaces.spacesForScreen(screen)
+        for _, screen_space_id in ipairs(screen_spaces) do
+          if screen_space_id == space_id then
+            space_id_to_display[space_id] = screen
+            break
+          end
+        end
+        if space_id_to_display[space_id] then break end
+      end
+    end
+  end
+
+  return space_number_to_id, space_id_to_number, space_id_to_display
+end
+
+-- Create cache table with metatable for lazy loading
+local spaces_cache = setmetatable({
+  map = nil,
+  space_number_to_id = nil,
+  space_id_to_number = nil,
+  space_id_to_display = nil,
+  invalidation_timer = nil
+}, {
+  __index = function(t, key)
+    -- Check if this is a cache field we need to populate
+    if key == "map" or key == "space_number_to_id" or key == "space_id_to_number" or key == "space_id_to_display" then
+      -- Build the cache data
+      local spaces_map_data = buildSpacesMap()
+      local space_number_to_id, space_id_to_number, space_id_to_display = buildTranslationTables(spaces_map_data)
+
+      -- Populate all cache fields
+      t.map = setmetatable(spaces_map_data, {
+        __index = function(map_t, map_key)
+          if map_key == "active_spaces" then
+            -- Compute active spaces on demand
+            local active_spaces = {}
+            for _, screen in ipairs(hs.screen.allScreens()) do
+              local activeSpaceId = spaces.activeSpaceOnScreen(screen)
+              if map_t[activeSpaceId] then
+                active_spaces[activeSpaceId] = map_t[activeSpaceId]
+              end
+            end
+            return active_spaces
+          end
+          return nil
+        end
+      })
+      t.space_number_to_id = space_number_to_id
+      t.space_id_to_number = space_id_to_number
+      t.space_id_to_display = space_id_to_display
+
+      -- Set up delayed invalidation
+      if not t.invalidation_timer then
+        t.invalidation_timer = hs.timer.delayed.new(SPACES_MAP_CACHE_TTL, function()
+          t.map = nil
+          t.space_number_to_id = nil
+          t.space_id_to_number = nil
+          t.space_id_to_display = nil
+        end)
+      end
+      t.invalidation_timer:start()
+
+      return rawget(t, key)
+    end
+
+    -- For other keys, just return nil (let Lua handle it)
+    return nil
+  end
+})
+
+-- Helper: get space ID from space number
+local function getSpaceId(space_number)
+  return spaces_cache.space_number_to_id[space_number]
+end
+
+-- Helper: get space number from space ID
+local function getSpaceNumber(space_id)
+  return spaces_cache.space_id_to_number[space_id]
+end
+
+-- Helper: get display for space ID
+local function getSpaceDisplay(space_id)
+  return spaces_cache.space_id_to_display[space_id]
+end
+
+-- Helper: get current space number
+local function getCurrentSpaceNumber()
+  local current_space_id = spaces.focusedSpace()
+  return getSpaceNumber(current_space_id)
+end
+
+local function spaces_map()
+  return spaces_cache.map
+end
 M.spaces_map = spaces_map
+
+-- Public helper functions for space translation
+M.getSpaceId = getSpaceId
+M.getSpaceNumber = getSpaceNumber
+M.getSpaceDisplay = getSpaceDisplay
+M.getCurrentSpaceNumber = getCurrentSpaceNumber
 
 local function clear_space_labels()
   if M.space_labels then
@@ -221,6 +338,23 @@ end
 function M:stop()
   hs.fnutils.each(self.watchers, function(w) w:stop() end)
   clear_space_labels()
+end
+
+-- Public method to invalidate spaces cache
+-- Call this when spaces are added/removed/reordered
+function M:invalidateSpacesMapCache()
+  -- Stop any pending invalidation timer
+  if spaces_cache.invalidation_timer then
+    spaces_cache.invalidation_timer:stop()
+  end
+
+  -- Clear all cache data
+  spaces_cache.map = nil
+  spaces_cache.space_number_to_id = nil
+  spaces_cache.space_id_to_number = nil
+  spaces_cache.space_id_to_display = nil
+
+  logger.d('Invalidated spaces cache')
 end
 
 return M

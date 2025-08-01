@@ -1,2 +1,7 @@
 This is my local Hammerspoon (HS) config. You should have access to HS docs via @Hammerspoon.
 HS works via Lua and LuaSkin, and is single threaded. Avoid any long running tasks, and consider Lua coroutines when you can't avoid them.
+Remember that lua doesn't do any hoisting, so pay attention to the order of your code.
+
+When I ask you a question, please answer my question and DON'T TAKE ANY ACTIONS. When I ask you to do something, then please do it. Feel free to infer actions from my questions and offer to take them. Don't feel the need to stop and ask me for confirmation of chained actions you take, but specifically when I ask questions, don't infer actions.
+
+Don't be agreeable if you could instead help me improve. Think about every assertion I make, and don't assume that I'm right. A hint you might use here is that if you want to start a reply with "You're absolutely right", that's a fairly good indicator that you've not yet thought very hard about whether I am right or not (but only one turtle here, they don't go all the way down).

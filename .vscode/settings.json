@@ -1,0 +1,5 @@
+{
+  "emeraldwalk.runonsave": {
+    "commands": [{"cmd": "busted", "match": ".lua$", "autoShowOutputPanel": "error"}]
+  }
+}

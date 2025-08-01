@@ -10,10 +10,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `busted spec/` - Run all tests in spec directory
 - Guard file monitoring: `guard` - Auto-runs tests when files change (Ruby Guard + Guardfile)
 
-### Dependencies
-- `luarocks install checks` - Install required Lua rock dependencies
-- Uses local luarocks installation (not global) due to nix integration
-
 ### Development Workflow
 - Configuration auto-reloads via `auto_reload_or_test.lua`
 - Files listed in `configConsts.modules_under_test` trigger spec tests instead of reload
@@ -46,12 +42,12 @@ This is a sophisticated Hammerspoon configuration with modular architecture:
 
 **Watcher-Observer Pattern**: Extensive use of Hammerspoon watchers:
 - File changes (`hs.pathwatcher`)
-- Network changes (`hs.wifi.watcher`) 
+- Network changes (`hs.wifi.watcher`)
 - USB device events (`hs.usb.watcher`)
 - Application lifecycle (`hs.application.watcher`)
 - Power state changes (`hs.caffeinate.watcher`)
 
-**Modal Key Bindings**: 
+**Modal Key Bindings**:
 - `hyper.lua` creates virtual hyper key system using F18/F17
 - Programmatically generates all modifier combinations
 - Other modules register keys via `hyper.bindKey()`
@@ -131,7 +127,7 @@ This is a sophisticated Hammerspoon configuration with modular architecture:
 
 **configConsts.lua patterns**:
 - Screen/monitor specific window layouts
-- Application-specific hotkeys and behaviors  
+- Application-specific hotkeys and behaviors
 - URL routing patterns for browser management
 - Location-specific automation rules
 - API keys retrieved from macOS keychain
