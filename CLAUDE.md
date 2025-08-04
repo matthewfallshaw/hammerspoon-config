@@ -10,6 +10,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `busted spec/` - Run all tests in spec directory
 - Guard file monitoring: `guard` - Auto-runs tests when files change (Ruby Guard + Guardfile)
 
+**Testing Limitations**: The busted tests run in an isolated environment without access to the Hammerspoon (HS) APIs. They use mocks provided in `spec_helper.lua`. To test actual Hammerspoon functionality, ask the user to manually test the configuration. The config auto-reloads when files change via `auto_reload_or_test.lua`, so no manual reload is needed.
+
 ### Development Workflow
 - Configuration auto-reloads via `auto_reload_or_test.lua`
 - Files listed in `configConsts.modules_under_test` trigger spec tests instead of reload

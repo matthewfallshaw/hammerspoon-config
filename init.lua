@@ -151,7 +151,7 @@ pp("after require control_plane")
 
 -- Stay replacement: Keep App windows in their places
 stay = require('stay')  -- luacheck: no global
-stay:start()
+stay:start(init.consts.stay)
 spoon.CaptureHotkeys:capture(
   "Stay", "Once, toggle layout engine; twice, report screens; thrice, report frontmost window; "..
     "four times, report frontmost & open stay.lua for editing",
@@ -170,17 +170,21 @@ pp("after require MiroWindowsManager")
 
 hs.loadSpoon("WindowScreenLeftAndRight")
 spoon.WindowScreenLeftAndRight:bindHotkeys({
-   screen_left  = { {"ctrl", "alt", "cmd"}, "h" },
-   screen_right = { {"ctrl", "alt", "cmd"}, "l" },
+   screen_left  = { {"⌥", "⌃", "⌘"}, "h" },
+   screen_right = { {"⌥", "⌃", "⌘"}, "l" },
 })
 
 pp("after require WindowScreenLeftAndRight")
 
 -- Move windows between spaces
 move_spaces = require('move_spaces')
-move_spaces:bindHotkeys({
-  left  = {{"⌘", "⌥", "⌃", "⇧"}, "h"},
-  right = {{"⌘", "⌥", "⌃", "⇧"}, "l"},
+move_spaces:start({
+  space_jump_modifiers = {"⌃", "⇧"},  -- ctrl+shift for macOS space switching
+  hotkeys = {
+    left  = {{"⌘", "⌥", "⌃", "⇧"}, "h"},
+    right = {{"⌘", "⌥", "⌃", "⇧"}, "l"},
+    toSpace = {{"⌘", "⌥", "⌃", "⇧"}},
+  }
 })
 
 pp("after require move_spaces")
@@ -190,71 +194,6 @@ desktop_space_numbers = require('desktop_space_numbers')
 desktop_space_numbers:start()
 
 pp("after require desktop_space_numbers")
-
--- Jettison replacement: Eject ejectable drives on sleep
--- jettison = require('jettison')
--- jettison:start()
-
-
--- Spotify controls
--- spotify = { hotkeys = {}, volume = hs.spotify.getVolume(), mute = false }
--- local spotify_hotkeymap = {
---   playpause  = {{"⌥", "⌃", "⇧"},      "f8"},
---   next       = {{"⌥", "⌃", "⇧"},      "f9"},
---   previous   = {{"⌥", "⌃", "⇧"},      "f7"},
---   hide       = {{"⌥", "⌃", "⇧"},      "h"},
---   quit       = {{"⌥", "⌃", "⇧"},      "q"},
---   mute       = {{"⌥", "⌃", "⇧"},      "f10"},
---   volumeDown = {{"⌥", "⌃", "⇧"},      "f11"},
---   volumeUp   = {{"⌥", "⌃", "⇧"},      "f12"},
---   ff         = {{"⌥", "⌃", "⇧", "⌘"}, "f9"},
---   rw         = {{"⌥", "⌃", "⇧", "⌘"}, "f7"},
---   displayCurrentTrack = {{"⌥", "⌃", "⇧"}, "t"},
--- }
--- local spotify_app = hs.application.get("Spotify")
--- local fns = {
---   hide = function() if spotify_app then return spotify_app:isHidden()
---     and (spotify_app:activate() or true)
---     or spotify_app:hide() end end,
---   quit = function() if spotify_app then spotify_app:kill() end end,
---   mute = function() if spotify_app then
---     if spotify.mute then
---       spotify.mute = false
---       hs.spotify.setVolume(spotify.volume)
---     else
---       spotify.mute = true
---       spotify.volume = hs.spotify.getVolume()
---       hs.spotify.setVolume(0)
---     end
---   end end
--- }
--- for fn_name, map in pairs(spotify_hotkeymap) do
---   spotify.hotkeys[fn_name] = spoon.CaptureHotkeys:bind("Spotify", fn_name ,map[1], map[2],
---     type(hs.spotify[fn_name])=='function' and
---       function() return hs.spotify[fn_name]() end or
---       function() return fns[fn_name]() end
---     -- function()
---     --   if type(hs.spotify[fn_name])~='function' then
---     --     return hs.spotify[fn_name]()
---     --   end
---     --   local fns = {
---     --     hide = function() if spotify_app then return spotify_app:hide() end end,
---     --     quit = function() if spotify_app then spotify_app:kill() end end,
---     --     mute = function() if spotify_app then
---     --       if spotify.mute then
---     --         spotify.mute = false
---     --         hs.spotify.setVolume(spotify.volume)
---     --       else
---     --         spotify.mute = true
---     --         spotify.volume = hs.spotify.getVolume()
---     --         hs.spotify.setVolume(0)
---     --       end
---     --     end end
---     --   }
---     --   return fns[fn_name]()
---     -- end
---   )
--- end
 
 
 -- Trash recent downloads

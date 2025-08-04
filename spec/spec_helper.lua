@@ -1,6 +1,7 @@
 package.path = '/Applications/Hammerspoon.app/Contents/Resources/extensions/hs/?.lua;\z
     /Applications/Hammerspoon.app/Contents/Resources/extensions/hs/?/init.lua;\z
     ./?.lua;\z
+    ./?/init.lua;\z
     ' .. package.path
 
 _G.hs = {}

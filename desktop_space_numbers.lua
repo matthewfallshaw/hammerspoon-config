@@ -242,9 +242,53 @@ local function getSpaceDisplay(space_id)
 end
 
 -- Helper: get current space number
-local function getCurrentSpaceNumber()
+-- Get current space numbers for all displays and which one is active
+local function getCurrentSpaceNumbers()
+  local result = {
+    spaces = {},  -- [display_id] = space_number
+    active_space = nil  -- the currently focused space number
+  }
+  
+  -- Get active space number (focused space)
   local current_space_id = spaces.focusedSpace()
-  return getSpaceNumber(current_space_id)
+  result.active_space = getSpaceNumber(current_space_id)
+  
+  -- Get current space for each display
+  for _, display in ipairs(hs.screen.allScreens()) do
+    local display_active_space_id = spaces.activeSpaceOnScreen(display)
+    if display_active_space_id then
+      local display_space_number = getSpaceNumber(display_active_space_id)
+      if display_space_number then
+        result.spaces[display:id()] = display_space_number
+      end
+    end
+  end
+  
+  return result
+end
+
+-- Get just the currently active (focused) space number - backward compatibility
+local function getCurrentActiveSpaceNumber()
+  local current_spaces = getCurrentSpaceNumbers()
+  return current_spaces.active_space
+end
+
+-- Helper: get space number for a window
+local function getWindowSpaceNumber(win)
+  if not win then
+    return nil
+  end
+  
+  -- Get all spaces that contain this window
+  local window_spaces = spaces.windowSpaces(win)
+  if not window_spaces or #window_spaces == 0 then
+    return nil
+  end
+  
+  -- For simplicity, return the space number of the first space
+  -- (windows can be on multiple spaces if they're on all spaces)
+  local space_id = window_spaces[1]
+  return getSpaceNumber(space_id)
 end
 
 local function spaces_map()
@@ -256,7 +300,9 @@ M.spaces_map = spaces_map
 M.getSpaceId = getSpaceId
 M.getSpaceNumber = getSpaceNumber
 M.getSpaceDisplay = getSpaceDisplay
-M.getCurrentSpaceNumber = getCurrentSpaceNumber
+M.getCurrentSpaceNumbers = getCurrentSpaceNumbers
+M.getCurrentSpaceNumber = getCurrentActiveSpaceNumber  -- backward compatibility
+M.getWindowSpaceNumber = getWindowSpaceNumber
 
 local function clear_space_labels()
   if M.space_labels then
