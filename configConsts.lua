@@ -11,6 +11,19 @@ return {
   -- modules under test
   modules_under_test = {},
 
+  -- Timing constants (in seconds) for window/space operations
+  timing = {
+    WINDOW_FOCUS_WAIT = 0.8,         -- 0.2 seconds - time to wait after focusing a window
+    DISPLAY_MOVE_WAIT = 0.8,         -- 0.2 seconds - time to wait after moving window to different display
+    SPACE_MOVE_TIMEOUT = 0.8,        -- 0.2 seconds - timeout for space move operations
+    SPACE_CHANGE_WAIT = 1.2,         -- 0.3 seconds - time to wait after space change
+    SCREEN_ACTIVATION_WAIT = 0.8,    -- 0.2 seconds - time to wait after activating a screen
+    ADJACENT_MOVE_TIMEOUT = 0.5,    -- 0.05 seconds - timeout for adjacent space moves
+    RETURN_DELAY = 0.1,              -- 0.1 seconds - delay before returning to original space
+    DOUBLE_TAP_WINDOW = 0.25,        -- 0.25 seconds - double-tap detection window
+    MOVE_COMPLETION_WAIT = 1.0,      -- 1.0 second - time to wait for move completion (stay module)
+  },
+
   -- spoon.URLDispatcher
   URLDispatcher = {
     url_patterns = {
@@ -77,20 +90,62 @@ return {
         window_title_matcher = {
           pattern = " %- Google Chrome – Matthew %(personal%)$",
         },
+        exceptions = {
+          gmail = {
+            window_title_matcher = {
+              pattern = "@gmail.com - Gmail",
+            },
+          }
+        },
       },
       {
         name = "bellroy",
         target_space = 7,
         window_title_matcher = {
           pattern = " %- Google Chrome – Matthew %(bellroy%)$",
-        }
+        },
+        exceptions = {
+          gmail = {
+            window_title_matcher = {
+              pattern = "@bellroy.com - Bellroy Mail",
+            },
+          }
+        },
       },
       {
         name = "miri",
         target_space = 10,
         window_title_matcher = {
           pattern = " %- Google Chrome – Matt %(miri%)$",
-        }
+        },
+        exceptions = {
+          gmail = {
+            window_title_matcher = {
+              pattern = "@intelligence.org - Machine Intelligence Research Institute Mail",
+            },
+          }
+        },
+      },
+      {
+        name = "personal Gmail",
+        target_space = 8,
+        window_title_matcher = {
+          pattern = "@gmail.com - Gmail",
+        },
+      },
+      {
+        name = "bellroy Gmail",
+        target_space = 8,
+        window_title_matcher = {
+          pattern = "@bellroy.com - Bellroy Mail",
+        },
+      },
+      {
+        name = "miri Gmail",
+        target_space = 8,
+        window_title_matcher = {
+          pattern = "@intelligence.org - Machine Intelligence Research Institute Mail",
+        },
       },
     },
     window_layouts = {

@@ -2,24 +2,25 @@
 
 -- luacheck: globals hs
 
--- Configuration constants
-local DEFAULT_SPACE_JUMP_MODIFIERS = {"ctrl", "shift"}
-
 local hs_geometry = hs.geometry
 local fun = require 'fun'
+local desktop_state = require('desktop_state')
+require('utilities.table')
 
-local M = {}
+local M = { _config = {} }
 
--- Timing constants for window operations
-local TIMING = {
-  SPACE_CHANGE_WAIT = 300000,  -- 0.3 seconds
-  WINDOW_FOCUS_WAIT = 200000,  -- 0.2 seconds
-  SCREEN_ACTIVATION_WAIT = 200000,  -- 0.2 seconds
-  MOVE_COMPLETION_WAIT = 1000000,  -- 1.0 second
+-- Get configuration constants including timing
+local consts = require('configConsts')
+local TIMING = consts.timing
+
+-- Window behavior constants
+local HS_DRAWING_WINDOW_BEHAVIOURS = {
+  canJoinAllSpaces = 1,
 }
 
 local logger = hs.logger.new('Stay')
 M._logger = logger
+logger.setLogLevel('debug')
 logger.i('Loading Stay')
 hs.window.filter.setLogLevel(1)  -- GLOBAL!! wfilter is very noisy
 
@@ -44,7 +45,7 @@ end
 M.watchable_watcher = hs.watchable.watch('stay.activeLayouts', M.activeLayoutChangeCallback)
 
 function M:report_frontmost_window()  --luacheck: no self
-  local window = hs.application.frontmostApplication():focusedWindow()
+  local window = desktop_state.getFocusedWindow()
 
   local filter_string
   if window:subrole() == 'AXStandardWindow' then
@@ -76,7 +77,7 @@ function M:report_frontmost_window()  --luacheck: no self
 
   local res = 'Active layouts: '..self:activeLayouts():tostring()..'\n'..layout_rule..'\n'..abs_layout_rule
   hs.pasteboard.setContents(res)
-  alert('Active window position in clipboard\n\n'..res)
+  alert('Active window position in clipboard\n\n'..res..'\n\ntitle:'..window:title())
   return res
 end
 
@@ -192,48 +193,53 @@ function M.evaluate_matcher(matcher_config, win)
   return false
 end
 
--- Detect which profile a window belongs to based on profile rules
-function M.detect_profile(win, profile_rules)
-  for profile_name, profile_rule in pairs(profile_rules) do
-    if M.evaluate_matcher(profile_rule, win) then
-      return profile_name
+-- Detect which profile a window belongs to based on target space rules
+function M.detect_profile(win, target_space_rules)
+  for _, rule in ipairs(target_space_rules) do
+    if M.evaluate_matcher(rule, win) then
+      return rule.name or "unnamed_rule"
     end
   end
   return nil
 end
 
--- Determine what space a window should be in based on profile rules
-function M.get_target_space_for_window(win, profile_rules)
-  local profile = M.detect_profile(win, profile_rules)
-  if not profile then return nil end
-
-  local profile_rule = profile_rules[profile]
-  if not profile_rule then return nil end
-
-  return profile_rule.target_space
+-- Determine what space a window should be in based on target space rules
+function M.get_target_space_for_window(win, target_space_rules)
+  for _, rule in ipairs(target_space_rules) do
+    if M.evaluate_matcher(rule, win) then
+      -- Check for exceptions
+      if rule.exceptions then
+        for _, exception in ipairs(rule.exceptions) do
+          if M.evaluate_matcher(exception, win) then
+            -- Exception matched, skip this rule
+            goto continue
+          end
+        end
+      end
+      return rule.target_space
+    end
+    ::continue::
+  end
+  return nil
 end
 
 -- Get the current space ID for a window
 function M.get_current_space_for_window(win)
-  local spaces = require "hs.spaces"
-  local win_spaces = spaces.windowSpaces(win)
-  -- Return first space (windows can be in multiple spaces, but we'll use the first)
-  return win_spaces and win_spaces[1] or nil
+  return desktop_state.get_current_space_for_window(win)
 end
 
 -- Check if a window is already in its correct "home" space
 -- Returns TRUE if the window should NOT be moved (either no target or already correct)
 -- Returns FALSE only if the window has a target and is NOT in the correct space
-function M.is_window_home(win, profile_rules)
-  local target_space = M.get_target_space_for_window(win, profile_rules)
+function M.is_window_home(win, target_space_rules)
+  local target_space = M.get_target_space_for_window(win, target_space_rules)
   if not target_space then return true end -- No target space defined = don't move
 
   local current_space = M.get_current_space_for_window(win)
   if not current_space then return true end -- Can't determine current space = don't move
 
-  -- Convert target space number to space ID using desktop_space_numbers
-  local desktop_space_numbers = require('desktop_space_numbers')
-  local spaces_map = desktop_space_numbers.spaces_map()
+  -- Convert target space number to space ID using desktop_state
+  local spaces_map = desktop_state.getSpacesMap()
 
   for space_id, space_info in pairs(spaces_map) do
     if space_info.spaceNumber == target_space and space_id == current_space then
@@ -247,376 +253,47 @@ end
 -- Move window to specific space using move_spaces module with direct space jumping
 function M.move_window_to_space(win, target_space_number, config)
   local move_spaces = require('move_spaces')
-  -- Use moveWindowToSpace (without returning to original space)
-  return move_spaces.moveWindowToSpace(win, target_space_number, config)
-end
-
--- Manual testing function for real Chrome windows
-function M:test_chrome_matchers()
-  -- Use chrome_profile_rules from configuration
-  local test_profile_rules = self.config.chrome_profile_rules or {}
-
-  if not next(test_profile_rules) then
-    alert("No chrome_profile_rules found in configuration")
-    return
-  end
-
-  -- Get Chrome application
-  local chrome_app = hs.application.get("Google Chrome")
-  if not chrome_app then
-    alert("Google Chrome is not running")
-    return
-  end
-
-  -- Try multiple methods to find ALL Chrome windows
-  local chrome_windows_all = chrome_app:allWindows()
-  local chrome_windows_visible = chrome_app:visibleWindows()
-  local chrome_filter = hs.window.filter.new("Google Chrome")
-  local chrome_windows_filtered = chrome_filter:getWindows()
-
-  -- Try hs.spaces approach with space switching to force window discovery
-  local spaces = require "hs.spaces"
-  local chrome_windows_spaces = {}
-  local spaces_checked = 0
-  local current_space = spaces.focusedSpace()
-
-  alert("Starting comprehensive space scan... this will switch spaces briefly")
-
-  for _, screen in ipairs(hs.screen.allScreens()) do
-    local screen_spaces = spaces.spacesForScreen(screen)
-    for _, space_id in ipairs(screen_spaces) do
-      spaces_checked = spaces_checked + 1
-
-      -- Briefly switch to each space to force window loading
-      spaces.gotoSpace(space_id)
-      hs.timer.usleep(100000) -- Wait 0.1 seconds
-
-      -- Now try multiple approaches on this space
-      local space_windows = spaces.windowsForSpace(space_id)
-      local chrome_windows_this_space = chrome_app:allWindows()
-
-      -- Combine both approaches
-      local all_potential_windows = {}
-
-      -- From space-specific query
-      for _, win_id in ipairs(space_windows) do
-        local win = hs.window.get(win_id)
-        if win and win:application() and win:application():name() == "Google Chrome" then
-          table.insert(all_potential_windows, win)
-        end
-      end
-
-      -- From application query (now that we're in this space)
-      for _, win in ipairs(chrome_windows_this_space) do
-        if win:isStandard() and not win:isMinimized() then
-          table.insert(all_potential_windows, win)
-        end
-      end
-
-      -- Deduplicate and add to main list
-      for _, win in ipairs(all_potential_windows) do
-        local already_found = false
-        for _, existing_win in ipairs(chrome_windows_spaces) do
-          if existing_win:id() == win:id() then
-            already_found = true
-            break
-          end
-        end
-        if not already_found then
-          table.insert(chrome_windows_spaces, win)
-        end
-      end
-    end
-  end
-
-  -- Return to original space
-  spaces.gotoSpace(current_space)
-  alert("Space scan complete")
-
-  -- Use the method that finds the most windows
-  local methods = {
-    {name = "allWindows()", windows = chrome_windows_all},
-    {name = "window.filter", windows = chrome_windows_filtered},
-    {name = "spaces iteration", windows = chrome_windows_spaces}
-  }
-
-  local best_method = methods[1]
-  for _, method in ipairs(methods) do
-    if #method.windows > #best_method.windows then
-      best_method = method
-    end
-  end
-
-  local chrome_windows = best_method.windows
-  local best_method_name = best_method.name
-
-  -- Build comprehensive test report
-  local report = {}
-
-  -- Header with method comparison
-  table.insert(report, "=== Chrome Window Detection Test Results ===")
-  table.insert(report, string.format("allWindows(): %d windows", #chrome_windows_all))
-  table.insert(report, string.format("visibleWindows(): %d windows", #chrome_windows_visible))
-  table.insert(report, string.format("window.filter: %d windows", #chrome_windows_filtered))
-  table.insert(report, string.format("spaces iteration: %d windows (checked %d spaces)", #chrome_windows_spaces, spaces_checked))
-  table.insert(report, string.format("Using: %s (%d windows)", best_method_name, #chrome_windows))
-  table.insert(report, "")
-
-  -- Test each window
-  local profile_counts = {personal = 0, bellroy = 0, miri = 0, none = 0}
-
-  for i, win in ipairs(chrome_windows) do
-    if win:isStandard() and not win:isMinimized() then
-      local title = win:title()
-      local detected_profile = M.detect_profile(win, test_profile_rules)
-
-      table.insert(report, string.format("Window %d:", i))
-      table.insert(report, string.format("  Title: %s", title:len() > 80 and (title:sub(1, 80) .. "...") or title))
-      table.insert(report, string.format("  Profile: %s", detected_profile or "none"))
-
-      -- Count profiles
-      profile_counts[detected_profile or "none"] = profile_counts[detected_profile or "none"] + 1
-
-      -- Test individual matchers for debugging
-      for profile_name, profile_rule in pairs(test_profile_rules) do
-        local matches = M.evaluate_matcher(profile_rule, win)
-        if matches then
-          table.insert(report, string.format("  ✅ Matches %s pattern", profile_name))
-        end
-      end
-      table.insert(report, "")
-    end
-  end
-
-  -- Summary
-  table.insert(report, "=== Profile Detection Summary ===")
-  table.insert(report, string.format("Personal: %d windows", profile_counts.personal))
-  table.insert(report, string.format("Bellroy: %d windows", profile_counts.bellroy))
-  table.insert(report, string.format("MIRI: %d windows", profile_counts.miri))
-  table.insert(report, string.format("Unmatched: %d windows", profile_counts.none))
-
-  local final_report = table.concat(report, "\n")
-
-  -- Output to both console and clipboard
-  print(final_report)
-  hs.pasteboard.setContents(final_report)
-  alert(string.format("Tested %d Chrome windows. Results in console and clipboard.", #chrome_windows))
-end
-
--- Simple test to verify home detection logic
-function M:test_home_detection()
-  local profile_rules = self.config.chrome_profile_rules or {}
-
-  if not next(profile_rules) then
-    alert("No chrome_profile_rules found in configuration")
-    return
-  end
-
-  local frontmost_app = hs.application.frontmostApplication()
-  if not frontmost_app then
-    alert("No frontmost application found")
-    return
-  end
-
-  local frontmost_win = frontmost_app:focusedWindow()
-  if not frontmost_win then
-    alert("No focused window found")
-    return
-  end
-
-  -- Test all the detection functions step by step
-  local title = frontmost_win:title()
-  local app_name = frontmost_app:name()
-  local profile = M.detect_profile(frontmost_win, profile_rules)
-  local target_space = M.get_target_space_for_window(frontmost_win, profile_rules)
-  local current_space_id = M.get_current_space_for_window(frontmost_win)
-  local is_home = M.is_window_home(frontmost_win, profile_rules)
-
-  -- Convert space IDs to readable numbers
-  local desktop_space_numbers = require('desktop_space_numbers')
-  local spaces_map = desktop_space_numbers.spaces_map()
-  local current_space_number = "unknown"
-  local target_space_id = nil
-
-  for space_id, space_info in pairs(spaces_map) do
-    if space_id == current_space_id then
-      current_space_number = space_info.spaceNumber
-    end
-    if space_info.spaceNumber == target_space and not target_space_id then
-      target_space_id = space_id
-    end
-  end
-
-  local report = {}
-  table.insert(report, "=== HOME DETECTION LOGIC TEST ===")
-  table.insert(report, string.format("App: %s", app_name))
-  table.insert(report, string.format("Title: %s", title:len() > 60 and (title:sub(1, 60) .. "...") or title))
-  table.insert(report, "")
-  table.insert(report, "--- Step-by-step detection ---")
-  table.insert(report, string.format("1. Profile detected: %s", profile or "none"))
-  table.insert(report, string.format("2. Target space number: %s", target_space or "none"))
-  table.insert(report, string.format("3. Target space ID: %s", target_space_id or "none"))
-  table.insert(report, string.format("4. Current space ID: %s", current_space_id or "unknown"))
-  table.insert(report, string.format("5. Current space number: %s", current_space_number))
-  table.insert(report, string.format("6. Space ID match: %s", (target_space_id == current_space_id) and "YES" or "NO"))
-  table.insert(report, "")
-  table.insert(report, string.format("FINAL RESULT: is_window_home() = %s", is_home and "TRUE" or "FALSE"))
-
-  -- Determine what the expected result should be
-  local expected_home, expected_reason
-  if not profile then
-    expected_home = true
-    expected_reason = "no profile detected = don't move"
-  elseif not target_space then
-    expected_home = true
-    expected_reason = "no target space = don't move"
-  elseif target_space_id == current_space_id then
-    expected_home = true
-    expected_reason = "already in correct space = don't move"
-  else
-    expected_home = false
-    expected_reason = "has target but wrong space = needs move"
-  end
-
-  table.insert(report, string.format("EXPECTED: %s (%s)", expected_home and "TRUE" or "FALSE", expected_reason))
-
-  if expected_home == is_home then
-    table.insert(report, "✅ Home detection logic is CORRECT")
-  else
-    table.insert(report, "❌ Home detection logic is WRONG")
-    table.insert(report, string.format("   Expected: %s, Got: %s", expected_home and "TRUE" or "FALSE", is_home and "TRUE" or "FALSE"))
-  end
-
-  local final_report = table.concat(report, "\n")
-  print(final_report)
-  hs.pasteboard.setContents(final_report)
-  alert("Home detection test complete. Results in console and clipboard.")
-end
-
--- Interactive test function for frontmost window
-function M:test_frontmost_window()
-  local profile_rules = self.config.chrome_profile_rules or {}
-
-  if not next(profile_rules) then
-    alert("No chrome_profile_rules found in configuration")
-    return
-  end
-
-  -- Give user 5 seconds to focus a window
-  alert("You have 5 seconds to focus the window you want to test...")
-
-  hs.timer.doAfter(5, function()
-    local frontmost_app = hs.application.frontmostApplication()
-    if not frontmost_app then
-      alert("No frontmost application found")
-      return
-    end
-
-    local frontmost_win = frontmost_app:focusedWindow()
-    if not frontmost_win then
-      alert("No focused window found")
-      return
-    end
-
-    -- Test the window
-    local title = frontmost_win:title()
-    local app_name = frontmost_app:name()
-    local profile = M.detect_profile(frontmost_win, profile_rules)
-    local target_space = M.get_target_space_for_window(frontmost_win, profile_rules)
-    local current_space = M.get_current_space_for_window(frontmost_win)
-    local is_home = M.is_window_home(frontmost_win, profile_rules)
-
-    -- Convert space IDs to readable numbers
-    local desktop_space_numbers = require('desktop_space_numbers')
-    local spaces_map = desktop_space_numbers.spaces_map()
-    local current_space_number = "unknown"
-    for space_id, space_info in pairs(spaces_map) do
-      if space_id == current_space then
-        current_space_number = space_info.spaceNumber
-        break
-      end
-    end
-
-    local report = {}
-    table.insert(report, "=== Frontmost Window Test ===")
-    table.insert(report, string.format("App: %s", app_name))
-    table.insert(report, string.format("Title: %s", title:len() > 60 and (title:sub(1, 60) .. "...") or title))
-    table.insert(report, string.format("Profile: %s", profile or "none"))
-    table.insert(report, string.format("Target space: %s", target_space or "none"))
-    table.insert(report, string.format("Current space: %s (ID: %s)", current_space_number, current_space or "unknown"))
-    table.insert(report, string.format("Is home: %s", is_home and "YES" or "NO"))
-
-    if profile and target_space and not is_home then
-      table.insert(report, string.format(">>> Window should be moved to Space %d", target_space))
-      table.insert(report, "")
-      table.insert(report, "Testing window movement...")
-
-      local final_report = table.concat(report, "\n")
-      print(final_report)
-      hs.pasteboard.setContents(final_report)
-
-      -- Automatically test movement
-      local move_config = {
-        space_jump_modifiers = self.config.space_jump_modifiers or DEFAULT_SPACE_JUMP_MODIFIERS
-      }
-      local success, msg = M.move_window_to_space(frontmost_win, target_space, move_config)
-      if success then
-        alert("SUCCESS: " .. msg)
-      else
-        alert("FAILED: " .. msg)
-      end
-    else
-      local final_report = table.concat(report, "\n")
-      print(final_report)
-      hs.pasteboard.setContents(final_report)
-      alert("Frontmost window test complete. Results in console and clipboard.")
-    end
-  end)
+  -- Use moveWindow (without returning to original space)
+  -- The move_spaces module will use its configured space_jump_modifiers
+  return move_spaces:moveWindow(target_space_number, false, win)
 end
 
 -- Discovery phase for tidy: Enumerate all Chrome windows across all spaces
-function M:discover_chrome_windows_for_tidy()
-  local profile_rules = self.config.chrome_profile_rules or {}
+function M:build_tidy_discovery_commands()
+  local profile_rules = self._config.target_space_rules or {}
 
   if not next(profile_rules) then
-    M._logger.e("No chrome_profile_rules found in configuration")
-    return nil, "No chrome_profile_rules found"
+    M._logger.e("No target_space_rules found in configuration")
+    return {}
   end
 
   -- Get Chrome application
   local chrome_app = hs.application.get("Google Chrome")
   if not chrome_app then
     M._logger.e("Google Chrome is not running")
-    return nil, "Chrome not running"
+    return {}
   end
 
-  M._logger.i("Starting comprehensive Chrome window discovery...")
+  M._logger.i("Building Chrome window discovery commands...")
 
-  local desktop_space_numbers = require('desktop_space_numbers')
-  local spaces_map = desktop_space_numbers.spaces_map()
-  local spaces = require "hs.spaces"
+  -- Shared state for collecting discovered windows across all LAMBDA commands
+  M._discovery_state = {
+    all_chrome_windows = {},
+    profile_rules = profile_rules,
+    spaces_visited = 0
+  }
 
-  -- Save current space to restore later
-  local original_space = spaces.focusedSpace()
-
-  -- Track all discovered windows
-  local all_chrome_windows = {}
-  local spaces_visited = 0
+  local commands = {}
+  local spaces_map = desktop_state.getSpacesMap()
 
   -- Visit EVERY space on EVERY display
   for _, screen in ipairs(hs.screen.allScreens()) do
     M._logger.d(string.format("Scanning display: %s", screen:name()))
 
-    local screen_spaces = spaces.spacesForScreen(screen)
+    local screen_spaces = desktop_state.getSpacesForScreen(screen)
     for _, space_id in ipairs(screen_spaces) do
       -- Skip non-user spaces (fullscreen, dashboard, etc)
-      if spaces.spaceType(space_id) == "user" then
-        spaces_visited = spaces_visited + 1
-
-        -- Switch to this space
-        spaces.gotoSpace(space_id)
-        hs.timer.usleep(100000) -- 0.1 second wait
-
+      if desktop_state.getSpaceType(space_id) == "user" then
         -- Get space number for logging
         local space_number = nil
         for sid, sinfo in pairs(spaces_map) do
@@ -626,70 +303,87 @@ function M:discover_chrome_windows_for_tidy()
           end
         end
 
-        M._logger.d(string.format("Visiting space %s (number: %s) on %s",
-                                 space_id, space_number or "unknown", screen:name()))
+        if space_number then
+          -- Jump to space command
+          table.insert(commands, {
+            type = "JUMP_TO_SPACE",
+            target_space_number = space_number,
+            target_display = screen
+          })
 
-        -- Try multiple methods to find Chrome windows
-        local space_windows = spaces.windowsForSpace(space_id)
-        local chrome_windows_this_space = chrome_app:allWindows()
+          -- Collect Chrome windows on this space using LAMBDA command
+          table.insert(commands, {
+            type = "LAMBDA",
+            description = string.format("Collect Chrome windows on space %d (%s)", space_number, screen:name()),
+            space_id = space_id,
+            space_number = space_number,
+            screen = screen,
+            execute_fn = function(cmd)
+              M._discovery_state.spaces_visited = M._discovery_state.spaces_visited + 1
+              M._logger.d(string.format("Collecting Chrome windows on space %d (%s)", cmd.space_number, cmd.screen:name()))
 
-        -- Combine results
-        local potential_windows = {}
+              -- Get all windows on current space
+              local space_windows = desktop_state.getWindowsForSpace(cmd.space_id)
+              local found_count = 0
 
-        -- From space-specific query
-        for _, win_id in ipairs(space_windows) do
-          local win = hs.window.get(win_id)
-          if win and win:application() and win:application():name() == "Google Chrome" then
-            table.insert(potential_windows, win)
-          end
-        end
+              -- Filter for Chrome windows on this space
+              for _, win_id in ipairs(space_windows) do
+                local win = hs.window.get(win_id)
+                if win and win:application() and win:application():name() == "Google Chrome" then
+                  local valid, _ = desktop_state.isMoveableWindow(win)
+                  if valid then
+                    -- Check for duplicates
+                    local already_found = false
+                    for _, existing_win in ipairs(M._discovery_state.all_chrome_windows) do
+                      if existing_win.window:id() == win:id() then
+                        already_found = true
+                        break
+                      end
+                    end
 
-        -- From application query
-        for _, win in ipairs(chrome_windows_this_space) do
-          if win:isStandard() and not win:isMinimized() then
-            table.insert(potential_windows, win)
-          end
-        end
+                    if not already_found then
+                      -- Determine profile and target space
+                      local profile = M.detect_profile(win, M._discovery_state.profile_rules)
+                      local target_space = M.get_target_space_for_window(win, M._discovery_state.profile_rules)
 
-        -- Deduplicate and add to main list
-        for _, win in ipairs(potential_windows) do
-          local already_found = false
-          for _, existing_win in ipairs(all_chrome_windows) do
-            if existing_win.window:id() == win:id() then
-              already_found = true
-              break
-            end
-          end
+                      -- Create window info entry
+                      local window_info = {
+                        window = win,
+                        title = win:title(),
+                        profile = profile,
+                        target_space_number = target_space,
+                        current_space_id = cmd.space_id,
+                        current_space_number = cmd.space_number,
+                        screen_name = cmd.screen:name()
+                      }
 
-          if not already_found then
-            -- Determine profile and target space
-            local profile = M.detect_profile(win, profile_rules)
-            local target_space = M.get_target_space_for_window(win, profile_rules)
+                      table.insert(M._discovery_state.all_chrome_windows, window_info)
+                      found_count = found_count + 1
+                      M._logger.d(string.format("Found: %s [%s]",
+                        win:title():sub(1, 40), profile or "no-profile"))
+                    end
+                  end
+                end
+              end
 
-            -- Create window info entry
-            local window_info = {
-              window = win,
-              title = win:title(),
-              profile = profile,
-              target_space_number = target_space,
-              current_space_id = space_id,
-              current_space_number = space_number,
-              screen_name = screen:name()
-            }
-
-            table.insert(all_chrome_windows, window_info)
-            M._logger.d(string.format("Found: %s [%s] in space %s",
-                                    win:title():sub(1, 40),
-                                    profile or "no-profile",
-                                    space_number or "unknown"))
-          end
+              M._logger.d(string.format("Space %d: found %d new Chrome windows", cmd.space_number, found_count))
+              return true
+            end,
+            timeout = 2.0
+          })
         end
       end
     end
   end
 
-  -- Return to original space
-  spaces.gotoSpace(original_space)
+
+  return commands
+end
+
+-- Process discovery results and build todo list
+function M:process_discovery_results()
+  local all_chrome_windows = M._discovery_state.all_chrome_windows
+  local spaces_visited = M._discovery_state.spaces_visited
 
   -- Build todo list
   local todo_list = {}
@@ -739,86 +433,281 @@ function M:discover_chrome_windows_for_tidy()
   return todo_list, summary
 end
 
--- Main function to tidy all Chrome windows by profile
+-- Floating window persistent alerts that survive space changes
+-- Store window references in module for cleanup
+M._tidy_windows = nil
+
+-- Forward declaration
+local updateTidyWindows
+
+-- Create or reuse persistent floating windows on all displays
+local function createTidyWindows(message)
+  -- Reuse existing windows if they exist and are still valid
+  if M._tidy_windows then
+    local valid_windows = {}
+    for _, webview in ipairs(M._tidy_windows) do
+      if webview and webview:hswindow() then
+        table.insert(valid_windows, webview)
+      end
+    end
+
+    if #valid_windows == #hs.screen.allScreens() then
+      M._logger.d("Reusing existing tidy progress windows")
+      updateTidyWindows(valid_windows, message)
+      return valid_windows
+    else
+      -- Some windows are gone, clean up and recreate
+      M._logger.d("Some tidy windows missing, recreating all")
+      closeTidyWindows(M._tidy_windows)
+    end
+  end
+
+  local tidy_windows = {}
+  for _, screen in ipairs(hs.screen.allScreens()) do
+    local screen_frame = screen:fullFrame()
+    local window_width = 400
+    local window_height = 100
+
+    -- Position window in top-left corner of screen
+    local window_frame = hs.geometry.rect(
+      screen_frame.x + 20,
+      screen_frame.y + 20,
+      window_width,
+      window_height
+    )
+
+    -- Create webview window
+    local webview = hs.webview.new(window_frame)
+      :windowTitle("Hammerspoon Tidy Progress")
+      :closeOnEscape(false)
+      :windowStyle({"utility", "HUD", "titled", "closable"})
+      :level(hs.drawing.windowLevels.floating)
+    
+    -- Add canJoinAllSpaces behavior to existing behaviors
+    webview:behavior(webview:behavior() + HS_DRAWING_WINDOW_BEHAVIOURS.canJoinAllSpaces)
+    webview:html(string.format([[
+        <html>
+          <head>
+            <style>
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+                font-size: 14px;
+                background: rgba(0,0,0,0.8);
+                color: white;
+                margin: 0;
+                padding: 20px;
+                text-align: center;
+                border-radius: 8px;
+              }
+              .title { font-weight: bold; margin-bottom: 10px; }
+            </style>
+          </head>
+          <body>
+            <div class="title">🔄 Chrome Window Tidy</div>
+            <div id="status">%s</div>
+          </body>
+        </html>
+      ]], message))
+      :show()
+
+    table.insert(tidy_windows, webview)
+    M._logger.d(string.format("Created tidy progress window on %s", screen:name()))
+  end
+
+  M._tidy_windows = tidy_windows
+  return tidy_windows
+end
+
+-- Update existing tidy windows with new message
+updateTidyWindows = function(tidy_windows, message)
+  if not tidy_windows then return end
+
+  for _, webview in ipairs(tidy_windows) do
+    if webview and webview:hswindow() then
+      -- Update just the status div content - escape the string for JavaScript
+      local escaped_message = message:gsub("'", "\\'"):gsub('"', '\\"'):gsub('\n', '\\n')
+      webview:evaluateJavaScript(string.format(
+        "document.getElementById('status').innerHTML = '%s';",
+        escaped_message
+      ))
+    end
+  end
+end
+
+-- Close all tidy windows and clear module reference
+local function closeTidyWindows(tidy_windows)
+  if not tidy_windows then return end
+
+  for _, webview in ipairs(tidy_windows) do
+    if webview then
+      webview:delete()
+    end
+  end
+
+  M._tidy_windows = nil
+  M._logger.d("Closed all tidy progress windows")
+end
+
+-- Retry failure strategy: add failure_count metadata and push to end of queue for retry
+-- If command fails twice, PASS it to continue processing remaining commands
+local function retry_at_end_failure_strategy(failed_command, failure_context, queue, context)
+  -- Initialize failure_count if not present
+  if not failed_command.failure_count then
+    failed_command.failure_count = 1
+
+    M._logger.w(string.format("Command failed: %s %s (%s) - adding to end of queue for retry (attempt 1)",
+      failure_context.operation_type, failed_command.type, failure_context.failure_reason))
+
+    -- Push failed command to end of queue for retry
+    table.insert(queue, failed_command)
+    return queue -- Return modified queue for continued processing
+  else
+    -- Command has already been retried, PASS it and continue with remaining queue
+    M._logger.w(string.format("Command failed after retry: %s %s (%s) - marking as PASS and continuing",
+      failure_context.operation_type, failed_command.type, failure_context.failure_reason))
+
+    -- Just return the remaining queue (skip the failed command)
+    return queue
+  end
+end
+
+-- Main function to tidy all Chrome windows by profile using move_spaces queue
 function M:tidy()
-  M._logger.i("Starting Chrome window tidy...")
+  M._logger.i("Starting Chrome window tidy using move_spaces queue...")
 
-  -- PHASE 1: Discovery - enumerate all Chrome windows and build todo list
-  local todo_list, summary = self:discover_chrome_windows_for_tidy()
+  local move_spaces = require('move_spaces')
+  local original_spaces = desktop_state.getCurrentSpaceNumbers()
 
-  if not todo_list then
-    M._logger.e(summary or "Discovery failed")
+  -- Create persistent floating windows on all displays
+  local tidy_windows = createTidyWindows("Discovering windows...")
+
+  -- PHASE 1: Build discovery commands to visit each space and collect Chrome windows
+  local discovery_commands = self:build_tidy_discovery_commands()
+
+  if #discovery_commands == 0 then
+    M._logger.e("Failed to build discovery commands")
+    closeTidyWindows(tidy_windows)
+    alert("Failed to build discovery commands")
     return
   end
 
-  -- If no windows need moving, we're done
-  if summary.needs_move == 0 then
-    M._logger.i(string.format("All %d Chrome windows are already in correct spaces!", summary.total_windows))
-    alert(string.format("All %d Chrome windows are already in correct spaces!", summary.total_windows))
-    return
-  end
+  M._logger.i(string.format("Built %d discovery commands", #discovery_commands))
 
-  M._logger.i(string.format("Found %d windows needing moves. Starting execution...", summary.needs_move))
+  -- Execute discovery phase
+  move_spaces:executeCommands(discovery_commands, function(success, message)
+    if not success then
+      M._logger.e("Discovery failed: " .. (message or "unknown error"))
+      closeTidyWindows(tidy_windows)
+      alert("Discovery failed: " .. (message or "unknown error"))
+      return
+    end
 
-  -- For now, just report what we would do
-  M._logger.i("=== TIDY EXECUTION WOULD MOVE ===")
-  for i, win_info in ipairs(todo_list) do
-    M._logger.i(string.format("%d. '%s' from space %s to %s",
-                             i,
-                             win_info.title:sub(1, 50),
-                             win_info.current_space_number or "?",
-                             win_info.target_space_number or "?"))
-  end
+    M._logger.i("Discovery phase completed. Processing results...")
+    updateTidyWindows(tidy_windows, "Processing results...")
 
-  M._logger.i(string.format("Discovery complete: %d windows need moving (execution not yet implemented)", summary.needs_move))
-  alert(string.format("Discovery complete: %d windows need moving (see console)", summary.needs_move))
+    -- Process discovery results
+    local todo_list, summary = M:process_discovery_results()
 
-  -- TODO: PHASE 2: Execute moves
-  -- TODO: PHASE 3: Restore original display state
+    -- Clean up discovery state
+    M._discovery_state = nil
+
+    -- If no windows need moving, we're done
+    if summary.needs_move == 0 then
+      M._logger.i(string.format("All %d Chrome windows are already in correct spaces!", summary.total_windows))
+      closeTidyWindows(tidy_windows)
+      alert(string.format("All %d Chrome windows are already in correct spaces!", summary.total_windows))
+      return
+    end
+
+    M._logger.i(string.format("Found %d windows needing moves. Starting execution phase...", summary.needs_move))
+    updateTidyWindows(tidy_windows, string.format("Moving %d windows...", summary.needs_move))
+
+    -- PHASE 2: Build and execute move commands
+    local move_commands = {}
+
+    -- Build command list for all moves
+    for _, win_info in ipairs(todo_list) do
+      local target_space_id = desktop_state.getSpaceId(win_info.target_space_number)
+      local target_display = desktop_state.getSpaceDisplay(target_space_id)
+
+      if target_display then
+        table.insert(move_commands, {
+          type = "MOVE_WINDOW_TO_SPACE",
+          window = win_info.window,
+          target_space_number = win_info.target_space_number,
+          target_space_id = target_space_id
+        })
+      else
+        M._logger.e(string.format("Could not find display for space %d", win_info.target_space_number))
+      end
+    end
+
+    -- Add commands to restore original display state
+    for screen_id, space_number in pairs(original_spaces.spaces) do
+      local screen = hs.screen.find(screen_id)
+      if screen then
+        table.insert(move_commands, {
+          type = "JUMP_TO_SPACE",
+          target_space_number = space_number,
+          target_display = screen
+        })
+      end
+    end
+
+    M._logger.i(string.format("Built %d move commands (%d moves + %d display restores)",
+                             #move_commands, #todo_list, table.length(original_spaces.spaces)))
+
+    -- Execute move phase with retry failure strategy
+    move_spaces:executeCommandQueue(move_commands, function(move_success, move_message)
+      closeTidyWindows(tidy_windows)
+      if move_success then
+        M._logger.i("Tidy execution completed successfully")
+        alert(string.format("✅ Successfully moved %d windows to their target spaces", #todo_list))
+      else
+        M._logger.e("Tidy execution failed: " .. (move_message or "unknown error"))
+        alert("❌ Tidy execution failed: " .. (move_message or "unknown error"))
+      end
+    end, retry_at_end_failure_strategy)
+  end)
 end
 
 
--- Helper function to restore display state
-function M:restore_display_state(original_state, space_jump_modifiers)
-  local spaces = require "hs.spaces"
-  M._logger.i("Restoring original display state...")
-
-  for _, state in ipairs(original_state) do
-    if state.space_number then
-      -- Make this screen active by focusing a window on it, or using mouse as fallback
-      local screen_windows = {}
-      for _, win in ipairs(hs.window.allWindows()) do
-        if win:screen():id() == state.screen:id() and win:isStandard() and not win:isMinimized() then
-          table.insert(screen_windows, win)
+-- Utility function to check if a layout is active (avoids decorating global hs.window.layout)
+local function isLayoutActive(layout)
+  if layout.screens then
+    for hint, test in pairs(layout.screens) do
+      local screen = hs.screen.find(hint)
+      if screen then
+        if type(test) == 'boolean' then
+          if not test then return false end
+        else
+          local x, y = screen:position()
+          local test_geometry = hs_geometry.new(test)
+          -- Fixed logic: was "not x == test_geometry.x" which is always true
+          if x ~= test_geometry.x or y ~= test_geometry.y then
+            return false
+          end
         end
-      end
-
-      if #screen_windows > 0 then
-        -- Focus a window on this screen to make it active
-        screen_windows[1]:focus()
-        hs.timer.usleep(TIMING.WINDOW_FOCUS_WAIT)
       else
-        -- Fallback to mouse movement
-        local screen_frame = state.screen:frame()
-        hs.mouse.setAbsolutePosition({x = screen_frame.x + 100, y = screen_frame.y + 100})
-        hs.timer.usleep(TIMING.SCREEN_ACTIVATION_WAIT)
-      end
-
-      -- Jump back to original space
-      local key = state.space_number == 10 and "0" or tostring(state.space_number)
-      hs.eventtap.keyStroke(space_jump_modifiers, key, 0)
-      hs.timer.usleep(TIMING.SPACE_CHANGE_WAIT)
-
-      -- Verify restoration worked
-      local current_space, err = spaces.activeSpaceOnScreen(state.screen)
-      if current_space == state.space_id then
-        M._logger.i(string.format("✅ Restored %s to space %d", state.screen_name, state.space_number))
-      else
-        M._logger.e(string.format("❌ Failed to restore %s to space %d. Current: %s, Error: %s",
-                                 state.screen_name, state.space_number, current_space or "unknown", err or "none"))
+        if test then  -- truthy: true or hs.geometry
+          return false
+        end
       end
     end
   end
+  return true
+end
+
+function M:activeLayouts()  -- :string
+  local active_layouts = {}
+  hs.fnutils.each(self.window_layouts, function(layout)
+    if isLayoutActive(layout) then
+      active_layouts[#active_layouts+1] = layout.logname
+    end
+  end)
+  setmetatable(active_layouts, { __tostring = function(t) return table.concat(t, '|') end, })
+  function active_layouts:tostring() return tostring(self) end  -- luacheck: no redefined
+  return active_layouts
 end
 
 
@@ -842,50 +731,15 @@ function M:toggle_or_choose()
 end
 
 
--- Decorating a global!
-function hs.window.layout:active()
-  if self.screens then
-    for hint,test in pairs(self.screens) do
-      local screen = hs.screen.find(hint)
-      if screen then
-        if type(test) == 'boolean' then
-          if not test then return false end
-        else
-          local x,y = screen:position()
-          local test_geometry = hs_geometry.new(test)
-          if not x == test_geometry.x or not y == test_geometry.y then
-            return false
-          end
-        end
-      else
-        if test then  -- truthy: true or hs.geometry
-          return false
-        end
-      end
-    end
-  end
-  return true
-end
-
-function M:activeLayouts()  -- :string
-  local active_layouts = {}
-  hs.fnutils.each(self.window_layouts, function(layout)
-    if layout:active() then
-      active_layouts[#active_layouts+1] = layout.logname
-    end
-  end)
-  setmetatable(active_layouts, { __tostring = function(t) return table.concat(t, '|') end, })
-  function active_layouts:tostring() return tostring(self) end  -- luacheck: no redefined
-  return active_layouts
-end
-
-
 function M:start(config)
-  self.config = config or {}
+  config = config or {}
+
+  -- Store configuration in M._config for consistency with move_spaces.lua pattern
+  self._config = config
 
   -- Load window layouts from configuration
-  if self.config.window_layouts then
-    for layout_name, layout in pairs(self.config.window_layouts) do
+  if self._config.window_layouts then
+    for layout_name, layout in pairs(self._config.window_layouts) do
       local window_layout = hs.window.layout.new(layout, layout_name)
       M.window_layouts[layout_name] = window_layout
       for _, rule in pairs(window_layout.rules) do

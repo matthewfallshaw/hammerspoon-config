@@ -25,7 +25,7 @@ expose("Stay module", function()
         } end
       }
     }
-    _G.hs.timer.doAfter = function() end
+    _G.hs.timer.doAfter = function(_, _) end
     _G.hs.hotkey.new = function() return {} end
 
     -- Mock init global

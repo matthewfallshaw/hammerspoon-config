@@ -40,3 +40,11 @@ end
 table.tail = function(self)
   return { select(2, table.unpack(self)) }
 end
+
+table.length = function(self)
+  local count = 0
+  for _ in pairs(self) do
+    count = count + 1
+  end
+  return count
+end

@@ -1,4 +1,24 @@
 -- Move windows between spaces
+-- # Usage
+-- local move_spaces = require 'move_spaces'
+--
+-- -- Initialize with configuration and bind hotkeys
+-- -- Because Apple doesn't provide a proper API for spaces, we cause the moves by
+-- -- sending macOS's keyboard shortcuts and mouse events. The space_jump_modifiers
+-- -- config parameter specifies which modifier keys are configured on your OS to
+-- -- jump between spaces
+-- -- (e.g., {"ctrl"} for ctrl+number, or {"ctrl", "shift"} for ctrl+shift+number).
+-- ```
+-- move_spaces:start({
+--   space_jump_modifiers = {"ctrl"},
+--   hotkeys = {  -- double-tap to return after move
+--     left  = {{"⌘", "⌥", "⌃", "⇧"}, "h"},
+--     right = {{"⌘", "⌥", "⌃", "⇧"}, "l"},
+--     toSpace = {{"⌘", "⌥", "⌃", "⇧"}},
+--   }
+-- })
+-- ```
+
 
 -- luacheck: globals hs spoon
 
@@ -8,65 +28,20 @@ local M = { hotkeys = {}, _config = {} }
 -- Default modifier keys for space-switching keyboard shortcuts sent to macOS
 local DEFAULT_SPACE_JUMP_MODIFIERS = {"ctrl"}
 
--- Timing constants (in microseconds)
-local TIMING = {
-  WINDOW_FOCUS_WAIT = 200000,      -- 0.2 seconds
-  DISPLAY_MOVE_WAIT = 200000,      -- 0.2 seconds
-  SPACE_MOVE_TIMEOUT = 200000,     -- 0.2 seconds (reduced from 2.0s)
-  ADJACENT_MOVE_TIMEOUT = 50000,   -- 0.05 seconds
-  RETURN_DELAY = 100000,           -- 0.1 seconds
-  DOUBLE_TAP_WINDOW = 250000,      -- 0.25 seconds
-}
+-- Get configuration constants including timing
+local consts = require('configConsts')
+local TIMING = consts.timing
 
-M._logger = hs.logger.new("Move spaces", 'debug')
+-- Utilities
+require('utilities.table')
+
+M._logger = hs.logger.new("Move spaces")
 local logger = M._logger
+-- logger.setLogLevel('warning')
 logger.setLogLevel('debug')
-logger.i("Loading Move spaces tools")
 
-
--- # Usage
--- local move_spaces = require 'move_spaces'
---
--- -- Initialize with configuration and bind hotkeys
--- move_spaces:start({
---   space_jump_modifiers = {"ctrl"},  -- macOS space switching modifiers
---   hotkeys = {
---     left  = {{"⌘", "⌥", "⌃", "⇧"}, "h"},  -- double-tap to return
---     right = {{"⌘", "⌥", "⌃", "⇧"}, "l"},  -- double-tap to return
---     toSpace = {{"⌘", "⌥", "⌃", "⇧"}},     -- double-tap to return
---   }
--- })
---
--- # Architecture Note
--- Due to macOS limitations, window movement between spaces requires simulating
--- keyboard shortcuts and mouse events. The space_jump_modifiers config parameter
--- specifies which modifier keys to use when sending the space-switching shortcut
--- to macOS (e.g., {"ctrl"} for ctrl+number, or {"ctrl", "shift"} for ctrl+shift+number).
---
--- # Public API
--- move_spaces:moveWindow(space_number, should_return, win)          -- Move window to specific space
--- move_spaces:nudgeWindow(direction, should_return, win)            -- Move window to adjacent space
--- move_spaces:nudgeOrMove(direction)                                -- Double-tap behavior
-
-local spaces = require "hs.spaces" -- https://github.com/asmagill/hs._asm.spaces
-
--- Get desktop_space_numbers module for space translation helpers
 local desktop_space_numbers = require('desktop_space_numbers')
-
--- Helper: check if window is moveable
-local function isMoveableWindow(win)
-  if not win then
-    logger.e('Window is not suitable for moving: win is nil')
-    return false, "Window is not moveable"
-  elseif not win:isStandard() then
-    logger.e('Window is not suitable for moving: not standard')
-    return false, "Window is not moveable"
-  elseif win:isFullScreen() then
-    logger.e('Window is not suitable for moving: is fullscreen')
-    return false, "Window is not moveable"
-  end
-  return true, nil
-end
+local desktop_state = require('desktop_state')
 
 -- Helper: find space ID and display ID for a given space number
 local function findSpaceIdAndDisplayId(target_space_number)
@@ -85,189 +60,604 @@ local function findSpaceIdAndDisplayId(target_space_number)
     return nil, nil, "Could not find target display"
   end
 
-  logger.d(string.format('Found target space: ID=%s, number=%d, display=%s',
-           tostring(target_space_id), target_space_number, target_display:name()))
+  logger.d(string.format('For space number %d, found: space ID=%s, display ID=%s',
+           target_space_number, tostring(target_space_id), target_display:name()))
 
   return target_space_id, target_display, nil
 end
 
--- Helper: convert space number to key (space 10 uses "0")
-local function spaceNumberToKey(space_number)
-  return space_number == 10 and "0" or tostring(space_number)
-end
+-- === BASIC SYSTEM ACTIONS ===
+-- Fundamental atomic operations that other commands can use
 
-
--- === BASIC COMMANDS ===
--- These are the fundamental state-changing operations
-
--- Command: Focus a specific window (may trigger space jump if window not on active space)
-local function commandFocusWindow(win)
-  logger.d(string.format('Command: Focus window %s', win:title():len() > 30 and (win:title():sub(1, 30) .. "...") or win:title()))
+-- Basic action: Focus a window
+local function actionFocusWindow(win)
+  logger.d(string.format('actionFocusWindow: focusing window on %s', win:screen():name()))
   win:focus()
   return true
 end
 
--- Command: Move window to a different display (to the active space on that display)
-local function commandMoveWindowToDisplay(target_display, win)
-  local win_screen = win:screen()
-  if win_screen:id() == target_display:id() then
-    return true -- Already on correct display
-  end
-
-  logger.d(string.format('Command: Move window to display %s', target_display:name()))
-
-  -- Use WindowScreenLeftAndRight spoon to move between displays
-  local target_is_left = target_display:frame().x < win_screen:frame().x
-
-  -- Focus the window first
-  win:focus()
-
-  -- Move to target display using WindowScreenLeftAndRight public methods
-  if target_is_left then
-    spoon.WindowScreenLeftAndRight:moveCurrentWindowToScreen("left")
-  else
-    spoon.WindowScreenLeftAndRight:moveCurrentWindowToScreen("right")
-  end
-
-  return true
-end
-
--- Command: Move window to specific space on same display using titlebar drag + keystroke
-local function commandMoveWindowToSpace(target_space_number, win)
+-- Basic action: Jump to a specific space (changes active space)
+local function actionJumpToSpace(target_space_number)
   local config = M._config
   local space_jump_modifiers = config.space_jump_modifiers or DEFAULT_SPACE_JUMP_MODIFIERS
 
-  logger.d(string.format('Command: Move window to space %d', target_space_number))
+  logger.d(string.format('actionJumpToSpace: jumping to space %d', target_space_number))
+  local key = desktop_state.spaceNumberToKey(target_space_number)
+  logger.d(string.format('Pressing %s+%s to jump to space %d', table.concat(space_jump_modifiers, "+"), key, target_space_number))
+  hs.eventtap.keyStroke(space_jump_modifiers, key, 0)
+  return true
+end
+
+-- Basic action: Perform drag+keystroke operation to move window to space
+local function actionDragWindowToSpace(target_space_number, win)
+  logger.d(string.format('actionDragWindowToSpace: dragging window to space %d', target_space_number))
 
   -- Get zoom button location and adjust slightly for safety
   local zoomPoint = hs.geometry(win:zoomButtonRect())
   local clickPoint = zoomPoint:move({-1,-1}).topleft
 
+  logger.d(string.format('actionDragWindowToSpace: using click point (%.0f,%.0f)', clickPoint.x, clickPoint.y))
+
   -- Save mouse position to restore later
   local currentCursor = hs.mouse.getRelativePosition()
 
-  -- Click and hold the titlebar
-  hs.eventtap.event.newMouseEvent(hs.eventtap.event.types.leftMouseDown, clickPoint):post()
+  -- Use try/ensure to guarantee cleanup
+  local try_catch = require('utilities.try_catch')
 
-  -- Jump directly to target space using configured shortcut
-  local key = spaceNumberToKey(target_space_number)
-  logger.d(string.format('Pressing %s+%s to jump to space %d', table.concat(space_jump_modifiers, "+"), key, target_space_number))
-  hs.eventtap.keyStroke(space_jump_modifiers, key, 0)
+  local result = try_catch.try {
+    function()
+      -- Click and hold the titlebar
+      hs.eventtap.event.newMouseEvent(hs.eventtap.event.types.leftMouseDown, clickPoint):post()
 
-  hs.eventtap.event.newMouseEvent(hs.eventtap.event.types.leftMouseUp, clickPoint):post()
-  hs.mouse.setRelativePosition(currentCursor)
+      -- Jump to target space while dragging
+      actionJumpToSpace(target_space_number)
 
-  return true
-end
-
--- Command: Jump to specific space (changes active space)
-local function commandJumpToSpace(target_space_number)
-  local config = M._config
-  local space_jump_modifiers = config.space_jump_modifiers or DEFAULT_SPACE_JUMP_MODIFIERS
-
-  logger.d(string.format('Command: Jump to space %d', target_space_number))
-
-  local key = spaceNumberToKey(target_space_number)
-  logger.d(string.format('Pressing %s+%s to jump to space %d', table.concat(space_jump_modifiers, "+"), key, target_space_number))
-  hs.eventtap.keyStroke(space_jump_modifiers, key, 0)
-
-  return true
-end
-
--- === COMMAND QUEUE ARCHITECTURE ===
--- Timing-aware command execution with state checking and retry logic
-
--- Command definitions with state checkers and executors
-local COMMAND_TYPES = {
-  FOCUS_WINDOW = {
-    check = function(cmd)
-      local frontmost = hs.window.frontmostWindow()
-      return frontmost and frontmost:id() == cmd.window:id()
+      return true
     end,
-    execute = function(cmd)
-      return commandFocusWindow(cmd.window)
-    end,
-    timeout = TIMING.WINDOW_FOCUS_WAIT
-  },
-
-  MOVE_WINDOW_TO_DISPLAY = {
-    check = function(cmd)
-      return cmd.window:screen():id() == cmd.target_display:id()
-    end,
-    execute = function(cmd)
-      return commandMoveWindowToDisplay(cmd.target_display, cmd.window)
-    end,
-    timeout = TIMING.DISPLAY_MOVE_WAIT
-  },
-
-  MOVE_WINDOW_TO_SPACE = {
-    check = function(cmd)
-      -- Check if window is on the target space
-      local window_space_number = desktop_space_numbers.getWindowSpaceNumber(cmd.window)
-      return window_space_number == cmd.target_space_number
-    end,
-    execute = function(cmd)
-      return commandMoveWindowToSpace(cmd.target_space_number, cmd.window)
-    end,
-    timeout = TIMING.SPACE_MOVE_TIMEOUT
-  },
-
-  JUMP_TO_SPACE = {
-    check = function(cmd)
-      -- Check if the specific display is on the target space
-      local current_spaces = desktop_space_numbers.getCurrentSpaceNumbers()
-      local display_current_space = current_spaces.spaces[cmd.target_display:id()]
-      return display_current_space == cmd.target_space_number
-    end,
-    execute = function(cmd)
-      return commandJumpToSpace(cmd.target_space_number)
-    end,
-    timeout = TIMING.SPACE_MOVE_TIMEOUT
+    try_catch.ensure {
+      function()
+        -- Always release the drag and restore mouse position
+        hs.eventtap.event.newMouseEvent(hs.eventtap.event.types.leftMouseUp, clickPoint):post()
+        hs.mouse.setRelativePosition(currentCursor)
+      end
+    }
   }
-}
 
--- Command queue processor with timing and retry logic
-function M:executeCommandQueue(commands, attempts_remaining)
-  attempts_remaining = attempts_remaining or 10
+  return result or false
+end
 
-  if #commands == 0 then
-    logger.i("Command queue completed successfully")
+-- Basic action: Move window to different display using WindowScreenLeftAndRight
+local function actionMoveWindowToDisplay(target_display, win)
+  local win_screen = win:screen()
+
+  logger.d(string.format('actionMoveWindowToDisplay: moving window from %s to %s', win_screen:name(), target_display:name()))
+
+  if win_screen:id() == target_display:id() then
+    logger.d('actionMoveWindowToDisplay: already on target display')
     return true
   end
 
-  if attempts_remaining <= 0 then
-    logger.e("Command queue failed - too many attempts")
-    return false, "Command execution timeout"
+  -- Use WindowScreenLeftAndRight spoon to move between displays
+  local target_is_left = target_display:frame().x < win_screen:frame().x
+
+  if target_is_left then
+    spoon.WindowScreenLeftAndRight.moveCurrentWindowToScreen("left")
+  else
+    spoon.WindowScreenLeftAndRight.moveCurrentWindowToScreen("right")
   end
 
-  local cmd = commands[1]
+  return true
+end
+
+-- === COMMAND ARCHITECTURE ===
+-- Commands with pre-check, prerequisite injection, execute, and post-check phases
+
+-- Result constants
+local COMMAND_RESULT = {
+  PASS = "pass",     -- Command is not needed (already satisfied)
+  FAIL = "fail",     -- Command cannot be executed (error condition)
+  SUCCESS = "success", -- Command executed successfully
+  RETRY = "retry"    -- Command should be retried
+}
+
+-- Enhanced command definitions
+local COMMAND_TYPES = {
+  FOCUS_WINDOW = {
+    pre_check = function(cmd)
+      local focused = desktop_state.isWindowFocused(cmd.window)
+      logger.d(string.format("FOCUS_WINDOW pre_check: focused=%s", tostring(focused)))
+      if focused then
+        return COMMAND_RESULT.PASS
+      else
+        return true  -- Ready to execute
+      end
+    end,
+    prerequisite_achiever = function(cmd)
+      -- No prerequisites for focusing
+      return {}
+    end,
+    execute = function(cmd)
+      return actionFocusWindow(cmd.window)
+    end,
+    post_check = function(cmd)
+      local focused = desktop_state.isWindowFocused(cmd.window)
+      logger.d(string.format("FOCUS_WINDOW post_check: focused=%s", tostring(focused)))
+      return focused
+    end,
+    post_check_timeout = 0.5  -- 500ms in seconds
+  },
+
+  MOVE_WINDOW_TO_DISPLAY = {
+    pre_check = function(cmd)
+      -- Check if already on target display
+      if desktop_state.isWindowOnDisplay(cmd.window, cmd.target_display) then
+        logger.d("MOVE_WINDOW_TO_DISPLAY pre_check: already on target display")
+        return COMMAND_RESULT.PASS
+      end
+
+      -- Check if focused and stable
+      local focused = desktop_state.isWindowFocused(cmd.window)
+      local stable = desktop_state.isWindowStableOnDisplay(cmd.window, cmd.window:screen())
+
+      logger.d(string.format("MOVE_WINDOW_TO_DISPLAY pre_check: focused=%s, stable=%s",
+                           tostring(focused), tostring(stable)))
+      if focused and stable then
+        return true  -- Ready to execute
+      else
+        return false  -- Prerequisites needed
+      end
+    end,
+    prerequisite_achiever = function(cmd)
+      local prereqs = {}
+
+      -- Ensure window is focused
+      if not desktop_state.isWindowFocused(cmd.window) then
+        table.insert(prereqs, {
+          type = "FOCUS_WINDOW",
+          window = cmd.window
+        })
+      end
+
+      return prereqs
+    end,
+    execute = function(cmd)
+      return actionMoveWindowToDisplay(cmd.target_display, cmd.window)
+    end,
+    post_check = function(cmd)
+      local stable = desktop_state.isWindowStableOnDisplay(cmd.window, cmd.target_display)
+      logger.d(string.format("MOVE_WINDOW_TO_DISPLAY post_check: stable=%s", tostring(stable)))
+      return stable
+    end,
+    post_check_timeout = TIMING.DISPLAY_MOVE_WAIT
+  },
+
+  MOVE_WINDOW_TO_SPACE = {
+    pre_check = function(cmd)
+      -- Check if already on target space
+      local window_space_number = desktop_state.getWindowSpaceNumber(cmd.window)
+      if window_space_number == cmd.target_space_number then
+        logger.d("MOVE_WINDOW_TO_SPACE pre_check: already on target space")
+        return COMMAND_RESULT.PASS
+      end
+
+      -- Check if window is on target display (if so, can execute)
+      local target_space_id, target_display = findSpaceIdAndDisplayId(cmd.target_space_number)
+      if not target_space_id then
+        logger.e("MOVE_WINDOW_TO_SPACE pre_check: invalid target space")
+        return COMMAND_RESULT.FAIL
+      end
+
+      if desktop_state.isWindowOnDisplay(cmd.window, target_display) then
+        -- Window is on target display, check if ready to execute
+        local focused = desktop_state.isWindowFocused(cmd.window)
+        local stable = desktop_state.isWindowStableOnDisplay(cmd.window, target_display)
+
+        logger.d(string.format("MOVE_WINDOW_TO_SPACE pre_check: on target display, focused=%s, stable=%s",
+                             tostring(focused), tostring(stable)))
+        return focused and stable
+      else
+        -- Window is on wrong display - need prerequisites
+        logger.d("MOVE_WINDOW_TO_SPACE pre_check: window on wrong display, need prerequisites")
+        return false
+      end
+    end,
+    prerequisite_achiever = function(cmd)
+      local prereqs = {}
+
+      -- Check if cross-display move needed (stateful check)
+      local target_space_id, target_display = findSpaceIdAndDisplayId(cmd.target_space_number)
+      if target_display and not desktop_state.isWindowOnDisplay(cmd.window, target_display) then
+        logger.d(string.format("MOVE_WINDOW_TO_SPACE prerequisite: cross-display move needed to %s", target_display:name()))
+        table.insert(prereqs, {
+          type = "MOVE_WINDOW_TO_DISPLAY",
+          window = cmd.window,
+          target_display = target_display
+        })
+      end
+
+      -- Ensure window is focused
+      if not desktop_state.isWindowFocused(cmd.window) then
+        table.insert(prereqs, {
+          type = "FOCUS_WINDOW",
+          window = cmd.window
+        })
+      end
+
+      return prereqs
+    end,
+    execute = function(cmd)
+      return actionDragWindowToSpace(cmd.target_space_number, cmd.window)
+    end,
+    post_check = function(cmd)
+      local window_space_number = desktop_state.getWindowSpaceNumber(cmd.window)
+      local success = window_space_number == cmd.target_space_number
+      logger.d(string.format("MOVE_WINDOW_TO_SPACE post_check: window space=%s, target=%s, success=%s",
+                           tostring(window_space_number), tostring(cmd.target_space_number), tostring(success)))
+      return success
+    end,
+    post_check_timeout = TIMING.SPACE_MOVE_TIMEOUT
+  },
+
+  JUMP_TO_SPACE = {
+    pre_check = function(cmd)
+      -- Skip spaces beyond direct keyboard shortcuts (temporary workaround)
+      if cmd.target_space_number > 10 then
+        logger.w(string.format("JUMP_TO_SPACE pre_check: space %d beyond keyboard range, skipping", cmd.target_space_number))
+        return COMMAND_RESULT.PASS
+      end
+      
+      local already_on_space = desktop_state.isDisplayOnSpace(cmd.target_display, cmd.target_space_number)
+      logger.d(string.format("JUMP_TO_SPACE pre_check: display=%s, target space=%s, already_there=%s",
+                           cmd.target_display:name(), tostring(cmd.target_space_number), tostring(already_on_space)))
+      return already_on_space and COMMAND_RESULT.PASS or true
+    end,
+    prerequisite_achiever = function(cmd)
+      -- No prerequisites for jumping to space
+      return {}
+    end,
+    execute = function(cmd)
+      return actionJumpToSpace(cmd.target_space_number)
+    end,
+    post_check = function(cmd)
+      local success = desktop_state.isDisplayOnSpace(cmd.target_display, cmd.target_space_number)
+      logger.d(string.format("JUMP_TO_SPACE post_check: display=%s, target space=%s, success=%s",
+                           cmd.target_display:name(), tostring(cmd.target_space_number), tostring(success)))
+      return success
+    end,
+    post_check_timeout = TIMING.SPACE_MOVE_TIMEOUT
+  },
+
+  LAMBDA = {
+    pre_check = function(cmd)
+      logger.d(string.format("LAMBDA pre_check: %s", cmd.description or "custom operation"))
+      -- Custom pre-check function provided in command
+      if cmd.pre_check_fn then
+        return cmd.pre_check_fn(cmd)
+      end
+      return true -- Ready to execute by default
+    end,
+    prerequisite_achiever = function(cmd)
+      -- Custom prerequisite function or empty
+      if cmd.prerequisite_fn then
+        return cmd.prerequisite_fn(cmd)
+      end
+      return {}
+    end,
+    execute = function(cmd)
+      logger.d(string.format("LAMBDA execute: %s", cmd.description or "custom operation"))
+      -- Execute custom function
+      if cmd.execute_fn then
+        local success = cmd.execute_fn(cmd)
+        logger.d(string.format("LAMBDA execute result: %s", tostring(success)))
+        return success
+      end
+      logger.w("LAMBDA execute: no execute_fn provided, assuming success")
+      return true
+    end,
+    post_check = function(cmd)
+      -- Custom validation function
+      if cmd.post_check_fn then
+        local success = cmd.post_check_fn(cmd)
+        logger.d(string.format("LAMBDA post_check: %s, result=%s", cmd.description or "custom operation", tostring(success)))
+        return success
+      end
+      -- Assume success if no validation provided
+      logger.d(string.format("LAMBDA post_check: %s (no validation, assuming success)", cmd.description or "custom operation"))
+      return true
+    end,
+    post_check_timeout = function(cmd)
+      return cmd.timeout or 1.0 -- Default 1 second
+    end
+  }
+}
+
+-- === ATOMIC QUEUE OPERATIONS ===
+-- Commands are decomposed into atomic operations for cleaner processing
+
+-- Operation types for queue items
+local OPERATION_TYPES = {
+  PRE_CHECK = "PRE_CHECK",     -- Check if command is ready to execute
+  EXECUTE = "EXECUTE",         -- Perform the actual command
+  VALIDATE = "VALIDATE"        -- Validate command succeeded with timeout
+}
+
+
+-- Helper: Create atomic operations triplet for a command
+local function createOperationTriplet(command)
+  -- Generate unique ID for this command instance
+  local command_id = hs.host.uuid()
+
+  return {
+    {
+      type = OPERATION_TYPES.PRE_CHECK,
+      command = command,
+      command_id = command_id
+    },
+    {
+      type = OPERATION_TYPES.EXECUTE,
+      command = command,
+      command_id = command_id
+    },
+    {
+      type = OPERATION_TYPES.VALIDATE,
+      command = command,
+      command_id = command_id
+    }
+  }
+end
+
+
+-- === PURE FUNCTIONAL TAIL RECURSION ARCHITECTURE ===
+
+-- Pure functional failure strategy: 3 retries then abort (synchronous queue modifier)
+local function default_failure_strategy(failed_command, failure_context, queue, context)
+  -- Initialize retry count if not present
+  if not failed_command.retry_count then failed_command.retry_count = 0 end
+  failed_command.retry_count = failed_command.retry_count + 1
+  
+  local max_retries = 3
+  local failure_desc = string.format("%s %s", failure_context.operation_type, failed_command.type)
+  
+  if failed_command.retry_count < max_retries then
+    logger.w(string.format("Command failed: %s (%s) - retry %d/%d", 
+      failure_desc, failure_context.failure_reason, failed_command.retry_count, max_retries))
+    
+    -- Clear stability state for fresh retry validation
+    local desktop_state = require('desktop_state')
+    desktop_state._window_stability_state = {}
+    
+    -- Re-insert command at front of queue for retry
+    table.insert(queue, 1, failed_command)
+    return queue -- Return modified queue for continued processing
+  else
+    logger.e(string.format("Command failed after %d attempts: %s (%s) - aborting queue", 
+      max_retries, failure_desc, failure_context.failure_reason))
+    
+    -- Signal failure via callback
+    if context.callback then
+      context.callback(false, "Command failed after retries: " .. failed_command.type)
+    end
+    return nil -- Signal abort
+  end
+end
+
+-- Pure functional tail recursion processor
+local function processNextOperation(queue, context)
+  -- Stop any existing timer
+  if context.current_timer then
+    context.current_timer:stop()
+    context.current_timer = nil
+  end
+  
+  -- Check if queue is empty (success case)
+  if #queue == 0 then
+    logger.i("processNextOperation: queue completed successfully")
+    if context.callback then 
+      context.callback(true, "Queue processing completed")
+    end
+    return
+  end
+  
+  -- Get next operation/command
+  local item = queue[1]
+  
+  -- If next item is a Command, convert to Operations and shift
+  if item.type and COMMAND_TYPES[item.type] and not item.command then  -- It's a Command (not an Operation)
+    logger.d(string.format('processNextOperation: converting command %s to operations', item.type))
+    table.remove(queue, 1)  -- Remove Command
+    local triplet = createOperationTriplet(item)  -- Convert to Operations
+    -- Insert Operations at front of queue
+    for i = #triplet, 1, -1 do
+      table.insert(queue, 1, triplet[i])
+    end
+    return processNextOperation(queue, context)  -- Continue tail recursion
+  end
+  
+  -- Handle as Operation
+  local operation = item
+  local cmd = operation.command
   local cmd_def = COMMAND_TYPES[cmd.type]
-
+  
   if not cmd_def then
-    logger.e("Unknown command type: " .. tostring(cmd.type))
-    return false, "Unknown command type"
+    logger.e("processNextOperation: Unknown command type: " .. tostring(cmd.type))
+    if context.callback then
+      context.callback(false, "Unknown command type: " .. tostring(cmd.type))
+    end
+    return
+  end
+  
+  logger.d(string.format('processNextOperation: %s %s', operation.type, cmd.type))
+  
+  if operation.type == OPERATION_TYPES.PRE_CHECK then
+    local pre_result = cmd_def.pre_check(cmd)
+    
+    if pre_result == COMMAND_RESULT.PASS then
+      -- Command already satisfied, remove all operations with same command_id
+      logger.d(string.format('processNextOperation: %s already satisfied, skipping entire command', cmd.type))
+      local command_id = operation.command_id
+      
+      -- Remove all operations with this command_id
+      local i = 1
+      while i <= #queue do
+        if queue[i].command_id == command_id then
+          table.remove(queue, i)
+        else
+          i = i + 1
+        end
+      end
+      processNextOperation(queue, context) -- Continue tail recursion
+      
+    elseif pre_result == COMMAND_RESULT.FAIL then
+      logger.e(string.format('processNextOperation: %s pre-check failed', cmd.type))
+      table.remove(queue, 1) -- Remove failed operation
+      
+      local failure_context = {
+        operation_type = "PRE_CHECK",
+        failure_reason = "pre_check_failed",
+        attempts = 1,
+        error_details = { command_type = cmd.type }
+      }
+      
+      local new_queue = context.failure_strategy(cmd, failure_context, queue, context)
+      if new_queue then
+        processNextOperation(new_queue, context) -- Continue with modified queue
+      end
+      
+    elseif not pre_result then
+      -- Prerequisites needed - inject them
+      local prereqs = cmd_def.prerequisite_achiever(cmd)
+      
+      if #prereqs > 0 then
+        logger.d(string.format('processNextOperation: %s injecting %d prerequisite commands', cmd.type, #prereqs))
+        
+        -- Insert prerequisite commands at front of queue
+        for i = #prereqs, 1, -1 do
+          table.insert(queue, 1, prereqs[i])
+        end
+        
+        processNextOperation(queue, context) -- Continue tail recursion
+      else
+        -- No prerequisites but pre-check failed - this is ready to execute
+        table.remove(queue, 1) -- Remove PRE_CHECK
+        processNextOperation(queue, context) -- Continue tail recursion
+      end
+    else
+      -- Pre-check passed - ready to execute
+      table.remove(queue, 1) -- Remove PRE_CHECK
+      processNextOperation(queue, context) -- Continue tail recursion
+    end
+    
+  elseif operation.type == OPERATION_TYPES.EXECUTE then
+    local exec_success = cmd_def.execute(cmd)
+    
+    if exec_success then
+      logger.d(string.format('processNextOperation: %s execute succeeded', cmd.type))
+      table.remove(queue, 1) -- Remove EXECUTE
+      processNextOperation(queue, context) -- Continue tail recursion
+    else
+      logger.e(string.format('processNextOperation: %s execute failed', cmd.type))
+      table.remove(queue, 1) -- Remove failed operation
+      
+      local failure_context = {
+        operation_type = "EXECUTE",
+        failure_reason = "execute_failed",
+        attempts = 1,
+        error_details = { command_type = cmd.type }
+      }
+      
+      local new_queue = context.failure_strategy(cmd, failure_context, queue, context)
+      if new_queue then
+        processNextOperation(new_queue, context) -- Continue with modified queue
+      end
+    end
+    
+  elseif operation.type == OPERATION_TYPES.VALIDATE then
+    logger.d(string.format('processNextOperation: %s starting validation', cmd.type))
+    
+    -- Set up validation polling
+    local attempts = 0
+    local timeout = cmd_def.post_check_timeout
+    if type(timeout) == "function" then
+      timeout = timeout(cmd)
+    end
+    local max_attempts = timeout / 0.05 -- 50ms polls
+    
+    local last_logged_result = nil
+    context.current_timer = hs.timer.new(0.05, function()
+      attempts = attempts + 1
+      local post_check_result = cmd_def.post_check(cmd)
+
+      if post_check_result then
+        context.current_timer:stop()
+        context.current_timer = nil
+        logger.d(string.format('processNextOperation: %s validation succeeded after %dms', cmd.type, attempts * 50))
+
+        table.remove(queue, 1) -- Remove VALIDATE
+        processNextOperation(queue, context) -- Continue tail recursion
+
+      elseif attempts >= max_attempts then
+        context.current_timer:stop()
+        context.current_timer = nil
+        logger.w(string.format('processNextOperation: %s validation timeout after %dms', cmd.type, attempts * 50))
+
+        table.remove(queue, 1) -- Remove failed operation
+        local failure_context = {
+          operation_type = "VALIDATE",
+          failure_reason = "timeout",
+          attempts = attempts,
+          error_details = { 
+            command_type = cmd.type,
+            timeout_ms = attempts * 50,
+            max_timeout_ms = max_attempts * 50
+          }
+        }
+        
+        local new_queue = context.failure_strategy(cmd, failure_context, queue, context)
+        if new_queue then
+          processNextOperation(new_queue, context) -- Continue with modified queue
+        end
+      else
+        -- Only log validation state changes, not every poll
+        if post_check_result ~= last_logged_result then
+          logger.d(string.format('processNextOperation: %s validation state changed to %s (attempt %d)', 
+            cmd.type, tostring(post_check_result), attempts))
+          last_logged_result = post_check_result
+        end
+      end
+    end)
+
+    context.current_timer:start()
+  end
+end
+
+-- New pure functional entry point
+function M:executeCommandQueue(commands, callback, failure_strategy)
+  if #commands == 0 then
+    logger.i("executeCommandQueue: empty command queue")
+    if callback then callback(true, "Empty command queue") end
+    return true
   end
 
-  -- Check if desired state is already achieved
-  if cmd_def.check(cmd) then
-    logger.d("Command " .. cmd.type .. " already satisfied, skipping")
-    table.remove(commands, 1)
-    return self:executeCommandQueue(commands, attempts_remaining)
+  -- Clear window stability state for fresh validation
+  desktop_state._window_stability_state = {}
+
+  -- Create functional queue (copy of commands)
+  local queue = {}
+  for _, command in ipairs(commands) do
+    table.insert(queue, command)
   end
 
-  -- Execute the command
-  logger.d("Executing command: " .. cmd.type)
-  local success = cmd_def.execute(cmd)
+  -- Create processing context
+  local context = {
+    callback = callback,
+    failure_strategy = failure_strategy or default_failure_strategy,
+    current_timer = nil
+  }
 
-  if not success then
-    logger.e("Command execution failed: " .. cmd.type)
-    return false, "Command execution failed"
-  end
+  logger.i(string.format("executeCommandQueue: starting pure functional processing of %d commands", #queue))
 
-  -- Schedule retry after timeout
-  hs.timer.doAfter(cmd_def.timeout / 1000000, function()
-    self:executeCommandQueue(commands, attempts_remaining - 1)
-  end)
+  -- Start pure functional tail recursion
+  processNextOperation(queue, context)
 
   return true
 end
@@ -279,7 +669,7 @@ function M:performSpaceMove(target_space_number, return_to_spaces_for_displays, 
            target_space_number, return_to_spaces_for_displays and "yes" or "no"))
 
   -- Validate window
-  local valid, err = isMoveableWindow(win)
+  local valid, err = desktop_state.isMoveableWindow(win)
   if not valid then
     return false, err
   end
@@ -292,12 +682,6 @@ function M:performSpaceMove(target_space_number, return_to_spaces_for_displays, 
 
   -- Compose command queue based on move strategy
   local commands = {}
-
-  -- Always focus window first
-  table.insert(commands, {
-    type = "FOCUS_WINDOW",
-    window = win
-  })
 
   -- Determine current window's display and add appropriate commands
   local win_screen = win:screen()
@@ -338,7 +722,7 @@ function M:performSpaceMove(target_space_number, return_to_spaces_for_displays, 
   end
 
   -- Execute the command queue
-  return self:executeCommandQueue(commands)
+  return self:executeCommandQueue(commands, nil)
 end
 
 
@@ -347,80 +731,23 @@ function M:nudgeWindow(direction, should_return, win)
   logger.i(string.format('nudgeWindow %s, should_return=%s', direction, tostring(should_return)))
 
   -- Calculate target space number from direction
-  local current_space_number = desktop_space_numbers.getCurrentSpaceNumber()
+  local current_space_number = desktop_state.getCurrentSpaceNumber()
   if not current_space_number then
     logger.e('Could not determine current space number')
     return false, "Could not determine current space"
   end
 
   local screen = win:screen()
-  local uuid = screen:getUUID()
-
-  -- Get list of user spaces for this screen
-  local userSpaces = nil
-  for k, v in pairs(spaces.allSpaces()) do
-    if k == uuid then
-      userSpaces = v
-      break
-    end
-  end
-
-  if not userSpaces then
-    logger.e('No user spaces found for current display')
-    return false, "No user spaces found"
-  end
-
-  -- Filter out non-user spaces
-  for i = #userSpaces, 1, -1 do
-    if spaces.spaceType(userSpaces[i]) ~= "user" then
-      table.remove(userSpaces, i)
-    end
-  end
-
-  -- Find current space in list
-  local current_space_id = desktop_space_numbers.getSpaceId(current_space_number)
-  local current_index = nil
-  for i, space_id in ipairs(userSpaces) do
-    if space_id == current_space_id then
-      current_index = i
-      break
-    end
-  end
-
-  if not current_index then
-    logger.e('Could not find current space in user spaces list')
-    return false, "Could not locate current space"
-  end
-
-  -- Calculate target index
-  local target_index
-  if direction == "right" then
-    target_index = current_index + 1
-  elseif direction == "left" then
-    target_index = current_index - 1
-  else
-    logger.e('Invalid direction: ' .. tostring(direction))
-    return false, "Invalid direction"
-  end
-
-  -- Check if target is within bounds
-  if target_index < 1 or target_index > #userSpaces then
-    logger.i('At edge of spaces, cannot move further')
-    return false, "No adjacent space in that direction"
-  end
-
-  -- Get target space number
-  local target_space_id = userSpaces[target_index]
-  local target_space_number = desktop_space_numbers.getSpaceNumber(target_space_id)
+  local target_space_number, err = desktop_state.getAdjacentSpaceNumber(current_space_number, direction, screen)
   if not target_space_number then
-    logger.e('Could not determine target space number')
-    return false, "Could not determine target space number"
+    logger.e('Could not find adjacent space: ' .. (err or 'unknown error'))
+    return false, err or "Could not find adjacent space"
   end
 
   -- Convert should_return to return_to_spaces_for_displays
   local return_to_spaces_for_displays = nil
   if should_return then
-    local current_spaces = desktop_space_numbers.getCurrentSpaceNumbers()
+    local current_spaces = desktop_state.getCurrentSpaceNumbers()
     return_to_spaces_for_displays = current_spaces.spaces
     logger.d(string.format('Created return_to_spaces_for_displays: %s', hs.inspect(return_to_spaces_for_displays)))
   end
@@ -430,14 +757,14 @@ function M:nudgeWindow(direction, should_return, win)
 end
 
 function M:nudgeFrontmostWindow(direction, should_return)
-  local win = hs.window.frontmostWindow()
+  local win = desktop_state.getFrontmostWindow()
   if win then
     self:nudgeWindow(direction, should_return, win)
   end
 end
 
 function M:moveFrontmostWindow(space_number, should_return)
-  local win = hs.window.frontmostWindow()
+  local win = desktop_state.getFrontmostWindow()
   if win then
     self:moveWindow(space_number, should_return, win)
   end
@@ -450,7 +777,7 @@ function M:moveWindow(space_number, should_return, win)
   -- Convert should_return to return_to_spaces_for_displays
   local return_to_spaces_for_displays = nil
   if should_return then
-    local current_spaces = desktop_space_numbers.getCurrentSpaceNumbers()
+    local current_spaces = desktop_state.getCurrentSpaceNumbers()
     return_to_spaces_for_displays = current_spaces.spaces
     logger.d(string.format('Created return_to_spaces_for_displays: %s', hs.inspect(return_to_spaces_for_displays)))
   end
@@ -460,9 +787,10 @@ function M:moveWindow(space_number, should_return, win)
 end
 
 function M:nudgeOrMove(direction)
+  logger.d(string.format('nudgeOrMove: direction=%s', direction))
   if not self.double_tap_timer then
     -- If called once, move and stay
-    self.double_tap_timer = hs.timer.doAfter(TIMING.DOUBLE_TAP_WINDOW / 1000000,
+    self.double_tap_timer = hs.timer.doAfter(TIMING.DOUBLE_TAP_WINDOW,
       function()
         self.double_tap_timer = nil
         self:nudgeFrontmostWindow(direction, false)
@@ -476,9 +804,10 @@ function M:nudgeOrMove(direction)
 end
 
 function M:moveToSpaceOrReturn(space_number)
+  logger.d(string.format('moveToSpaceOrReturn: space_number=%d', space_number))
   if not self.space_double_tap_timer then
     -- If called once, move and stay
-    self.space_double_tap_timer = hs.timer.doAfter(TIMING.DOUBLE_TAP_WINDOW / 1000000,
+    self.space_double_tap_timer = hs.timer.doAfter(TIMING.DOUBLE_TAP_WINDOW,
       function()
         self.space_double_tap_timer = nil
         self:moveFrontmostWindow(space_number, false)
@@ -491,6 +820,12 @@ function M:moveToSpaceOrReturn(space_number)
   end
 end
 
+-- Public API: Execute a list of commands using the command queue architecture
+function M:executeCommands(commands, callback)
+  logger.i(string.format('executeCommands: received %d commands', #commands))
+  return self:executeCommandQueue(commands, callback)
+end
+
 function M:bindHotkeys(mapping)
   self.hotkeys.right = spoon.CaptureHotkeys:bind("WindowSpacesLeftAndRight", "Right",
     mapping.right[1], mapping.right[2], function() self:nudgeOrMove("right") end)
@@ -500,7 +835,7 @@ function M:bindHotkeys(mapping)
   -- Move window to specific space (single tap = follow, double tap = return)
   if mapping.toSpace then
     for i = 1, 10 do
-      local key = i == 10 and "0" or tostring(i)
+      local key = desktop_state.spaceNumberToKey(i)
       self.hotkeys["toSpace" .. i] = spoon.CaptureHotkeys:bind("WindowSpacesToSpace", "Space " .. i .. " (Double-tap to return)",
         mapping.toSpace[1], key, function()
           self:moveToSpaceOrReturn(i)

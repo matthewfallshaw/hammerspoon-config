@@ -4,8 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Commands
 
-### Testing
-- `busted` - Run all tests (requires Lua busted framework)
+### Testing shell commands
+- `busted` - Run all tests
 - `busted spec/<module>_spec.lua` - Run tests for specific module
 - `busted spec/` - Run all tests in spec directory
 - Guard file monitoring: `guard` - Auto-runs tests when files change (Ruby Guard + Guardfile)
@@ -135,3 +135,20 @@ This is a sophisticated Hammerspoon configuration with modular architecture:
 - API keys retrieved from macOS keychain
 
 The configuration demonstrates enterprise-level automation while maintaining modularity, testability, and extensive customization options.
+# important-instruction-reminders
+Do what has been asked; nothing more, nothing less.
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
+
+## Utility Library Usage
+
+When implementing basic operations that "ought to exist" in Lua:
+
+1. **Check utilities/ first**: Look in `utilities/` directory to see if the needed function already exists
+2. **Use existing utilities**: If found, require the appropriate utility module and use the existing function
+3. **Follow existing patterns**: If implementing new utilities, follow the style and patterns of existing utility modules (e.g., `utilities/table.lua` uses `table.functionName = function(self)` pattern)
+4. **Add to utilities/ when appropriate**: For reusable functions that might be extracted to a general utility library
+
+## Important Interaction Principles
+- Don't guess when I'm unclear; ask me to clarify. If I mention a file that you can't find, ask me what I mean. If I claim something about how the code works that isn't how the code works, ask me what I meant. etc.

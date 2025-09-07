@@ -11,6 +11,8 @@ M.author = "Matthew Fallshaw <m@fallshaw.me>"
 M.license = "MIT - https://opensource.org/licenses/MIT"
 M.homepage = "https://github.com/matthewfallshaw/hammerspoon-config"
 
+local logger = hs.logger.new("SealConfig", 'warning')
+
 hs.loadSpoon("Seal")
 local seal = spoon.Seal
 M.seal = seal
@@ -125,9 +127,8 @@ seal.plugins.useractions.actions = {
           local text1 = message.body.text1
           local text2 = message.body.text2
 
-          local tmpPath = hs.fs.temporaryDirectory()
-          local file1Path = tmpPath .. "text1.txt"
-          local file2Path = tmpPath .. "text2.txt"
+          local file1Path = os.tmpname()
+          local file2Path = os.tmpname()
 
           local file1 = io.open(file1Path, "w")
           file1:write(text1)
@@ -137,9 +138,18 @@ seal.plugins.useractions.actions = {
           file2:write(text2)
           file2:close()
 
-          -- Use hs.task to run opendiff in the background
-          local task = hs.task.new("/usr/bin/opendiff", nil, {file1Path, file2Path})
-          task:start()
+          local args = {
+            "-b", "com.apple.FileMerge",    -- launch by bundle id (resilient to path changes)
+            "--args",                       -- everything after goes to FileMerge itself
+            "-left",  file1Path,
+            "-right", file2Path
+          }
+
+          hs.task.new("/usr/bin/open", nil, args):start()
+          local loglevel = logger.getLogLevel()
+          logger.setLogLevel('debug')
+          logger.d("diff command: /usr/bin/open " .. table.concat(args, " "))
+          logger.setLogLevel(loglevel)
 
           -- Close and clean up webview
           if diff_webview then

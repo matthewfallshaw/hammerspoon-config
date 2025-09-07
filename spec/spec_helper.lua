@@ -5,7 +5,20 @@ package.path = '/Applications/Hammerspoon.app/Contents/Resources/extensions/hs/?
     ' .. package.path
 
 _G.hs = {}
-_G.hs.logger = require 'logger'
+_G.hs.logger = {
+  new = function(name, loglevel)
+    return {
+      setLogLevel = function() end,
+      d = function() end,
+      i = function() end,
+      w = function() end,
+      e = function() end,
+      f = function() end
+    }
+  end,
+  setGlobalLogLevel = function() end,
+  defaultLogLevel = 'warning'
+}
 _G.hs.fnutils = require 'fnutils'
 _G.hs.inspect = require 'inspect'
 _G.hs.timer = { delayed = { new = function() end } }
@@ -43,5 +56,13 @@ _G.hs.watchable = {
   } end,
   watch = function() return {} end
 }
+_G.hs.spaces = {
+  allSpaces = function() return {} end,
+  moveWindowToSpace = function() end
+}
+-- Mock the hs.spaces module for require()
+package.preload["hs.spaces"] = function()
+  return _G.hs.spaces
+end
 _G.hs.configdir = os.getenv("HOME").."/.hammerspoon"
 consts = require 'configConsts'

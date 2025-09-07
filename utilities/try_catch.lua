@@ -62,3 +62,11 @@ function try(what)
 
   return result
 end
+
+local module = {
+  try = try,
+  catch = catch,
+  ensure = ensure,
+}
+
+return module
