@@ -19,6 +19,136 @@ M.seal = seal
 local asana = require('asana')
 M.asana = asana
 
+-- Helper functions for user actions
+local function showBundleId()
+  local _, id = hs.osascript.applescript(
+    'id of app "'.. hs.application.frontmostApplication():name() ..'"')
+  hs.pasteboard.setContents(id)
+  hs.alert.show("BundleId: ".. id)
+end
+
+local function showActivityLog()
+  local ms = hs.screen.mainScreen():frame()
+  local voffset, hoffset = 30, ms.w / 4
+  local rect = hs.geometry.rect(
+    ms.x + hoffset, ms.y + voffset, ms.w - 2 * hoffset, ms.h - 2 * voffset)
+  local logview = hs.webview.newBrowser(rect):closeOnEscape(true)
+  local html = [[
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <style>
+      pre { margin-left: 2em; }
+    </style>
+    <title>Activity Log</title>
+  </head>
+  <body>
+    <pre><code>
+]].. hs.execute("tail -n50 ~/log/activities.log") ..[[
+    </code></pre>
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+  </body>
+</html>
+  ]]
+  logview:html(html)
+  logview:bringToFront()
+  logview:show(0.5)
+  logview:hswindow():focus()
+end
+
+local function showDiffTexts()
+  local diff_webview
+  local usercontent = hs.webview.usercontent.new("compareHandler")
+    :setCallback(function(message)
+      local text1 = message.body.text1
+      local text2 = message.body.text2
+
+      local file1Path = os.tmpname()
+      local file2Path = os.tmpname()
+
+      local file1 = io.open(file1Path, "w")
+      file1:write(text1)
+      file1:close()
+
+      local file2 = io.open(file2Path, "w")
+      file2:write(text2)
+      file2:close()
+
+      local args = {
+        "-b", "com.apple.FileMerge",    -- launch by bundle id (resilient to path changes)
+        "--args",                       -- everything after goes to FileMerge itself
+        "-left",  file1Path,
+        "-right", file2Path
+      }
+
+      hs.task.new("/usr/bin/open", nil, args):start()
+      local loglevel = logger.getLogLevel()
+      logger.setLogLevel('debug')
+      logger.d("diff command: /usr/bin/open " .. table.concat(args, " "))
+      logger.setLogLevel(loglevel)
+
+      -- Close and clean up webview
+      if diff_webview then
+        diff_webview:delete()
+        diff_webview = nil
+      end
+    end)
+
+  diff_webview = hs.webview.newBrowser({x=100, y=100, w=600, h=350}, {developerExtrasEnabled = true}, usercontent)
+    :windowCallback(function(action, webview, state)
+      if action == "closing" then
+        if diff_webview then
+          diff_webview:delete()
+          diff_webview = nil
+        end
+      end
+    end)
+    :windowStyle("utility") -- Optional: set as utility window
+    :level(hs.drawing.windowLevels.floating) -- Make sure it floats above other apps
+
+  diff_webview:html([[
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            textarea { width: 95%; height: 100px; margin-bottom: 10px; padding: 8px; font-size: 14px; }
+            button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+        </style>
+    </head>
+    <body>
+        <textarea id="text1" placeholder="Enter text 1 here"></textarea><br>
+        <textarea id="text2" placeholder="Enter text 2 here"></textarea><br>
+        <button onclick="submitForm()">Compare</button>
+
+        <script>
+            function submitForm() {
+                var text1 = document.getElementById('text1').value;
+                var text2 = document.getElementById('text2').value;
+                try {
+                    webkit.messageHandlers.compareHandler.postMessage({text1: text1, text2: text2});
+                } catch(error) {
+                    console.error('Error:', error);
+                }
+            }
+        </script>
+    </body>
+    </html>
+  ]])
+  diff_webview:show()
+end
+
 seal:loadPlugins({'calc', 'useractions'})
 seal.plugins.useractions.actions = {
   ["New Asana task in " .. init.consts.asanaWorkWorkspaceName] = {
@@ -71,136 +201,13 @@ seal.plugins.useractions.actions = {
     fn = reorganise_desktop
   },
   ["Bundle Id"] = {
-    fn = function()
-      local _, id = hs.osascript.applescript(
-        'id of app "'.. hs.application.frontmostApplication():name() ..'"')
-      hs.pasteboard.setContents(id)
-      hs.alert.show("BundleId: ".. id)
-    end
+    fn = showBundleId
   },
   ["Activity log"] = {
-    fn = function()
-      local ms = hs.screen.mainScreen():frame()
-      local voffset, hoffset = 30, ms.w / 4
-      local rect = hs.geometry.rect(
-        ms.x + hoffset, ms.y + voffset, ms.w - 2 * hoffset, ms.h - 2 * voffset)
-      local logview = hs.webview.newBrowser(rect):closeOnEscape(true)
-      local html = [[
-<!doctype html>
-<html lang="en">
-  <head>
-    <!-- Required meta tags -->
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-
-    <!-- Bootstrap CSS -->
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
-    <style>
-      pre { margin-left: 2em; }
-    </style>
-    <title>Activity Log</title>
-  </head>
-  <body>
-    <pre><code>
-]].. hs.execute("tail -n50 ~/log/activities.log") ..[[
-    </code></pre>
-
-    <!-- Optional JavaScript -->
-    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
-    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
-  </body>
-</html>
-      ]]
-      logview:html(html)
-      logview:bringToFront()
-      logview:show(0.5)
-      logview:hswindow():focus()
-    end
+    fn = showActivityLog
   },
   ["Diff Texts"] = {
-    fn = function()
-      local diff_webview
-      local usercontent = hs.webview.usercontent.new("compareHandler")
-        :setCallback(function(message)
-          local text1 = message.body.text1
-          local text2 = message.body.text2
-
-          local file1Path = os.tmpname()
-          local file2Path = os.tmpname()
-
-          local file1 = io.open(file1Path, "w")
-          file1:write(text1)
-          file1:close()
-
-          local file2 = io.open(file2Path, "w")
-          file2:write(text2)
-          file2:close()
-
-          local args = {
-            "-b", "com.apple.FileMerge",    -- launch by bundle id (resilient to path changes)
-            "--args",                       -- everything after goes to FileMerge itself
-            "-left",  file1Path,
-            "-right", file2Path
-          }
-
-          hs.task.new("/usr/bin/open", nil, args):start()
-          local loglevel = logger.getLogLevel()
-          logger.setLogLevel('debug')
-          logger.d("diff command: /usr/bin/open " .. table.concat(args, " "))
-          logger.setLogLevel(loglevel)
-
-          -- Close and clean up webview
-          if diff_webview then
-            diff_webview:delete()
-            diff_webview = nil
-          end
-        end)
-
-      diff_webview = hs.webview.newBrowser({x=100, y=100, w=600, h=350}, {developerExtrasEnabled = true}, usercontent)
-        :windowCallback(function(action, webview, state)
-          if action == "closing" then
-            if diff_webview then
-              diff_webview:delete()
-              diff_webview = nil
-            end
-          end
-        end)
-        :windowStyle("utility") -- Optional: set as utility window
-        :level(hs.drawing.windowLevels.floating) -- Make sure it floats above other apps
-
-      diff_webview:html([[
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <style>
-                body { font-family: Arial, sans-serif; padding: 20px; }
-                textarea { width: 95%; height: 100px; margin-bottom: 10px; padding: 8px; font-size: 14px; }
-                button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
-            </style>
-        </head>
-        <body>
-            <textarea id="text1" placeholder="Enter text 1 here"></textarea><br>
-            <textarea id="text2" placeholder="Enter text 2 here"></textarea><br>
-            <button onclick="submitForm()">Compare</button>
-
-            <script>
-                function submitForm() {
-                    var text1 = document.getElementById('text1').value;
-                    var text2 = document.getElementById('text2').value;
-                    try {
-                        webkit.messageHandlers.compareHandler.postMessage({text1: text1, text2: text2});
-                    } catch(error) {
-                        console.error('Error:', error);
-                    }
-                }
-            </script>
-        </body>
-        </html>
-      ]])
-      diff_webview:show()
-    end,
+    fn = showDiffTexts,
     keyword = "diff"
   }
 }
