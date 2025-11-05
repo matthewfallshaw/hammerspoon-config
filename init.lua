@@ -1,29 +1,29 @@
 -- Enable this to do live debugging in ZeroBrane Studio
- -- local ZBS = "/Applications/ZeroBraneStudio.app/Contents/ZeroBraneStudio"
- -- package.path = package.path .. ";" .. ZBS .. "/lualibs/?/?.lua;" .. ZBS .. "/lualibs/?.lua"
- -- package.cpath = package.cpath .. ";" .. ZBS .. "/bin/?.dylib;" .. ZBS .. "/bin/clibs53/?.dylib"
- -- require("mobdebug").start()
+-- local ZBS = "/Applications/ZeroBraneStudio.app/Contents/ZeroBraneStudio"
+-- package.path = package.path .. ";" .. ZBS .. "/lualibs/?/?.lua;" .. ZBS .. "/lualibs/?.lua"
+-- package.cpath = package.cpath .. ";" .. ZBS .. "/bin/?.dylib;" .. ZBS .. "/bin/clibs53/?.dylib"
+-- require("mobdebug").start()
 
 -- nix makes global luarocks hard, use local
 package.path = package.path ..
-  ";" .. os.getenv("HOME") .. "/.luarocks/share/lua/5.3/?.lua" ..
-  ";" .. os.getenv("HOME") .. "/.luarocks/share/lua/5.3/?/init.lua" ..
-  ";" .. os.getenv("HOME") .. "/.nix-profile/share/lua/5.3/?.lua" ..
-  ";" .. os.getenv("HOME") .. "/.nix-profile/share/lua/5.3/?/init.lua"
+    ";" .. os.getenv("HOME") .. "/.luarocks/share/lua/5.3/?.lua" ..
+    ";" .. os.getenv("HOME") .. "/.luarocks/share/lua/5.3/?/init.lua" ..
+    ";" .. os.getenv("HOME") .. "/.nix-profile/share/lua/5.3/?.lua" ..
+    ";" .. os.getenv("HOME") .. "/.nix-profile/share/lua/5.3/?/init.lua"
 package.cpath = package.cpath ..
-  ";" .. os.getenv("HOME") .. "/.luarocks/lib/lua/5.3/?.so"
+    ";" .. os.getenv("HOME") .. "/.luarocks/lib/lua/5.3/?.so"
 
 local profiler = require 'utilities.profile'
 local overrides = {
-                    fW = 80, -- Change the file column to 100 characters (from 20)
-                    fnW = 30, -- Change the function column to 120 characters (from 28)
-                  }
+  fW = 80,                    -- Change the file column to 100 characters (from 20)
+  fnW = 30,                   -- Change the function column to 120 characters (from 28)
+}
 profiler.configuration(overrides)
 profile = {
   start = function() profiler.start() end,
-  stop = function ()
+  stop = function()
     profiler.stop()
-    profiler.report('build/profile.'..os.date('%Y-%m-%d_%H-%M-%S')..'.txt')
+    profiler.report('build/profile.' .. os.date('%Y-%m-%d_%H-%M-%S') .. '.txt')
   end,
 }
 -- profile.start()
@@ -35,7 +35,7 @@ pp = require 'utilities.profile_log'
 -- luacheck: allow defined top
 -- luacheck: globals hs spoon
 
-init = {}  -- watchers & etc.
+init = {} -- watchers & etc.
 
 local logger = hs.logger.new("Init")
 init.logger = logger
@@ -46,13 +46,13 @@ local fun = require 'fun'
 
 pp("after require fun")
 
-require("hs.ipc")  -- command line interface
+require("hs.ipc") -- command line interface
 
 pp("after require hs.ipc")
 
 init.consts = require 'configConsts'
 
-i = hs.inspect.inspect  -- luacheck: no global
+i = hs.inspect.inspect -- luacheck: no global
 
 -- # Setup for everything else #
 --
@@ -64,7 +64,7 @@ pp("after require hyper")
 
 -- Capture spoon (and other) hotkeys
 hs.loadSpoon("CaptureHotkeys")
-spoon.CaptureHotkeys:bindHotkeys({show = {{ "⌘", "⌥", "⌃", "⇧" }, "k"}}):start()
+spoon.CaptureHotkeys:bindHotkeys({ show = { { "⌘", "⌥", "⌃", "⇧" }, "k" } }):start()
 
 pp("after require CaptureHotkeys")
 
@@ -79,17 +79,17 @@ pp("after require utilities.log")
 -- Clear console hotkey
 init.clearConsoleHotkey = {
   clear = spoon.CaptureHotkeys:bind("Hammer+", "Clear console",
-      {"⌘", "⌥", "⌃", "⇧"}, "c",
-      function() hs.console.clearConsole() end)
+    { "⌘", "⌥", "⌃", "⇧" }, "c",
+    function() hs.console.clearConsole() end)
 }
 hyper.bindKey({}, 'c', function() hs.console.clearConsole() end)
 
 
 hs.loadSpoon('Hammer')
-spoon.Hammer.auto_reload_config = true  -- Enable auto-reload
+spoon.Hammer.auto_reload_config = true -- Enable auto-reload
 spoon.Hammer:bindHotkeys({
-  config_reload ={{"⌘", "⌥", "⌃", "⇧"}, "r"},
-  toggle_console={{"⌘", "⌥", "⌃", "⇧"}, "d"},
+  config_reload = { { "⌘", "⌥", "⌃", "⇧" }, "r" },
+  toggle_console = { { "⌘", "⌥", "⌃", "⇧" }, "d" },
 })
 spoon.Hammer:start()
 hyper.bindKey({}, 'r', function() hs.reload() end)
@@ -101,25 +101,25 @@ pp("after require Hammer")
 
 
 -- Control Plane replacement: Actions on change of location
-control_plane = require('control_plane'):start()  -- luacheck: no global
+control_plane = require('control_plane'):start() -- luacheck: no global
 control_plane._logger.setLogLevel('info')
 local function is_trusted_network()
   local trusted_open_networks = init.consts.trusted_open_networks
   return not not (fun.index(trusted_open_networks,
-                            require('control_plane').locationFacts.wifi_ssid))
+    require('control_plane').locationFacts.wifi_ssid))
 end
 local function insecure_network_actions(security_mode)
   if security_mode == 'None' and not hs.application('Private Internet Access') then
     if is_trusted_network() then
-      hs.alert.show("WARNING: Insecure WiFi connection",{textSize=48},hs.screen.mainScreen(),1.8)
-      hs.alert.show("*not* locking you down since '"..
-        tostring(require('control_plane').locationFacts.wifi_ssid).. "' is a trusted network")
+      hs.alert.show("WARNING: Insecure WiFi connection", { textSize = 48 }, hs.screen.mainScreen(), 1.8)
+      hs.alert.show("*not* locking you down since '" ..
+        tostring(require('control_plane').locationFacts.wifi_ssid) .. "' is a trusted network")
     else
-      hs.alert.show("WARNING: Insecure WiFi connection",{textSize=48},hs.screen.mainScreen(),1.8)
+      hs.alert.show("WARNING: Insecure WiFi connection", { textSize = 48 }, hs.screen.mainScreen(), 1.8)
       local launch_button = 'Launch VPN'
       hs.focus()
       hs.dialog.alert(
-        300, 300,  -- location x,y
+        300, 300, -- location x,y
         function(result)
           if result == launch_button then
             hs.application.open("Private Internet Access")
@@ -127,14 +127,14 @@ local function insecure_network_actions(security_mode)
           else
             logger.i('Doing nothing; leaving our undergarments exposed')
           end
-        end,  -- callback
-        'Launch VPN?',  -- message
-        'WARNING: Insecure WiFi connection',  -- informative text
-        launch_button, 'Cancel',  -- buttons
-        'warning'  -- style
+        end,                                 -- callback
+        'Launch VPN?',                       -- message
+        'WARNING: Insecure WiFi connection', -- informative text
+        launch_button, 'Cancel',             -- buttons
+        'warning'                            -- style
       )
     end
-  else  -- luacheck: ignore 542
+  else -- luacheck: ignore 542
     -- do nothing
   end
 end
@@ -145,17 +145,17 @@ init.control_plane_wifi_security_watcher = hs.watchable.watch(
     hs.timer.doAfter(1, function() insecure_network_actions(new_value) end)
   end
 )
-insecure_network_actions(hs.wifi.interfaceDetails().security)  -- run on startup
+insecure_network_actions(hs.wifi.interfaceDetails().security) -- run on startup
 
 pp("after require control_plane")
 
 -- Stay replacement: Keep App windows in their places
-stay = require('stay')  -- luacheck: no global
+stay = require('stay') -- luacheck: no global
 stay:start(init.consts.stay)
 spoon.CaptureHotkeys:capture(
-  "Stay", "Once, toggle layout engine; twice, report screens; thrice, report frontmost window; "..
-    "four times, report frontmost & open stay.lua for editing",
-  {"⌘", "⌥", "⌃", "⇧"}, "s")
+  "Stay", "Once, toggle layout engine; twice, report screens; thrice, report frontmost window; " ..
+  "four times, report frontmost & open stay.lua for editing",
+  { "⌘", "⌥", "⌃", "⇧" }, "s")
 
 pp("after require stay")
 
@@ -170,8 +170,8 @@ pp("after require MiroWindowsManager")
 
 hs.loadSpoon("WindowScreenLeftAndRight")
 spoon.WindowScreenLeftAndRight:bindHotkeys({
-   screen_left  = { {"⌥", "⌃", "⌘"}, "h" },
-   screen_right = { {"⌥", "⌃", "⌘"}, "l" },
+  screen_left  = { { "⌥", "⌃", "⌘" }, "h" },
+  screen_right = { { "⌥", "⌃", "⌘" }, "l" },
 })
 
 pp("after require WindowScreenLeftAndRight")
@@ -179,11 +179,11 @@ pp("after require WindowScreenLeftAndRight")
 -- Move windows between spaces
 move_spaces = require('move_spaces')
 move_spaces:start({
-  space_jump_modifiers = {"⌃", "⇧"},  -- ctrl+shift for macOS space switching
+  space_jump_modifiers = { "⌃", "⇧" }, -- ctrl+shift for macOS space switching
   hotkeys = {
-    left  = {{"⌘", "⌥", "⌃", "⇧"}, "h"},
-    right = {{"⌘", "⌥", "⌃", "⇧"}, "l"},
-    toSpace = {{"⌘", "⌥", "⌃", "⇧"}},
+    left    = { { "⌘", "⌥", "⌃", "⇧" }, "h" },
+    right   = { { "⌘", "⌥", "⌃", "⇧" }, "l" },
+    toSpace = { { "⌘", "⌥", "⌃", "⇧" } },
   }
 })
 
@@ -199,7 +199,7 @@ pp("after require desktop_space_numbers")
 -- Trash recent downloads
 trash_recent = require('trash_recent')
 trash_recent.hotkey = spoon.CaptureHotkeys:bind(
-  "Trash recent download", "trashRecentDownload", {"⌥", "⌃", "⇧", "⌘"}, "t",
+  "Trash recent download", "trashRecentDownload", { "⌥", "⌃", "⇧", "⌘" }, "t",
   trash_recent.trashRecentDownload)
 
 pp("after require trash_recent")
@@ -208,22 +208,22 @@ pp("after require trash_recent")
 logger.setLogLevel(4)
 logger.i("Loading USB watcher")
 local function usbDeviceCallback(data)
-  logger.d(data['productName']..' '..data['eventType'])
+  logger.d(data['productName'] .. ' ' .. data['eventType'])
   -- ScanSnap
   -- ScanSnap Home's apps are not properly registered (named) and there are several of them, so matches and arrays…
   if (data["productName"]:match("^ScanSnap")) then
     if (data['eventType'] == 'added') then
-      log:and_alert(data['productName'].. ' added, launching ScanSnap Home')
-      hs.application.launchOrFocus('ScanSnapHomeMain')  -- 'ScanSnap Home' is called... that 🥺
+      log:and_alert(data['productName'] .. ' added, launching ScanSnap Home')
+      hs.application.launchOrFocus('ScanSnapHomeMain') -- 'ScanSnap Home' is called... that 🥺
     elseif (data['eventType'] == 'removed') then
       local scansnaps = table.pack(hs.application.find("ScanSnap"))
       if scansnaps.n > 0 then
         fun.each(function(app)
-                   app:kill()
-                   log:and_alert(data['productName'].. ' removed, closing '.. app:name())
-                 end,
-                 scansnaps)
-      else  -- luacheck: ignore 542
+            app:kill()
+            log:and_alert(data['productName'] .. ' removed, closing ' .. app:name())
+          end,
+          scansnaps)
+      else -- luacheck: ignore 542
         -- do nothing
       end
       local aou_mon = hs.application.get('AOUMonitor')
@@ -278,7 +278,7 @@ local function URLDispatcherCallback(_, params)
   spoon.URLDispatcher.logger.e('Stopping profiling for URLDispatcherCallback')
 end
 spoon.URLDispatcher.url_dispatcher = hs.urlevent.bind("URLDispatcher", URLDispatcherCallback)
-spoon.URLDispatcher.logger.setLogLevel('debug')  -- to track redirections, which often fail
+spoon.URLDispatcher.logger.setLogLevel('debug') -- to track redirections, which often fail
 
 pp("after require URLDispatcher")
 
@@ -289,14 +289,14 @@ local function applicationAppleMusicWatcherCallback(appname, event, _)
     hs.application.get("Music"):kill9()
   end
 end
-logger.i("Starting Apple Music killer")
-init.applicationAppleMusicWatcher = hs.application.watcher.new(applicationAppleMusicWatcherCallback)
-init.applicationAppleMusicWatcher:start()
+-- logger.i("Starting Apple Music killer")
+-- init.applicationAppleMusicWatcher = hs.application.watcher.new(applicationAppleMusicWatcherCallback)
+-- init.applicationAppleMusicWatcher:start()
 
 pp("after Apple Music killer")
 
 hs.loadSpoon("MouseCircle")
-spoon.MouseCircle:bindHotkeys({ show = {{"⌘", "⌥", "⌃", "⇧"}, "m"}})
+spoon.MouseCircle:bindHotkeys({ show = { { "⌘", "⌥", "⌃", "⇧" }, "m" } })
 
 pp("after require MouseCircle")
 
@@ -318,14 +318,13 @@ spoon.Caffeine.clicked = function()
   hs.settings.set("caffeine_state", hs.caffeinate.get("displayIdle"))
 end
 
-spoon.Caffeine:bindHotkeys({ toggle = {{"⌥", "⌃", "⇧"}, "c"}})
+spoon.Caffeine:bindHotkeys({ toggle = { { "⌥", "⌃", "⇧" }, "c" } })
 spoon.Caffeine:start()
 -- Turn off Caffeine if screen is locked or system sent to sleep
 init.caffeine_screen_lock_watcher = hs.caffeinate.watcher.new(function(event)
   if spoon.Caffeine and
-    (event == hs.caffeinate.watcher["screensDidLock"] or
-     event == hs.caffeinate.watcher["systemWillSleep"]) then
-
+      (event == hs.caffeinate.watcher["screensDidLock"] or
+        event == hs.caffeinate.watcher["systemWillSleep"]) then
     if hs.caffeinate.get("displayIdle") then
       spoon.Caffeine.clicked()
       logger.i(hs.caffeinate.watcher[event] .. " and spoon.Caffeine on; turning it off")
@@ -352,51 +351,53 @@ hks.Terminal = fun.map(
   function(hotkey)
     if hotkey == 9 then
       return hs.hotkey.new('⌘',
-                           tostring(hotkey),
-                           function()
-                             hs.osascript.applescript('tell application "Terminal" to set selected of last tab '..
-                                                      'of first window to true')
-                           end)
+        tostring(hotkey),
+        function()
+          hs.osascript.applescript('tell application "Terminal" to set selected of last tab ' ..
+            'of first window to true')
+        end)
     else
       return hs.hotkey.new('⌘',
-                           tostring(hotkey),
-                           function()
-                             hs.osascript.applescript('tell application "Terminal" to set selected of tab '..
-                                                      hotkey .. ' of first window to true')
-                           end)
+        tostring(hotkey),
+        function()
+          hs.osascript.applescript('tell application "Terminal" to set selected of tab ' ..
+            hotkey .. ' of first window to true')
+        end)
     end
   end,
   fun.range(9))
 spoon.CaptureHotkeys:capture("Terminal", {
-  ["Select tab n"] = { {"⌘"}, "n" },
-  ["Select last tab"] = { {"⌘"}, "9" },
+  ["Select tab n"] = { { "⌘" }, "n" },
+  ["Select last tab"] = { { "⌘" }, "9" },
 })
 -- Slack usability improvements
 logger.i("Slack usability hotkeys")
 hks.Slack = {
   hs.hotkey.new('⌘', 'w', function()
     hs.eventtap.keyStrokes("/leave ")
-    hs.timer.doAfter(0.3, function() hs.application.get("Slack"):activate(); hs.eventtap.keyStroke({}, "return") end)
+    hs.timer.doAfter(0.3, function()
+      hs.application.get("Slack"):activate(); hs.eventtap.keyStroke({}, "return")
+    end)
   end),
-  hs.hotkey.new('⌘⇧', ']', function() hs.eventtap.keyStroke({'alt'}, 'down') end),
-  hs.hotkey.new('⌘⇧', '[', function() hs.eventtap.keyStroke({'alt'}, 'up') end),
+  hs.hotkey.new('⌘⇧', ']', function() hs.eventtap.keyStroke({ 'alt' }, 'down') end),
+  hs.hotkey.new('⌘⇧', '[', function() hs.eventtap.keyStroke({ 'alt' }, 'up') end),
 }
 spoon.CaptureHotkeys:capture("Slack", {
-  ["Close Channel"] = { {"⌘"}, "w" },
-  ["Next Channel"] = { {"⌘", "⇧"}, "]" },
-  ["Previous Channel"] = { {"⌘", "⇧"}, "[" },
+  ["Close Channel"] = { { "⌘" }, "w" },
+  ["Next Channel"] = { { "⌘", "⇧" }, "]" },
+  ["Previous Channel"] = { { "⌘", "⇧" }, "[" },
 })
 -- Signal usability improvements
 logger.i("Signal usability hotkeys")
 hks.Signal = {
-  hs.hotkey.new('⌥', 'return', function() hs.eventtap.keyStroke({'⇧'}, 'return') end),
-  hs.hotkey.new('⌘⇧', ']', function() hs.eventtap.keyStroke({'alt'}, 'down') end),
-  hs.hotkey.new('⌘⇧', '[', function() hs.eventtap.keyStroke({'alt'}, 'up') end),
+  hs.hotkey.new('⌥', 'return', function() hs.eventtap.keyStroke({ '⇧' }, 'return') end),
+  hs.hotkey.new('⌘⇧', ']', function() hs.eventtap.keyStroke({ 'alt' }, 'down') end),
+  hs.hotkey.new('⌘⇧', '[', function() hs.eventtap.keyStroke({ 'alt' }, 'up') end),
 }
 spoon.CaptureHotkeys:capture("Signal", {
-  ["New line"] = { {"⌥"}, "⏎" },
-  ["Next Conversation"] = { {"⌘", "⇧"}, "]" },
-  ["Previous Conversation"] = { {"⌘", "⇧"}, "[" },
+  ["New line"] = { { "⌥" }, "⏎" },
+  ["Next Conversation"] = { { "⌘", "⇧" }, "]" },
+  ["Previous Conversation"] = { { "⌘", "⇧" }, "[" },
 })
 spoon.AppHotkeys:start()
 
@@ -404,7 +405,7 @@ pp("after require AppHotkeys")
 
 local clock = hs.loadSpoon("AClock")
 clock.format = "%H:%M:%S"
-clock.textColor = {hex="#00c403"}
+clock.textColor = { hex = "#00c403" }
 clock.textFont = "Menlo Bold"
 clock.height = 160
 clock.width = 675
@@ -432,24 +433,27 @@ pp("after require AClock")
 -- For some Bluetooth devices like AirPods they don't show up in list of available devices
 -- For these devices, if not found in device list, Applescript is used to manipulate Volume menu item to connect them
 function changeAudioDevice(deviceName)
-  fun.each(function(x) logger.e(x:name()); x:setDefaultInputDevice() end,
-           fun.filter(function(x) return x:name():match(deviceName) end,
-                      hs.audiodevice.allInputDevices()))
-  fun.each(function(x) logger.e(x:name()); x:setDefaultOutputDevice() end,
-           fun.filter(function(x) return x:name():match(deviceName) end,
-                      hs.audiodevice.allOutputDevices()))
+  fun.each(function(x)
+      logger.e(x:name()); x:setDefaultInputDevice()
+    end,
+    fun.filter(function(x) return x:name():match(deviceName) end,
+      hs.audiodevice.allInputDevices()))
+  fun.each(function(x)
+      logger.e(x:name()); x:setDefaultOutputDevice()
+    end,
+    fun.filter(function(x) return x:name():match(deviceName) end,
+      hs.audiodevice.allOutputDevices()))
 
   -- hs.audiodevice.findInputByName(deviceName):setDefaultInputDevice()
   -- hs.audiodevice.findOutputByName(deviceName):setDefaultOutputDevice()
 
   if hs.audiodevice.defaultOutputDevice():name():match(deviceName) then
     hs.notify.show("Audio Device", "",
-                   hs.audiodevice.defaultOutputDevice():name() .. " connected")
+      hs.audiodevice.defaultOutputDevice():name() .. " connected")
   else
     hs.notify.show("Audio Device", "", "Failed to conncet to " .. deviceName)
   end
 end
-
 
 -- Seal
 seal = require('seal_config')
@@ -465,7 +469,6 @@ seal = require('seal_config')
 -- # notnux only #
 --
 if hs.host.localizedName() == "notnux6" then
-
   -- Export hotkeys to build/Hammerspoon.kcustom
   local kce = spoon.CaptureHotkeys.exporters.keyCue
   --
@@ -506,4 +509,4 @@ pp:stop()
 
 hs.loadSpoon("FadeLogo"):start()
 
-if stay then print('Stay: Active layout is '.. tostring(stay:activeLayouts())) end
+if stay then print('Stay: Active layout is ' .. tostring(stay:activeLayouts())) end

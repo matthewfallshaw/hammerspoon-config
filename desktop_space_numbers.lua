@@ -20,10 +20,10 @@ local spaces = require "hs.spaces" -- https://github.com/asmagill/hs._asm.spaces
 -- ## Convenience functions
 
 -- map(function, table)
- -- e.g: map(double, {1,2,3})    -> {2,4,6}
+-- e.g: map(double, {1,2,3})    -> {2,4,6}
 local function map(func, tbl)
   local newtbl = {}
-  for i,v in pairs(tbl) do
+  for i, v in pairs(tbl) do
     newtbl[i] = func(v)
   end
   return newtbl
@@ -33,10 +33,10 @@ M.map = map
 -- filter(function, table)
 -- e.g: filter(is_even, {1,2,3,4}) -> {2,4}
 local function filter(func, tbl)
-  local newtbl= {}
-  for i,v in pairs(tbl) do
+  local newtbl = {}
+  for i, v in pairs(tbl) do
     if func(v) then
-      newtbl[i]=v
+      newtbl[i] = v
     end
   end
   return newtbl
@@ -63,7 +63,7 @@ local function tail(tbl)
     local tblsize = #tbl
     local i = 2
     while (i <= tblsize) do
-      table.insert(newtbl, i-1, tbl[i])
+      table.insert(newtbl, i - 1, tbl[i])
       i = i + 1
     end
     return newtbl
@@ -74,7 +74,7 @@ M.tail = tail
 -- foldr(function, default_value, table)
 -- e.g: foldr(operator.mul, 1, {1,2,3,4,5}) -> 120
 local function foldr(func, val, tbl)
-  for i,v in pairs(tbl) do
+  for i, v in pairs(tbl) do
     val = func(val, v)
   end
   return val
@@ -84,7 +84,7 @@ M.foldr = foldr
 -- reduce(function, table)
 -- e.g: reduce(operator.add, {1,2,3,4}) -> 10
 local function reduce(func, tbl)
-logger.e(i({in_function = "reduce", h = head(tbl), t = tail(tbl)}))
+  logger.e(i({ in_function = "reduce", h = head(tbl), t = tail(tbl) }))
   return foldr(func, head(tbl), tail(tbl))
 end
 M.reduce = reduce
@@ -94,38 +94,19 @@ M.reduce = reduce
 -- Helper: build spaces map data
 local function buildSpacesMap()
   local spaces_map = {}
-  local allSpaces = spaces.allSpaces()
   local spaceNumber = 1
 
-  -- Get the primary screen
-  local primaryScreen = hs.screen.primaryScreen()
-
-  -- Get all screens
+  -- Get all screens in macOS's native order
   local screens = hs.screen.allScreens()
 
-  -- Sort the screens based on their position
-  table.sort(screens, function(a, b)
-    local aPos_x, aPos_y = a:position()
-    local bPos_x, bPos_y = b:position()
-    if aPos_x == bPos_x then
-      return aPos_y < bPos_y
-    else
-      return aPos_x < bPos_x
-    end
-  end)
-
-  -- Iterate over the sorted screens
+  -- Iterate over screens in their native order
   for _, screen in ipairs(screens) do
     local screenID = screen:getUUID()
-    local screen_spaces = allSpaces[screenID]
-
-    -- Ensure the primary screen comes first
-    if screen == primaryScreen then
-      screen_spaces = allSpaces[screenID]
-    end
+    -- Use spacesForScreen() to get spaces in their documented native order
+    local screen_spaces = spaces.spacesForScreen(screen)
 
     if screen_spaces then
-      for spaceNumberOnScreen, spaceID in pairs(screen_spaces) do
+      for spaceNumberOnScreen, spaceID in ipairs(screen_spaces) do
         if spaceID ~= nil then
           spaces_map[spaceID] = {
             spaceNumberOnScreen = spaceNumberOnScreen,
@@ -245,14 +226,14 @@ end
 -- Get current space numbers for all displays and which one is active
 local function getCurrentSpaceNumbers()
   local result = {
-    spaces = {},  -- [display_id] = space_number
-    active_space = nil  -- the currently focused space number
+    spaces = {},       -- [display_id] = space_number
+    active_space = nil -- the currently focused space number
   }
-  
+
   -- Get active space number (focused space)
   local current_space_id = spaces.focusedSpace()
   result.active_space = getSpaceNumber(current_space_id)
-  
+
   -- Get current space for each display
   for _, display in ipairs(hs.screen.allScreens()) do
     local display_active_space_id = spaces.activeSpaceOnScreen(display)
@@ -263,7 +244,7 @@ local function getCurrentSpaceNumbers()
       end
     end
   end
-  
+
   return result
 end
 
@@ -278,13 +259,13 @@ local function getWindowSpaceNumber(win)
   if not win then
     return nil
   end
-  
+
   -- Get all spaces that contain this window
   local window_spaces = spaces.windowSpaces(win)
   if not window_spaces or #window_spaces == 0 then
     return nil
   end
-  
+
   -- For simplicity, return the space number of the first space
   -- (windows can be on multiple spaces if they're on all spaces)
   local space_id = window_spaces[1]
@@ -301,7 +282,7 @@ M.getSpaceId = getSpaceId
 M.getSpaceNumber = getSpaceNumber
 M.getSpaceDisplay = getSpaceDisplay
 M.getCurrentSpaceNumbers = getCurrentSpaceNumbers
-M.getCurrentSpaceNumber = getCurrentActiveSpaceNumber  -- backward compatibility
+M.getCurrentSpaceNumber = getCurrentActiveSpaceNumber -- backward compatibility
 M.getWindowSpaceNumber = getWindowSpaceNumber
 
 local function clear_space_labels()
@@ -322,47 +303,48 @@ function M.showDesktopSpaceNumbers()
   local spaces_map = spaces_map()
   clear_space_labels()
 
-  for _,screen in pairs(hs.screen.allScreens()) do
+  for _, screen in pairs(hs.screen.allScreens()) do
     local activeSpaceOnScreen = spaces.activeSpaceOnScreen(screen)
     if screen:frame() and spaces_map.active_spaces[activeSpaceOnScreen] then
       -- local labeltext = tostring(spaces_map.active_spaces[activeSpaceOnScreen].spaceNumberOnScreen) --OnScreen)
       local labeltext = tostring(spaces_map.active_spaces[activeSpaceOnScreen].spaceNumber)
-      local styledtextformat = { color = { white=0, alpha=1 },
-        shadow = { offset=0, blurRadius=4, color={ white=1, alpha=1 } },
-        font = { size=10 },
+      local styledtextformat = {
+        color = { white = 0, alpha = 1 },
+        shadow = { offset = 0, blurRadius = 4, color = { white = 1, alpha = 1 } },
+        font = { size = 10 },
         paragraphStyle = { alignment = 'center' },
       }
       local labelstyledtext = hs.styledtext.new(labeltext, styledtextformat)
       local text_size = hs.drawing.getTextDrawingSize(hs.styledtext.new('00', styledtextformat))
-      local offsets = { x=4, y=-24 }
+      local offsets = { x = 4, y = -24 }
       M.space_labels[activeSpaceOnScreen] = hs.drawing.text(
-        hs.geometry.rect(
-          screen:frame().x + offsets.x,
-          screen:frame().y + offsets.y,
-          text_size.w, text_size.h
-        ),
-        labelstyledtext
-      ):setBehavior(hs.drawing.windowBehaviors['stationary'])
-       :setLevel('help')
-       :show()
+            hs.geometry.rect(
+              screen:frame().x + offsets.x,
+              screen:frame().y + offsets.y,
+              text_size.w, text_size.h
+            ),
+            labelstyledtext
+          ):setBehavior(hs.drawing.windowBehaviors['stationary'])
+          :setLevel('help')
+          :show()
       M.space_label_backgrounds[activeSpaceOnScreen] = hs.drawing.ellipticalArc(
-        hs.geometry.rect(
-          screen:frame().x + offsets.x - 3,
-          screen:frame().y + offsets.y - 1,
-          text_size.w + 2 * 3, text_size.h + 2
-        )
-      ):setBehavior(hs.drawing.windowBehaviors['stationary'])
-       :setLevel('overlay')
-       :setFillColor({white=1, alpha=0.7})
-       :setStroke(false)
-       :show()
+            hs.geometry.rect(
+              screen:frame().x + offsets.x - 3,
+              screen:frame().y + offsets.y - 1,
+              text_size.w + 2 * 3, text_size.h + 2
+            )
+          ):setBehavior(hs.drawing.windowBehaviors['stationary'])
+          :setLevel('overlay')
+          :setFillColor({ white = 1, alpha = 0.7 })
+          :setStroke(false)
+          :show()
     else
       if not activeSpaceOnScreen then
-        logger.w('No active space for screen '.. hs.inspect(screen))
+        logger.w('No active space for screen ' .. hs.inspect(screen))
       elseif not screen:frame() then
-        logger.w('No :frame() for screen '.. hs.inspect(screen))
+        logger.w('No :frame() for screen ' .. hs.inspect(screen))
       elseif not spaces_map.active_spaces[activeSpaceOnScreen] then
-        logger.w('activeSpaceOnScreen '..activeSpaceOnScreen..' not in `spaces_map.active_spaces` '..
+        logger.w('activeSpaceOnScreen ' .. activeSpaceOnScreen .. ' not in `spaces_map.active_spaces` ' ..
           hs.inspect(spaces_map.active_spaces))
       end
     end
