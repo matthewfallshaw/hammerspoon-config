@@ -148,93 +148,95 @@ return {
         },
       },
     },
-    window_layouts = {
-      Shared = {
-        { { ['Hammerspoon'] = { allowRoles = 'AXStandardWindow' } }, 'move 1 closest [50,0>100,90] 0,0' },
-        -- {{['nvALT']={allowRoles='AXStandardWindow'}}, 'move 1 oldest [60,0>100,100] 0,0'},
-        -- {{['Finder']={currentSpace=true}},'move 1 closest [35,37>87,80] 0,0'},
-        { 'Skype',                                                   'move 1 oldest [60,0>100,86] 0,0' },
-        { 'Messages',                                                'move 1 oldest [53,0>100,71] 0,0' },
-        { 'Signal',                                                  'move 1 oldest [50,0>100,83] 0,0' },
-        { 'Slack',                                                   'move 1 oldest [40,0>100,100] 0,0' },
-        { 'Google Meet',                                             'move all oldest [12,0>88,67] 0,0' },
-        { 'Activity Monitor',                                        'move 1 oldest [0,42>61,100] 0,0' },
-        { { ['Quicksilver'] = { allowRoles = 'AXStandardWindow' } }, 'move 1 oldest [24,12>84,86] 0,0' },
-        { 'Discord',                                                 'move 1 oldest [50,0>100,85] 0,0' },
-      },
-      Laptop = {
-        screens = {
-          ['Color LCD'] = '0,0',
-          ['-1,0'] = false,
-          ['0,-1'] = false,
-          ['1,0'] = false,
-          ['0,1'] = false
-        }, -- when no external screens
-        -- {chrome_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
-        -- {chrome_docs_window_filter, 'move 1 oldest [0,0>80,100] 0,0'},
-        -- {safari_gmail_window_filter, 'move 1 oldest [0,0>77,100] 0,0'},
-        -- {safari_docs_window_filter, 'move 1 oldest [0,0>80,100] 0,0'},
-        -- {'VimR', 'move 1 closest [0,0>65,100] 0,0'},
-        { 'iTerm2', 'move 1 oldest [0,0>100,100] 0,0' },
-      },
-      FitzroyDesk = {
-        screens = { ['DELL U2718Q'] = true, ['1,0'] = true },
-        -- {'VimR', 'move 1 closest [0,0>35,100] 1,0'},
-        { 'iTerm2',          'move 1 oldest [30,0>100,100] 1,0' },
-        { 'Asana',           'move 1 oldest [0,0>60,100] 1,0' },
-        { 'Google Calendar', 'move all oldest [0,25>100,100] 1,0' },
-        -- {{['Finder']={currentSpace=true,allowRegions=hs.geometry({x1=3609,y1=395,x2=4838,y2=993})}},'move 1 closest [35,37>87,80] 1,0'},
-      },
-      MelbourneDesk = {
-        screens = { ['DELL U2720Q'] = true, ['1,0'] = true },
-        -- {'VimR', 'move 1 closest [0,0>35,100] 1,0'},
-        { 'iTerm2',          'move 1 oldest [30,0>100,100] 1,0' },
-        { 'Asana',           'move 1 oldest [0,0>60,100] 1,0' },
-        { 'Google Calendar', 'move all oldest [0,25>100,100] 1,0' },
-        -- {{['Finder']={currentSpace=true,allowRegions=hs.geometry({x1=3609,y1=395,x2=4838,y2=993})}},'move 1 closest [35,37>87,80] 1,0'},
-      },
-      MiriDesk1 = {
-        screens = { ['DELL U3223QE'] = true, ['0,-1'] = true },
-        -- {'VimR', 'move 1 closest [30,0>65,100] 0,-1'},
-        { 'iTerm2',          'move 1 oldest [30,0>100,100] 1,0' },
-        { 'Asana',           'move 1 oldest [0,0>60,100] 1,0' },
-        { 'Google Calendar', 'move all oldest [0,25>100,100] 1,0' },
-      },
-      BerkeleyDesk = {
-        screens = { ['LG HDR 5K'] = true, ['1,0'] = true },
-        -- {'VimR', 'move 1 closest [36,0>64,100] 1,0'},
-        { 'iTerm2',          'move 1 oldest [0,0>60,100] 1,0' },
-        { 'Asana',           'move 1 oldest [0,0>33,100] 1,0' },
-        { 'Google Calendar', 'move all oldest [0,25>100,100] 1,0' },
-      },
-      DualLeft = {
-        screens = {
-          ['DELL U2718Q'] = false,
-          ['-1,0'] = true,
-          ['0,-1'] = false,
-          ['1,0'] = false,
-          ['0,1'] = false
+    -- Each group applies independently (externally inclusive)
+    -- Within each group, first matching layout wins (internally exclusive)
+    window_layout_groups = {
+      shared = {
+        layouts = {
+          {
+            name = "Shared",
+            config = {
+              { { ['Hammerspoon'] = { allowRoles = 'AXStandardWindow' } }, 'move 1 closest [50,0>100,90] 0,0' },
+              -- {{['nvALT']={allowRoles='AXStandardWindow'}}, 'move 1 oldest [60,0>100,100] 0,0'},
+              -- {{['Finder']={currentSpace=true}},'move 1 closest [35,37>87,80] 0,0'},
+              { 'Skype',                                                   'move 1 oldest [60,0>100,86] 0,0' },
+              { 'Messages',                                                'move 1 oldest [53,0>100,71] 0,0' },
+              { 'Signal',                                                  'move 1 oldest [50,0>100,83] 0,0' },
+              { 'Slack',                                                   'move 1 oldest [40,0>100,100] 0,0' },
+              { 'Google Meet',                                             'move all oldest [12,0>88,67] 0,0' },
+              { 'Activity Monitor',                                        'move 1 oldest [0,42>61,100] 0,0' },
+              { { ['Quicksilver'] = { allowRoles = 'AXStandardWindow' } }, 'move 1 oldest [24,12>84,86] 0,0' },
+              { 'Discord',                                                 'move 1 oldest [50,0>100,85] 0,0' },
+            },
+          },
         },
-        -- {'VimR', 'move 1 closest [0,0>50,100] -1,0'},
-        { 'iTerm2',          'move 1 oldest [0,0>100,100] -1,0' },
-        { 'Asana',           'move 1 oldest [0,0>66,100] -1,0' },
-        { 'Google Calendar', 'max 2 oldest -1,0' },
       },
-      DualTop = {
-        screens = {
-          ['0,-1'] = true,
-          ['DELL U2718Q'] = false,
-          ['DELL U3223QE'] = false,
-          ['LG HDR 5K'] = false,
-          ['-1,0'] = false,
-          ['1,0'] = false,
-          ['0,1'] = false,
-          ['-1,-1'] = false
+      desk_setups = {
+        layouts = {
+          {
+            name = "FitzroyDesk",
+            config = {
+              screens = { ['DELL U2718Q'] = true, ['1,0'] = true },
+              -- {'VimR', 'move 1 closest [0,0>35,100] 1,0'},
+              { 'iTerm2',          'move 1 oldest [30,0>100,100] 1,0' },
+              { 'Asana',           'move 1 oldest [0,0>60,100] 1,0' },
+              { 'Google Calendar', 'move all oldest [0,25>100,100] 1,0' },
+              -- {{['Finder']={currentSpace=true,allowRegions=hs.geometry({x1=3609,y1=395,x2=4838,y2=993})}},'move 1 closest [35,37>87,80] 1,0'},
+            },
+          },
+          {
+            name = "MelbourneDesk",
+            config = {
+              screens = { ['DELL U2720Q'] = true, ['1,0'] = true },
+              { 'iTerm2',          'move 1 oldest [30,0>100,100] 1,0' },
+              { 'Asana',           'move 1 oldest [0,0>60,100] 1,0' },
+              { 'Google Calendar', 'move all oldest [0,25>100,100] 1,0' },
+              -- {{['Finder']={currentSpace=true,allowRegions=hs.geometry({x1=3609,y1=395,x2=4838,y2=993})}},'move 1 closest [35,37>87,80] 1,0'},
+            },
+          },
+          {
+            name = "MiriDesk1",
+            config = {
+              screens = { ['DELL U3223QE'] = true, ['0,-1'] = true },
+              { 'iTerm2',          'move 1 oldest [30,0>100,100] 1,0' },
+              { 'Asana',           'move 1 oldest [0,0>60,100] 1,0' },
+              { 'Google Calendar', 'move all oldest [0,25>100,100] 1,0' },
+            },
+          },
+          {
+            name = "MiriDesk2",
+            config = {
+              screens = { ['Studio Display'] = true, ['0,-1'] = true },
+              { 'iTerm2',          'move 1 oldest [30,0>100,100] 1,0' },
+              { 'Asana',           'move 1 oldest [0,0>60,100] 1,0' },
+              { 'Google Calendar', 'move all oldest [0,25>100,100] 1,0' },
+            },
+          },
+          {
+            name = "DualLeft",
+            config = {
+              screens = { ['-1,0'] = true, },
+              { 'iTerm2',          'move 1 oldest [0,0>100,100] -1,0' },
+              { 'Asana',           'move 1 oldest [0,0>66,100] -1,0' },
+              { 'Google Calendar', 'max 2 oldest -1,0' },
+            },
+          },
+          {
+            name = "DualTop",
+            config = {
+              screens = { ['0,-1'] = true, },
+              { 'iTerm2',          'move 1 oldest [0,0>100,100] 0,-1' },
+              { 'Asana',           'move 1 oldest [0,0>67,100] 0,-1' },
+              { 'Google Calendar', 'move 1 oldest [0,8>100,100] 0,-1' },
+            },
+          },
+          {
+            name = "Laptop",
+            config = {
+              { 'iTerm2', 'move 1 oldest [0,0>100,100] 0,0' },
+            },
+          },
         },
-        -- {'VimR', 'move 1 closest [0,0>50,100] 0,-1'},
-        { 'iTerm2',          'move 1 oldest [0,0>100,100] 0,-1' },
-        { 'Asana',           'move 1 oldest [0,0>67,100] 0,-1' },
-        { 'Google Calendar', 'move 1 oldest [0,8>100,100] 0,-1' },
       },
     },
   },

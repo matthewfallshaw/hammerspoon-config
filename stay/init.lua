@@ -24,8 +24,9 @@ logger.setLogLevel('debug')
 logger.i('Loading Stay')
 hs.window.filter.setLogLevel(1)  -- GLOBAL!! wfilter is very noisy
 
-M.window_layouts = {} -- see bottom of file
+M.window_layouts = {} -- Loaded layout objects keyed by name
 M.window_layouts_enabled = false
+M._running_layouts = {} -- Track which layouts are actually running (vs just loaded)
 
 local function alert(message)
   local log_level = logger.getLogLevel()
@@ -36,6 +37,32 @@ local function alert(message)
     hs.alert.show('Stay: '.. message)
   end
   logger.setLogLevel(log_level)
+end
+
+-- Utility function to check if a layout's screen conditions match current configuration
+local function layoutMatches(layout)
+  if layout.screens then
+    for hint, test in pairs(layout.screens) do
+      local screen = hs.screen.find(hint)
+      if screen then
+        if type(test) == 'boolean' then
+          if not test then return false end
+        else
+          local x, y = screen:position()
+          local test_geometry = hs_geometry.new(test)
+          -- Fixed logic: was "not x == test_geometry.x" which is always true
+          if x ~= test_geometry.x or y ~= test_geometry.y then
+            return false
+          end
+        end
+      else
+        if test then  -- truthy: true or hs.geometry
+          return false
+        end
+      end
+    end
+  end
+  return true
 end
 
 M.watchable = hs.watchable.new('stay')
@@ -108,9 +135,40 @@ end
 
 function M:window_layouts_enable()
   if not self.window_layouts_enabled then
-    for _,layout in pairs(self.window_layouts) do
-      layout:start()
+    self._running_layouts = {}
+
+    -- Log current screen configuration for debugging
+    logger.d("Current screens:")
+    for _, screen in ipairs(hs.screen.allScreens()) do
+      local x, y = screen:position()
+      logger.d(string.format("  - %s at %d,%d", screen:name(), x, y))
     end
+
+    -- Iterate through original config to preserve order
+    for group_name, group_config in pairs(self._config.window_layout_groups) do
+      if group_config.layouts then
+        logger.d(string.format("Processing group '%s' with %d layouts", group_name, #group_config.layouts))
+
+        -- Iterate through layouts in this group in order
+        for i, layout_spec in ipairs(group_config.layouts) do
+          local layout_name = layout_spec.name
+          local layout = self.window_layouts[layout_name]
+
+          if layout then
+            local matches = layoutMatches(layout)
+            logger.d(string.format("  [%d] Layout '%s': %s", i, layout_name, matches and "MATCHES" or "no match"))
+
+            if matches then
+              layout:start()
+              self._running_layouts[layout_name] = true
+              logger.i(string.format("Started layout '%s' from group '%s'", layout_name, group_name))
+              break -- Only start first match per group
+            end
+          end
+        end
+      end
+    end
+
     self.window_layouts_enabled = true
   end
   return self
@@ -119,6 +177,7 @@ end
 function M:window_layouts_disable()
   if self.window_layouts_enabled then
     for _,layout in pairs(self.window_layouts) do layout:stop() end
+    self._running_layouts = {}
     self.window_layouts_enabled = false
   end
   return self
@@ -672,44 +731,51 @@ function M:tidy()
 end
 
 
--- Utility function to check if a layout is active (avoids decorating global hs.window.layout)
-local function isLayoutActive(layout)
-  if layout.screens then
-    for hint, test in pairs(layout.screens) do
-      local screen = hs.screen.find(hint)
-      if screen then
-        if type(test) == 'boolean' then
-          if not test then return false end
-        else
-          local x, y = screen:position()
-          local test_geometry = hs_geometry.new(test)
-          -- Fixed logic: was "not x == test_geometry.x" which is always true
-          if x ~= test_geometry.x or y ~= test_geometry.y then
-            return false
-          end
-        end
-      else
-        if test then  -- truthy: true or hs.geometry
-          return false
-        end
-      end
-    end
-  end
-  return true
-end
-
 function M:activeLayouts()  -- :string
   local active_layouts = {}
-  hs.fnutils.each(self.window_layouts, function(layout)
-    if isLayoutActive(layout) then
-      active_layouts[#active_layouts+1] = layout.logname
-    end
-  end)
+  -- Report layouts that are actually running (not just those that match)
+  for layout_name, _ in pairs(self._running_layouts) do
+    table.insert(active_layouts, layout_name)
+  end
   setmetatable(active_layouts, { __tostring = function(t) return table.concat(t, '|') end, })
   function active_layouts:tostring() return tostring(self) end  -- luacheck: no redefined
   return active_layouts
 end
 
+
+-- Helper function to load layouts from window_layout_groups configuration
+-- Returns: table of loaded layout objects, keyed by layout name
+local function loadLayoutGroups(config)
+  local layouts = {}
+
+  if not config.window_layout_groups then
+    return layouts
+  end
+
+  -- Iterate through each group
+  for _, group_config in pairs(config.window_layout_groups) do
+    if group_config.layouts then
+      -- Iterate through layouts in this group (in order)
+      for _, layout_spec in ipairs(group_config.layouts) do
+        local layout_name = layout_spec.name
+        local layout_config = layout_spec.config
+
+        -- Create hs.window.layout object
+        local window_layout = hs.window.layout.new(layout_config, layout_name)
+
+        -- Set all rules to only operate on visible windows
+        for _, rule in pairs(window_layout.rules) do
+          rule.windowfilter:setOverrideFilter({visible=true})
+        end
+
+        -- Store layout object
+        layouts[layout_name] = window_layout
+      end
+    end
+  end
+
+  return layouts
+end
 
 function M:toggle_or_choose()
   if not self.double_tap_timer then
@@ -738,15 +804,10 @@ function M:start(config)
   self._config = config
 
   -- Load window layouts from configuration
-  if self._config.window_layouts then
-    for layout_name, layout in pairs(self._config.window_layouts) do
-      local window_layout = hs.window.layout.new(layout, layout_name)
-      M.window_layouts[layout_name] = window_layout
-      for _, rule in pairs(window_layout.rules) do
-        rule.windowfilter:setOverrideFilter({visible=true})
-      end
-    end
-  end
+  self.window_layouts = loadLayoutGroups(self._config)
+  local count = 0
+  for _ in pairs(self.window_layouts) do count = count + 1 end
+  logger.i(string.format("Loaded %d layouts from window_layout_groups", count))
 
   self.starting = true
   self:window_layouts_enable()
