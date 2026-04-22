@@ -15,8 +15,8 @@ package.cpath = package.cpath ..
 
 local profiler = require 'utilities.profile'
 local overrides = {
-  fW = 80,                    -- Change the file column to 100 characters (from 20)
-  fnW = 30,                   -- Change the function column to 120 characters (from 28)
+  fW = 80,  -- Change the file column to 100 characters (from 20)
+  fnW = 30, -- Change the function column to 120 characters (from 28)
 }
 profiler.configuration(overrides)
 profile = {
@@ -490,8 +490,6 @@ if hs.host.localizedName() == "notnux6" then
   init.activity_log:start()
 
   pp("after require activity_log")
-
-  -- mission_control_hotkeys = require('mission_control_hotkeys')
 end
 
 -- dd_timer = hs.timer.delayed.new(15, function()

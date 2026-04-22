@@ -343,14 +343,8 @@ end
 
 -- Fitzroy
 function obj.FitzroyEntryActions()
-  if hs.wifi.currentNetwork() ~= 'TheBarn' then
-    -- Connecting a Fitzroy monitor will force reconnection to TheBarn
-    -- (Sometimes get stuck connecting to United_Wi-Fi and won't reconnect to TheBarn)
-    hs.wifi.associate('TheBarn', hs.execute('security find-generic-password -a TheBarn -s AirPort -w'))
-  end
   killApp('Transmission')
   slack.setStatus('Fitzroy')
-  background('~/code/utilities/Scripts/mount-external-drives')
   -- Mute MacBook Pro Speakers if they're the current audio device
   local adt = hs.audiodevice.current()
   if adt.name == 'MacBook Pro Speakers' and adt.muted == false then
@@ -366,27 +360,6 @@ end
 -- Wright
 function obj.WrightEntryActions()
   slack.setStatus('Wright')
-
-  logger.i('Mount external drives')
-  background('~/code/utilities/Scripts/mount-external-drives')
-
-  -- logger.i('Set audio device')
-  -- local setMacBookAudio = function()
-  --   local output_device = ( hs.audiodevice.findOutputByName("Matt Fallshaw's AirPods Pro") or
-  --     hs.audiodevice.findOutputByName("External Headphones") or
-  --     hs.audiodevice.findOutputByName("MacBook Pro Speakers")
-  --   )
-  --   if output_device then output_device:setDefaultOutputDevice() end
-  -- end
-
-  -- if obj.watchers.wright == nil then obj.watchers.wright = {} end
-  -- obj.watchers.wright.screens =
-  --   obj.watchers.wright.screens or
-  --   hs.screen.watcher.new(function()
-  --     setMacBookAudio()
-  --   end)
-  -- obj.watchers.wright.screens:start()
-  -- setMacBookAudio()
 end
 
 function obj.WrightExitActions()
