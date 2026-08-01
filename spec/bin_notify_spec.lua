@@ -157,7 +157,7 @@ describe("bin/notify", function()
   it("emits the exact expected Lua shape for a default invocation", function()
     local expected = "require('notify').show({ message = hs.base64.decode('"
       .. b64_encode("hello") .. "'), title = hs.base64.decode('"
-      .. b64_encode("Notice") .. "'), sticky = false, duration = 5, private = false })"
+      .. b64_encode("Notice") .. "'), sticky = false, duration = 5, private = true })"
 
     local result = run_notify({ "hello" })
 
@@ -213,12 +213,20 @@ describe("bin/notify", function()
     assert.are.equal("myid", b64_decode(id_b64))
   end)
 
-  it("private defaults to false and --private sets it true", function()
+  -- The default is the security-relevant one: a caller that says nothing
+  -- about persistence must get the message that never reaches disk.
+  it("private defaults to true and --persist sets it false", function()
     local default_result = run_notify({ "msg" })
-    assert.is_not_nil(default_result.hs_log:find("private = false", 1, true))
+    assert.is_not_nil(default_result.hs_log:find("private = true", 1, true))
 
+    local result = run_notify({ "--persist", "msg" })
+    assert.is_not_nil(result.hs_log:find("private = false", 1, true))
+  end)
+
+  it("--private is gone, and is rejected rather than silently ignored", function()
     local result = run_notify({ "--private", "msg" })
-    assert.is_not_nil(result.hs_log:find("private = true", 1, true))
+    assert.are.equal(2, result.code)
+    assert.are.equal("", result.hs_log)
   end)
 
   it("joins multiple positional args with single spaces", function()

@@ -23,18 +23,19 @@ set -eu
 
 prog=$(basename "$0")
 
-usage_line="Usage: $prog [--title TEXT] [--sticky] [--duration SECONDS] [--icon PATH|NAME] [--id NAME] [--private] [--] MESSAGE..."
+usage_line="Usage: $prog [--title TEXT] [--sticky] [--duration SECONDS] [--icon PATH|NAME] [--id NAME] [--persist] [--] MESSAGE..."
 
 usage() {
   cat <<EOF
 $usage_line
 
   --title TEXT         heading (default: Notice)
-  --sticky             persist until dismissed; overrides --duration
+  --sticky             stay up until dismissed; overrides --duration
   --duration SECONDS   auto-dismiss delay (default: 5)
   --icon PATH|NAME     leading image
   --id NAME            replace-in-place key
-  --private            never persisted to disk
+  --persist            record to disk, so the card survives a Hammerspoon
+                       reload or restart (default: nothing is written)
   --help               show this help
   --                   end of options; remaining args are message text,
                        even if they start with '-'
@@ -59,7 +60,12 @@ sticky=false
 duration=5
 icon=""
 id=""
-private=false
+# Nothing reaches disk unless the caller asks. Most messages are somebody
+# else's text -- clipboard content, command output -- as likely to be a
+# password as a build result, and a caller that forgets to think about it
+# must get the safe behaviour. --persist is for an alert worth surviving a
+# Hammerspoon restart because nothing else records it.
+private=true
 have_icon=false
 have_id=false
 
@@ -107,8 +113,8 @@ while [ $# -gt 0 ]; do
       have_id=true
       shift 2
       ;;
-    --private)
-      private=true
+    --persist)
+      private=false
       shift
       ;;
     --)

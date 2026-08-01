@@ -240,7 +240,7 @@ describe("notify", function()
 
     it("persists the pause: the stale deadline is gone, the remaining time is written", function()
       hs.timer._now = 1000
-      notify.show({ message = "hovered", duration = 10 }) -- deadline 1010
+      notify.show({ message = "hovered", duration = 10, private = false }) -- deadline 1010
       local handle = fakeRenderer.instances[1]
 
       hs.timer._now = 1004
@@ -254,7 +254,7 @@ describe("notify", function()
 
     it("persists the recomputed deadline on resume", function()
       hs.timer._now = 1000
-      notify.show({ message = "hovered", duration = 10 })
+      notify.show({ message = "hovered", duration = 10, private = false })
       local handle = fakeRenderer.instances[1]
 
       hs.timer._now = 1004
@@ -270,7 +270,7 @@ describe("notify", function()
 
     it("restores a card hovered across a reload with its remaining time, not a past deadline", function()
       hs.timer._now = 1000
-      notify.show({ message = "hovered", duration = 10 }) -- deadline 1010
+      notify.show({ message = "hovered", duration = 10, private = false }) -- deadline 1010
       fakeRenderer.instances[1].onEvent("mouseEnter")
 
       -- Simulate hs.reload() well after the original deadline would have passed.
@@ -560,8 +560,16 @@ describe("notify", function()
       assert.are.equal(0, #persisted)
     end)
 
+    -- The default, not the flag, is what keeps somebody's clipboard out of
+    -- hs.settings, so it gets its own test rather than being assumed by the
+    -- ones below (which all opt in explicitly).
+    it("is private by default: a caller that says nothing writes nothing", function()
+      notify.show({ message = "unasked-for", sticky = true })
+      assert.are.equal(0, #(hs.settings.get(cfg.settings_key) or {}))
+    end)
+
     it("writes the persisted set on every mutation (show/dismiss)", function()
-      local id = notify.show({ message = "keep me", sticky = true })
+      local id = notify.show({ message = "keep me", sticky = true, private = false })
       assert.are.equal(1, #hs.settings.get(cfg.settings_key))
       notify.dismiss(id)
       assert.are.equal(0, #hs.settings.get(cfg.settings_key))
@@ -570,8 +578,9 @@ describe("notify", function()
     it("round-trips: private is dropped, order and deadlines survive a simulated reload", function()
       hs.timer._now = 1000
       local privateId = notify.show({ message = "secret", sticky = true, private = true })
-      local stickyId = notify.show({ message = "keep me", sticky = true })
-      local tempId = notify.show({ message = "temp", sticky = false, duration = 50 }) -- deadline 1050
+      local stickyId = notify.show({ message = "keep me", sticky = true, private = false })
+      -- deadline 1050
+      local tempId = notify.show({ message = "temp", sticky = false, duration = 50, private = false })
 
       -- Simulate hs.reload(): fresh module state, settings survive.
       notify._stack = {}
@@ -593,7 +602,8 @@ describe("notify", function()
 
     it("drops an already-expired non-sticky card on restore", function()
       hs.timer._now = 1000
-      notify.show({ message = "will expire", sticky = false, duration = 10 }) -- deadline 1010
+      -- deadline 1010
+      notify.show({ message = "will expire", sticky = false, duration = 10, private = false })
 
       notify._stack = {}
       fakeRenderer = makeFakeRenderer()

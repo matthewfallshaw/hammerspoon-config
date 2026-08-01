@@ -460,7 +460,9 @@ local function withDefaults(opts)
     duration = opts.duration or cfg.default_duration,
     icon = opts.icon,
     id = opts.id,
-    private = opts.private and true or false,
+    -- Private unless the caller opts out: a message is usually somebody
+    -- else's text, and writing it to disk has to be the deliberate choice.
+    private = opts.private ~= false,
   }
 end
 
@@ -600,8 +602,10 @@ end
 --- Shows a notification card, or replaces one in place if `opts.id` matches a
 --- card already in the stack. `opts` is `{ message, title, sticky, duration,
 --- icon, id, private }`; `message` defaults to `""`, `title` to `"Notice"`,
---- `sticky` and `private` to `false`, `duration` to `cfg.default_duration`
---- (ignored when `sticky`), and an id is generated when omitted.
+--- `sticky` to `false`, `private` to `true` (pass `private = false` to have
+--- the card written to `hs.settings` and restored after a reload or restart),
+--- `duration` to `cfg.default_duration` (ignored when `sticky`), and an id is
+--- generated when omitted.
 ---
 --- Returns the card's id, or `nil` if the call failed.
 function M.show(opts)
@@ -672,7 +676,7 @@ local function restore()
         icon = rec.icon,
         sticky = rec.sticky,
         duration = rec.duration,
-        private = false,
+        private = false, -- it was on disk to be read at all; keep it there
       })
       if record and not record.sticky then
         if rec.remaining then
