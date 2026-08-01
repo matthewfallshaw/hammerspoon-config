@@ -237,11 +237,10 @@ M.chrome_windows_seal = chrome_windows_seal
 for profile, props in pairs(chrome_windows_seal) do
   seal.plugins.useractions.actions[props.name] = {
     fn = function()
-      local result
-      result = hs.execute('~/.nix-profile/bin/fish -c "~/bin/gchrome '..profile..'"')
-      if not string.match(result,'^ *$') then
-        logger.e('Seal '..props.name..' had problems creating a new window for profile '..profile': '..result)
-        print('bad stuff')
+      local result, status, _, rc = hs.execute('~/.nix-profile/bin/fish -c "~/bin/gchrome '..profile..'"')
+      if not status then
+        logger.e('Seal '..props.name..' failed to create a window for profile '..profile..
+          ' (rc '..tostring(rc)..'): '..result)
       end
     end,
     keyword = props.keyword,
