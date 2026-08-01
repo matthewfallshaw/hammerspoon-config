@@ -319,15 +319,8 @@ return {
     -- in the same run loop pass, so this only has to be non-zero.
     hover_exit_grace = 0.05,
 
-    -- Runaway-loop safety valve, not a display limit (a screen fits 10-15
-    -- cards): past this, new cards are dropped -- logged, not queued.
-    max_cards = 50,
-
     -- hs.settings key the persisted (sticky/non-private) stack is written to.
     settings_key = 'notify.persisted',
-
-    -- Safety-valve hotkey bound via hyper.bindKey in notify.start().
-    dismiss_all_hotkey = { mods = {}, key = 'n' },
 
     -- Swipe-to-dismiss (right, single-finger trackpad gesture; see TODO.md
     -- "Swipe is a real trackpad gesture"). All thresholds are provisional,

@@ -179,6 +179,12 @@ seal.plugins.useractions.actions = {
       hs.eventtap.keyStroke({"cmd", "ctrl"}, "q")
     end
   },
+  ["Dismiss/Clear all notifications"] = {
+    fn = function()
+      require('notify').dismissAll()
+    end,
+    keyword = "dismiss"
+  },
   ["Hammerspoon Docs"] = {
     fn = function(x)
       if x ~= '' then

@@ -3,8 +3,6 @@ describe("notify", function()
   local consts = require "configConsts"
   local cfg = consts.notify
 
-  local defaultBindHotkey = notify._bindHotkey
-
   -- A recording fake renderer, injected via the M._renderer seam so these
   -- specs never require notify/card.lua (which may not exist yet).
   local function makeFakeRenderer()
@@ -91,7 +89,6 @@ describe("notify", function()
 
     notify._stack = {}
     notify._autoIdSeq = 0
-    notify._bindHotkey = defaultBindHotkey
     notify._gesture = nil
     cfg.swipe.enabled = true
     fakeRenderer = makeFakeRenderer()
@@ -182,20 +179,6 @@ describe("notify", function()
       assert.is_true(h2.setFrameCalls > 0)
       assert.is_true(h3.setFrameCalls > 0)
       assert.are.equal(2, #notify._stack)
-    end)
-  end)
-
-  describe("max_cards", function()
-    it("drops (does not queue) a new card once the stack is at max_cards, returning nil", function()
-      for i = 1, cfg.max_cards do
-        assert.is_not_nil(notify.show({ message = "n" .. i, sticky = true }))
-      end
-      assert.are.equal(cfg.max_cards, #notify._stack)
-
-      local dropped = notify.show({ message = "overflow", sticky = true })
-
-      assert.is_nil(dropped)
-      assert.are.equal(cfg.max_cards, #notify._stack)
     end)
   end)
 
@@ -294,7 +277,6 @@ describe("notify", function()
       notify._stack = {}
       fakeRenderer = makeFakeRenderer()
       notify._renderer = fakeRenderer
-      notify._bindHotkey = function() end
       hs.timer._now = 2000
 
       notify:start()
@@ -595,7 +577,6 @@ describe("notify", function()
       notify._stack = {}
       fakeRenderer = makeFakeRenderer()
       notify._renderer = fakeRenderer
-      notify._bindHotkey = function() end -- avoid touching real hyper in the test env
 
       notify:start()
 
@@ -617,7 +598,6 @@ describe("notify", function()
       notify._stack = {}
       fakeRenderer = makeFakeRenderer()
       notify._renderer = fakeRenderer
-      notify._bindHotkey = function() end
 
       hs.timer._now = 2000 -- long past the deadline
       notify:start()
@@ -709,30 +689,6 @@ describe("notify", function()
       assert.are.equal(0, #notify._stack)
       assert.are.equal(1, #fakeRenderer.instances[1].deleteCalls)
       assert.are.equal(1, #fakeRenderer.instances[2].deleteCalls)
-    end)
-  end)
-
-  describe(".start", function()
-    it("binds the dismissAll hotkey from cfg.dismiss_all_hotkey via M._bindHotkey", function()
-      local capturedMods, capturedKey, capturedHandler
-      notify._bindHotkey = function(mods, key, handler)
-        capturedMods, capturedKey, capturedHandler = mods, key, handler
-      end
-
-      notify.show({ message = "one", sticky = true })
-      notify:start()
-
-      assert.are.same(cfg.dismiss_all_hotkey.mods, capturedMods)
-      assert.are.equal(cfg.dismiss_all_hotkey.key, capturedKey)
-      assert.is_not_nil(capturedHandler)
-
-      capturedHandler()
-      assert.are.equal(0, #notify._stack)
-    end)
-
-    it("does not let a failure escape (e.g. a broken binder)", function()
-      notify._bindHotkey = function() error("boom") end
-      assert.has_no.errors(function() notify:start() end)
     end)
   end)
 

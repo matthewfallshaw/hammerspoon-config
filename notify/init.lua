@@ -86,9 +86,7 @@ local DEFAULTS = {
   fade_out = 0.15,
   pulse_duration = 0.4,
   hover_exit_grace = 0.05,
-  max_cards = 50,
   settings_key = "notify.persisted",
-  dismiss_all_hotkey = { mods = {}, key = "n" },
   palettes = DEFAULT_PALETTES,
   swipe = {
     enabled = true,
@@ -130,18 +128,6 @@ local function getRenderer()
     return nil
   end
   return M._renderer
-end
-
--- Hotkey binding seam. hyper.lua calls hs.hotkey.modal.new(...) at load time,
--- which spec_helper.lua doesn't mock, so specs inject a fake here rather than
--- fighting the mocks.
-M._bindHotkey = function(mods, key, handler)
-  local ok, hyper = pcall(require, "hyper")
-  if ok and hyper and hyper.bindKey then
-    hyper.bindKey(mods, key, handler)
-  else
-    logger.e("notify: could not bind dismissAll hotkey (hyper unavailable)")
-  end
 end
 
 -- Ordered array of records; index 1 = oldest = topmost, new cards appended at
@@ -511,8 +497,8 @@ end
 -- Builds a record from `o` (a withDefaults-shaped table with an id), appends
 -- it at the bottom of the stack and draws it. Returns the record, or nil --
 -- leaving the stack exactly as it found it -- if the renderer failed, since a
--- handle-less record would occupy a stack slot (and count against max_cards)
--- forever. The caller owns the timer, persistence and gesture sync.
+-- handle-less record would occupy a stack slot forever. The caller owns the
+-- timer, persistence and gesture sync.
 local function pushCard(o)
   local palette = currentPalette()
   local card = layout.compose({ message = o.message, title = o.title, icon = o.icon }, buildLayoutCfg())
@@ -617,8 +603,7 @@ end
 --- `sticky` and `private` to `false`, `duration` to `cfg.default_duration`
 --- (ignored when `sticky`), and an id is generated when omitted.
 ---
---- Returns the card's id, or `nil` if the call failed or was dropped because
---- the stack is at `cfg.max_cards`.
+--- Returns the card's id, or `nil` if the call failed.
 function M.show(opts)
   local id = nil
   local ok, err = pcall(function()
@@ -627,9 +612,6 @@ function M.show(opts)
 
     if existingIdx then
       id = replaceInPlace(existingIdx, o)
-    elseif #M._stack >= cfg.max_cards then
-      logger.w("notify.show: dropped notification (id " .. tostring(o.id or "unnamed") ..
-        "), stack at max_cards (" .. tostring(cfg.max_cards) .. ")")
     else
       id = appendNew(o)
     end
@@ -707,13 +689,9 @@ local function restore()
 end
 
 --- notify:start()
---- Restores persisted sticky (and not-yet-expired non-sticky) cards, and binds
---- the `dismissAll` safety-valve hotkey (`cfg.dismiss_all_hotkey`, default
---- hyper-`n`).
+--- Restores persisted sticky (and not-yet-expired non-sticky) cards.
 function M:start()  --luacheck: no self
   local ok, err = pcall(function()
-    local hotkey = cfg.dismiss_all_hotkey
-    M._bindHotkey(hotkey.mods, hotkey.key, function() M.dismissAll() end)
     restore()
   end)
   if not ok then
