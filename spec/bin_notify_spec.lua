@@ -71,10 +71,29 @@ local function run_notify(args, opts)
   opts = opts or {}
   local pgrep_ok = opts.pgrep_ok
   if pgrep_ok == nil then pgrep_ok = true end
+  -- Exit code and stderr text for the fake `hs`, so tests can simulate a
+  -- Lua error surfacing from `hs -c` (non-zero exit, error text on
+  -- stderr, or both) and confirm the osascript fallback fires from inside
+  -- bin/notify's backgrounded recovery subshell.
+  local hs_exit = opts.hs_exit or 0
+  local hs_stderr = opts.hs_stderr
+  -- When true, keep polling (up to the same budget) for osa.log even
+  -- after hs.log has already appeared -- needed for the recovery-subshell
+  -- tests, where the fallback decision necessarily happens strictly after
+  -- the fake hs has already logged its invocation and exited.
+  local wait_for_osa = opts.wait_for_osa
 
   local dir = io.popen("mktemp -d"):read("*l")
 
-  write_file(dir .. "/hs", "#!/bin/sh\necho \"$2\" >> " .. shell_quote(dir .. "/hs.log") .. "\n", true)
+  local hs_stderr_cmd = ""
+  if hs_stderr then
+    hs_stderr_cmd = "printf '%s' " .. shell_quote(hs_stderr) .. " 1>&2\n"
+  end
+  write_file(dir .. "/hs",
+    "#!/bin/sh\necho \"$2\" >> " .. shell_quote(dir .. "/hs.log") .. "\n"
+      .. hs_stderr_cmd
+      .. "exit " .. tostring(hs_exit) .. "\n",
+    true)
   write_file(dir .. "/pgrep", "#!/bin/sh\nexit " .. (pgrep_ok and "0" or "1") .. "\n", true)
   write_file(dir .. "/osascript",
     "#!/bin/sh\necho \"OSASCRIPT $*\" >> " .. shell_quote(dir .. "/osa.log") .. "\n", true)
@@ -113,7 +132,10 @@ local function run_notify(args, opts)
   -- that expect NO invocation, still gives a real chance for a spurious
   -- one to show up before we conclude the log is empty.
   for _ = 1, 30 do
-    if slurp(dir .. "/hs.log") ~= "" or slurp(dir .. "/osa.log") ~= "" then break end
+    local hs_seen = slurp(dir .. "/hs.log") ~= ""
+    local osa_seen = slurp(dir .. "/osa.log") ~= ""
+    if osa_seen then break end
+    if hs_seen and not wait_for_osa then break end
     os.execute("sleep 0.1")
   end
 
@@ -250,5 +272,34 @@ describe("bin/notify", function()
     assert.are.equal("", result.hs_log)
     -- Confirms the osascript fallback (stubbed, never real) is what fired.
     assert.is_not_nil(result.osa_log:find("OSASCRIPT", 1, true))
+  end)
+
+  describe("hs -c failure recovery (module missing or throwing, per the live-tested defect)", function()
+    it("falls back to osascript when hs -c exits non-zero, and bin/notify still exits 0 immediately", function()
+      local result = run_notify({ "msg" }, { hs_exit = 1, wait_for_osa = true })
+      assert.are.equal(0, result.code)
+      -- hs was invoked (confirms this went through the hs path, not straight
+      -- to fallback like the pgrep-fails case) but its exit status alone
+      -- was enough to trigger recovery.
+      assert.are_not.equal("", result.hs_log)
+      assert.is_not_nil(result.osa_log:find("OSASCRIPT", 1, true))
+    end)
+
+    it("falls back to osascript when hs -c prints a Lua error to stderr but exits 0 -- the case that actually bit", function()
+      local lua_error = "[string \"return require('notify').show({ ... })\"]:1: "
+        .. "module 'notify' not found:\n\tno field package.preload['notify']\n"
+        .. "\tno file '/Users/matt/.hammerspoon/notify.lua'\n"
+      local result = run_notify({ "msg" }, { hs_stderr = lua_error, wait_for_osa = true })
+      assert.are.equal(0, result.code)
+      assert.are_not.equal("", result.hs_log)
+      assert.is_not_nil(result.osa_log:find("OSASCRIPT", 1, true))
+    end)
+
+    it("does not invoke osascript when hs -c succeeds silently (no duplicate notification)", function()
+      local result = run_notify({ "msg" })
+      assert.are.equal(0, result.code)
+      assert.are_not.equal("", result.hs_log)
+      assert.are.equal("", result.osa_log)
+    end)
   end)
 end)

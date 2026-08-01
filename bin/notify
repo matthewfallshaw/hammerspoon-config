@@ -201,9 +201,42 @@ if [ -n "$hs_bin" ] && [ -x "$hs_bin" ] && pgrep -x Hammerspoon >/dev/null 2>&1;
   fi
   lua="$lua, private = $private })"
 
-  # Fire and forget: background it, discard its output, exit immediately.
-  # Never wait on it.
-  "$hs_bin" -c "$lua" >/dev/null 2>&1 &
+  # Fire and forget: background it, exit immediately, never wait on it.
+  #
+  # The liveness pre-check above only proves Hammerspoon is running, not
+  # that the notify module loaded -- `require('notify')` still raises
+  # inside `hs -c` if the module is missing (the ordinary state mid-install)
+  # or throwing. So the recovery has to happen *inside* the backgrounded
+  # subshell, never in the caller's path: run `hs -c`, decide whether it
+  # failed, and only then fall back to osascript from inside that same
+  # subshell.
+  #
+  # Failure is: non-zero exit status, OR any stderr output.
+  #   - Exit status: reading Hammerspoon's CLI source
+  #     (extensions/ipc/cli/hs.m, HSClient/main) shows a failed `-c`
+  #     command sets core.exitCode = EX_DATAERR (sysexits.h, 65) before the
+  #     final exit() -- so the status is trustworthy, not a guess.
+  #   - Stderr: ipc.lua's command handler sends a Lua error back as a
+  #     MSGID_ERROR message, and hs.m's localPortCallback routes only
+  #     MSGID_ERROR to stderr; every other message type (including a
+  #     successful call's empty return value) goes to stdout. So on success
+  #     `hs -c` writes nothing to stderr, and any stderr output at all
+  #     means something went wrong. We check stderr rather than stdout
+  #     because stdout can carry unrelated `print()`/console spam from
+  #     other parts of Hammerspoon while we're connected -- checking it too
+  #     would false-positive on noise that has nothing to do with our call.
+  # Belt-and-suspenders on top of a status we already trust: a false
+  # positive here just duplicates the notification (Hammerspoon's card
+  # plus an osascript banner), which is annoying but not harmful; a false
+  # negative is the silent failure this fix exists to close. Prefer the
+  # former.
+  (
+    hs_status=0
+    hs_stderr=$("$hs_bin" -c "$lua" 2>&1 1>/dev/null) || hs_status=$?
+    if [ "$hs_status" -ne 0 ] || [ -n "$hs_stderr" ]; then
+      fallback_osascript
+    fi
+  ) &
   exit 0
 fi
 
