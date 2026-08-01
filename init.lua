@@ -325,6 +325,19 @@ spoon.Caffeine.clicked = function()
   hs.settings.set("caffeine_state", hs.caffeinate.get("displayIdle"))
 end
 
+-- Replace :start() to set autosaveName (so macOS persists the menubar item's
+-- position across reloads) and a stable title (Thaw keys items by
+-- namespace:title; without it Caffeine gets a new identifier every reload
+-- and Thaw drops it into the hidden bin).
+function spoon.Caffeine:start()
+  if self.menuBarItem then self:stop() end
+  self.menuBarItem = hs.menubar.new(true, "Caffeine")
+  self.menuBarItem:setClickCallback(self.clicked)
+  if self.hotkeyToggle then self.hotkeyToggle:enable() end
+  self.setDisplay(hs.caffeinate.get("displayIdle"))
+  return self
+end
+
 spoon.Caffeine:bindHotkeys({ toggle = { { "⌥", "⌃", "⇧" }, "c" } })
 spoon.Caffeine:start()
 -- Turn off Caffeine if screen is locked or system sent to sleep
