@@ -318,6 +318,39 @@ return {
     -- Safety-valve hotkey bound via hyper.bindKey in notify.start().
     dismiss_all_hotkey = { mods = {}, key = 'n' },
 
+    -- Swipe-to-dismiss (right, single-finger trackpad gesture; see TODO.md
+    -- "Swipe is a real trackpad gesture"). All thresholds are provisional,
+    -- pending live feel -- a human will need to tune these once he can
+    -- swipe an actual card.
+    swipe = {
+      -- Instant off-switch: when false, notify/init.lua never creates the
+      -- eventtap at all, regardless of the values below.
+      enabled = true,
+
+      -- Rightward travel, in normalized trackpad-surface units (0-1 across
+      -- the whole pad), the swipe must clear to count as intentional.
+      -- 0.15 is roughly a third of a typical trackpad's usable width.
+      min_distance = 0.15,
+
+      -- Travel beyond this looks like a re-grip or a long drag, not a
+      -- snap dismiss; 0.9 only excludes near-full-pad sweeps.
+      max_distance = 0.9,
+
+      -- Seconds from touch-began to touch-ended. A real flick is fast; a
+      -- slow drag isn't a swipe.
+      max_duration = 0.6,
+
+      -- Largest jump in signed x-velocity (normalized units/second)
+      -- allowed between consecutive samples before it's treated as a
+      -- stutter/re-grip and the gesture is aborted.
+      max_velocity_change = 2.0,
+
+      -- Backward (leftward) x-velocity, in normalized units/second,
+      -- tolerated as finger jitter before a direction reversal aborts
+      -- the gesture.
+      direction_tolerance = 0.05,
+    },
+
     -- Palettes selected at paint time from hs.host.interfaceStyle().
     -- Dark is anchored on hs.alert's own defaults ({white=0, alpha=0.75}
     -- fill, white stroke) so a card looks like part of the config.

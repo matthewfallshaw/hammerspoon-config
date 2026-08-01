@@ -37,6 +37,33 @@ describe("notify", function()
 
   local fakeRenderer
 
+  -- Synthetic hs.eventtap.event.types.gesture touch/event builders, for
+  -- driving the swipe gesture tap end-to-end (via the real notify.gesture,
+  -- the same mocked hs.eventtap the module itself uses).
+  local function touch(identity, phase, x, y)
+    return {
+      identity = identity,
+      phase = phase,
+      normalizedPosition = { x = x, y = y },
+      touching = (phase == "began" or phase == "moved" or phase == "stationary"),
+      type = "indirect",
+    }
+  end
+
+  local function gestureEvent(touches)
+    return { getTouches = function() return touches end }
+  end
+
+  local function findGestureTap()
+    for i = #hs.eventtap._instances, 1, -1 do
+      local t = hs.eventtap._instances[i]
+      for _, ty in ipairs(t._types) do
+        if ty == hs.eventtap.event.types.gesture then return t end
+      end
+    end
+    return nil
+  end
+
   before_each(function()
     hs.canvas._reset()
     hs.timer._reset()
@@ -48,6 +75,8 @@ describe("notify", function()
     notify._stack = {}
     notify._autoIdSeq = 0
     notify._bindHotkey = defaultBindHotkey
+    notify._gesture = nil
+    cfg.swipe.enabled = true
     fakeRenderer = makeFakeRenderer()
     notify._renderer = fakeRenderer
   end)
@@ -266,6 +295,56 @@ describe("notify", function()
       tap._fn({ getKeyCode = function() return 0 end }) -- 'a'
 
       assert.are.equal(1, #notify._stack)
+    end)
+  end)
+
+  describe("swipe-to-dismiss gesture wiring", function()
+    it("starts the gesture tap when the stack becomes non-empty and stops it when empty", function()
+      assert.is_nil(findGestureTap())
+
+      local id = notify.show({ message = "hi", sticky = true })
+      local tap = findGestureTap()
+      assert.is_not_nil(tap)
+      assert.is_true(tap:isEnabled())
+
+      notify.dismiss(id)
+      assert.is_false(tap:isEnabled())
+    end)
+
+    it("stops the tap once dismissAll empties the stack", function()
+      notify.show({ message = "one", sticky = true })
+      notify.show({ message = "two", sticky = true })
+      local tap = findGestureTap()
+      assert.is_true(tap:isEnabled())
+
+      notify.dismissAll()
+      assert.is_false(tap:isEnabled())
+    end)
+
+    it("never creates the tap when cfg.swipe.enabled is false", function()
+      cfg.swipe.enabled = false
+
+      notify.show({ message = "hi", sticky = true })
+
+      assert.is_nil(findGestureTap())
+    end)
+
+    it("hitTest picks the topmost (first) card among stacked/overlapping frames", function()
+      notify.show({ message = "one", sticky = true, id = "top" })
+      notify.show({ message = "two", sticky = true, id = "bottom" })
+      -- Force fully overlapping frames so hit-test order is observable.
+      notify._stack[1].frame = { x = 0, y = 0, w = 100, h = 100 }
+      notify._stack[2].frame = { x = 0, y = 0, w = 100, h = 100 }
+      hs.mouse._position = { x = 50, y = 50 }
+
+      local tap = findGestureTap()
+      hs.timer._now = 0
+      tap._fn(gestureEvent({ touch("t1", "began", 0.2, 0.5) }))
+      hs.timer._now = 0.1
+      tap._fn(gestureEvent({ touch("t1", "ended", 0.5, 0.5) }))
+
+      assert.are.equal(1, #notify._stack)
+      assert.are.equal("bottom", notify._stack[1].id) -- "top" was the one dismissed
     end)
   end)
 

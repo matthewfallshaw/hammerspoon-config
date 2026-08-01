@@ -164,7 +164,9 @@ Live checks nothing headless can answer, and decisions taken on Matt's behalf th
 | `P.t4` | does per-element hit reporting distinguish `body` from `close`? | *pending* |
 | `P.t5` | does `canJoinAllSpaces` keep a card across a space switch? | *pending* |
 
-Then, once the module is installed: stack appearance, fade timing, hover-pause feel, dark/light palettes, and the swipe thresholds. Only `char_width` blocks correct rendering; the rest are tuning.
+Then, once the module is installed: stack appearance, fade timing, hover-pause feel, dark/light palettes, and the five swipe thresholds in `configConsts.notify.swipe` (`min_distance`, `max_distance`, `max_duration`, `max_velocity_change`, `direction_tolerance` — all provisional, all chosen without a finger ever touching the pad). Only `char_width` blocks correct rendering; the rest is tuning.
+
+If the gesture misbehaves, `configConsts.notify.swipe.enabled = false` stops the eventtap being created at all. `✕` and `⎋`-while-hovering keep working regardless.
 
 **Decisions taken without him**
 

@@ -65,6 +65,14 @@ local DEFAULTS = {
   max_cards = 8,
   settings_key = "notify.persisted",
   dismiss_all_hotkey = { mods = {}, key = "n" },
+  swipe = {
+    enabled = true,
+    min_distance = 0.15,
+    max_distance = 0.9,
+    max_duration = 0.6,
+    max_velocity_change = 2.0,
+    direction_tolerance = 0.05,
+  },
 }
 
 local DEFAULT_PALETTES = {
@@ -179,6 +187,74 @@ local function generateId()
     id = "auto:" .. M._autoIdSeq
   until not findIndexById(id)
   return id
+end
+
+--------------------------------------------------------------------------------
+-- Swipe-to-dismiss gesture (notify.gesture)
+--
+-- Lazily created on the first stack mutation that leaves it non-empty, and
+-- stopped (its eventtap torn down) whenever the stack empties, so it isn't
+-- sitting in the event path all day. require()'d lazily and pcall-wrapped
+-- throughout -- like the renderer seam above, a broken/missing gesture
+-- module must not take down show/dismiss. cfg.swipe.enabled = false is the
+-- human's instant off-switch: when set, the tap is never created at all.
+--------------------------------------------------------------------------------
+
+M._gesture = nil -- the running gesture instance, or nil if not (yet) created
+
+-- Point-in-frame against each card's current frame, topmost-first (index 1
+-- = oldest = topmost, matching M._stack's own ordering).
+local function hitTestStack(point)
+  for _, record in ipairs(M._stack) do
+    local f = record.frame
+    if f and point.x >= f.x and point.x <= f.x + f.w
+        and point.y >= f.y and point.y <= f.y + f.h then
+      return record.id
+    end
+  end
+  return nil
+end
+
+local function ensureGestureStarted()
+  local swipeCfg = cfg.swipe
+  if not swipeCfg or swipeCfg.enabled == false then return end
+  if M._gesture == nil then
+    local ok, result = pcall(function()
+      local gesture = require("notify.gesture")
+      return gesture.new({
+        cfg = swipeCfg,
+        hitTest = hitTestStack,
+        onSwipe = function(id) M.dismiss(id) end,
+      })
+    end)
+    if not ok then
+      logger.e("notify: failed to create gesture: " .. tostring(result))
+      return
+    end
+    M._gesture = result
+  end
+  local ok, err = pcall(function() M._gesture.start() end)
+  if not ok then
+    logger.e("notify: failed to start gesture: " .. tostring(err))
+  end
+end
+
+local function ensureGestureStopped()
+  if M._gesture == nil then return end
+  local ok, err = pcall(function() M._gesture.stop() end)
+  if not ok then
+    logger.e("notify: failed to stop gesture: " .. tostring(err))
+  end
+end
+
+-- Called after any mutation that may change the stack's empty/non-empty
+-- state, to start/stop the gesture tap accordingly.
+local function syncGestureToStack()
+  if #M._stack > 0 then
+    ensureGestureStarted()
+  else
+    ensureGestureStopped()
+  end
 end
 
 --------------------------------------------------------------------------------
@@ -436,6 +512,7 @@ local function removeAt(idx)
   table.remove(M._stack, idx)
   applyFrames(computeFrames())
   persist()
+  syncGestureToStack()
 end
 
 -- Internal. Fired by a record's auto-dismiss timer.
@@ -511,6 +588,7 @@ local function appendNew(o)
   applyFrames(frames)
   armTimer(record)
   persist()
+  syncGestureToStack()
   return id
 end
 
@@ -618,6 +696,7 @@ function M.dismissAll()
     end
     M._stack = {}
     persist()
+    syncGestureToStack()
   end)
   if not ok then
     logger.e("notify.dismissAll error: " .. tostring(err))
@@ -706,6 +785,7 @@ local function restore()
   end
 
   persist()
+  syncGestureToStack()
 end
 
 --- notify.start()
