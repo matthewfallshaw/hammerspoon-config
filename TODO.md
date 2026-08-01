@@ -105,7 +105,7 @@ notify.dismissAll()
 - Don't consume the event. The window under the pointer is our own canvas, so there's nothing beneath to protect.
 - Thresholds are tuning constants → `configConsts`. Working definition, to be checked against Apple's if it is documented anywhere: the gesture must **begin over a card** (latch that card at touch-`began` — the pointer travels off the card mid-swipe, so continuous hit-testing would break it), travel rightward past a minimum but not beyond a maximum, and release, all inside a short time bound. Large changes in velocity-as-a-vector — speed or direction — abort it.
 - **The card does not follow the finger** in the first implementation. It animates out only once the gesture completes. Following the finger with a spring-back is nicer and makes the threshold visible rather than hidden, but it is per-frame canvas work and not worth the first pass.
-- **Magic Mouse is untested.** Expected to work — it is a multitouch surface — but unconfirmed. Test alongside the click-swallowing check. (One is connected: Apple Magic Mouse, VID `0x004C` PID `0x0269`, alongside the built-in trackpad.)
+- **Magic Mouse emits no gesture events at all** — tested live, one-finger swipes on it produce nothing, while the same swipe on the built-in trackpad reports normally. The expectation that a multitouch surface would work was wrong. Swipe is a trackpad affordance only, which is why `✕` and `⎋`-while-hovering are not optional.
 - A plain non-multitouch mouse generates no gesture events at all, which is why `✕` and `⎋`-hover are not optional.
 
 **`--id` replace-in-place — keep position, replace every attribute, reset the timer, pulse the card.** Position because it's the same item and the never-moves rule applies. Wholesale replacement rather than a merge, so the second call's `--sticky`/`--duration`/`--title` win outright with no ambiguity. Timer reset because a new event is new information. A brief border pulse because an in-place text swap on a card you weren't watching is otherwise invisible — the failure mode of replace-in-place. If the previous card with that id is already gone, the new one appends at the bottom as usual. Ids are one flat global namespace; callers namespace themselves and collisions are the caller's problem.
@@ -160,9 +160,13 @@ Live checks nothing headless can answer, and decisions taken on Matt's behalf th
 | `P.t3` | monospace character advance width → `notify.char_width` | **`SFMono-Regular` is not installed.** Menlo, fixed-pitch, `7.2246` at size 12. Em-dash is exactly 1 column; **emoji are 2.21** |
 | `P.t1` | does a canvas with mouse events disabled pass clicks through to the window beneath? | **Yes** |
 | `P.t1b` | with mouse events enabled, what does `mouseCallback` report, and are clicks then swallowed? | **Swallowed, as expected.** Canvas-wide events report `id=_canvas_`; per-element ids are `t4`'s question |
-| `P.t2` | does `getTouches()` report the Magic Mouse as well as the trackpad? | *pending* — gates the swipe thresholds |
-| `P.t4` | does per-element hit reporting distinguish `body` from `close`? | *pending* — **the `✕` does not work without this** |
-| `P.t5` | does `canJoinAllSpaces` keep a card across a space switch? | *pending* |
+| `P.t2` | does `getTouches()` report the Magic Mouse as well as the trackpad? | Trackpad yes, **Magic Mouse no output at all**. Swipe is trackpad-only |
+| `P.t4` | does per-element hit reporting distinguish `body` from `close`? | **Yes** — and it exposed a bug, below |
+| `P.t5` | does `canJoinAllSpaces` keep a card across a space switch? | **Yes** |
+
+`t4` also settled a design question nobody had asked: moving between elements of one card fires `mouseExit` on the old element *before* `mouseEnter` on the new one, so element-level hover tracking momentarily reads as "not hovering". Hover is therefore tracked per card, with a short grace period on exit (`notify.hover_exit_grace`) to absorb the gap — otherwise reaching for a card's `✕` resumed the countdown it was about to be dismissed by.
+
+Trackpad touches report `phase = "stationary"` as well as began/moved/ended/cancelled, `force`, and `type = "indirect"`; `identity` is an opaque handle, not a meaningful string.
 
 Emoji at 2.21 columns break `layout.lua`'s one-codepoint-one-column arithmetic: a line containing them overruns the card and is clipped rather than re-wrapped. Cheap to fix if it bites — give the width function a codepoint-range table — but it degrades quietly, so it isn't worth the complexity until it annoys you.
 

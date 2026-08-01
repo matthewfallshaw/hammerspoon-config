@@ -312,6 +312,13 @@ return {
     fade_out = 0.15,
     pulse_duration = 0.4,
 
+    -- Grace period between a card's last mouseExit and treating the card as
+    -- un-hovered. Moving between elements of the same card (body -> close
+    -- glyph) emits the old element's exit before the new element's enter, so
+    -- without this gap the countdown would resume mid-card. The events arrive
+    -- in the same run loop pass, so this only has to be non-zero.
+    hover_exit_grace = 0.05,
+
     -- Runaway-loop safety valve, not a display limit (a screen fits 10-15
     -- cards): past this, new cards are dropped -- logged, not queued.
     max_cards = 50,

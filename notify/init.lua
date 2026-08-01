@@ -85,6 +85,7 @@ local DEFAULTS = {
   fade_in = 0.15,
   fade_out = 0.15,
   pulse_duration = 0.4,
+  hover_exit_grace = 0.05,
   max_cards = 50,
   settings_key = "notify.persisted",
   dismiss_all_hotkey = { mods = {}, key = "n" },
@@ -147,7 +148,7 @@ end
 -- the end (bottom). Each record:
 --   { id, title, message, icon, sticky, duration, private,
 --     card, height, palette, frame, handle, timer, remaining, deadline,
---     hovering, keyTap }
+--     hovered, hoverExitTimer, keyTap }
 M._stack = {}
 M._autoIdSeq = 0
 
@@ -391,20 +392,67 @@ local function startKeyTap(record)
   record.keyTap:start()
 end
 
+-- Hover is a property of the card, not of the element under the pointer:
+-- `record.hovered` is the set of element ids currently entered.
+local function isHovered(record)
+  return next(record.hovered) ~= nil
+end
+
+local function cancelHoverExit(record)
+  if record.hoverExitTimer then
+    record.hoverExitTimer:stop()
+    record.hoverExitTimer = nil
+  end
+end
+
+-- Drops all hover state; used wherever a record stops being the one under the
+-- pointer (dismissal, replacement) as well as at the end of a real un-hover.
+local function clearHover(record)
+  cancelHoverExit(record)
+  record.hovered = {}
+  stopKeyTap(record)
+end
+
+-- Internal. Fired by the hover-exit grace timer. Nils its own handle first, so
+-- a timer stopped by cancelHoverExit (or by a dismissal) that fires anyway is
+-- a no-op rather than a resume against a dead record.
+function M._hoverExit(record)
+  local ok, err = pcall(function()
+    if not record.hoverExitTimer then return end
+    record.hoverExitTimer = nil
+    if isHovered(record) then return end
+    stopKeyTap(record)
+    resumeTimer(record)
+  end)
+  if not ok then
+    logger.e("notify: hover exit error: " .. tostring(err))
+  end
+end
+
 --- notify._handleEvent(record, eventName, elementId)
 --- Internal. The `onEvent` callback passed to every card's renderer handle.
 --- pcall-wrapped so a bug in mouse handling can't escape into the canvas's own
 --- mouseCallback.
 function M._handleEvent(record, eventName, elementId)
   local ok, err = pcall(function()
+    record.hovered = record.hovered or {}
+    local elementKey = elementId or "card"
     if eventName == "mouseEnter" then
-      record.hovering = true
-      pauseTimer(record)
-      startKeyTap(record)
+      local wasHovered = isHovered(record) or record.hoverExitTimer ~= nil
+      cancelHoverExit(record)
+      record.hovered[elementKey] = true
+      if not wasHovered then
+        pauseTimer(record)
+        startKeyTap(record)
+      end
     elseif eventName == "mouseExit" then
-      record.hovering = false
-      stopKeyTap(record)
-      resumeTimer(record)
+      record.hovered[elementKey] = nil
+      if not isHovered(record) then
+        cancelHoverExit(record)
+        record.hoverExitTimer = hs.timer.doAfter(cfg.hover_exit_grace, function()
+          M._hoverExit(record)
+        end)
+      end
     elseif eventName == "mouseUp" then
       if elementId == "close" then
         M.dismiss(record.id)
@@ -441,7 +489,7 @@ end
 local function removeAt(idx)
   local record = M._stack[idx]
   stopTimer(record)
-  stopKeyTap(record)
+  clearHover(record)
   deleteHandle(record)
   table.remove(M._stack, idx)
   applyFrames(computeFrames())
@@ -480,7 +528,7 @@ local function pushCard(o)
     card = card,
     height = card.height,
     palette = palette,
-    hovering = false,
+    hovered = {},
   }
 
   table.insert(M._stack, record)
@@ -531,8 +579,7 @@ end
 local function replaceInPlace(idx, o)
   local record = M._stack[idx]
   stopTimer(record)
-  stopKeyTap(record)
-  record.hovering = false
+  clearHover(record)
 
   record.title = o.title
   record.message = o.message
@@ -613,7 +660,7 @@ function M.dismissAll()
   local ok, err = pcall(function()
     for _, record in ipairs(M._stack) do
       stopTimer(record)
-      stopKeyTap(record)
+      clearHover(record)
       deleteHandle(record)
     end
     M._stack = {}

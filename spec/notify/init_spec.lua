@@ -64,6 +64,23 @@ describe("notify", function()
     return nil
   end
 
+  -- The pending hover-exit grace timer, if any: the most recently scheduled
+  -- live timer whose duration is cfg.hover_exit_grace.
+  local function pendingHoverGrace()
+    for i = #hs.timer._timers, 1, -1 do
+      local t = hs.timer._timers[i]
+      if not t.stopped and t.seconds == cfg.hover_exit_grace then return t end
+    end
+    return nil
+  end
+
+  local function fireHoverGrace()
+    local t = pendingHoverGrace()
+    assert.is_not_nil(t)
+    t.fn()
+    return t
+  end
+
   before_each(function()
     hs.canvas._reset()
     hs.timer._reset()
@@ -222,6 +239,7 @@ describe("notify", function()
 
       hs.timer._now = 100 -- time passes while paused; must not matter
       handle.onEvent("mouseExit")
+      fireHoverGrace()
 
       assert.are.equal(106, record.deadline) -- 100 + 6
       assert.is_nil(record.remaining)
@@ -260,6 +278,7 @@ describe("notify", function()
       handle.onEvent("mouseEnter")
       hs.timer._now = 1100
       handle.onEvent("mouseExit")
+      fireHoverGrace()
 
       local persisted = hs.settings.get(cfg.settings_key)
       assert.are.equal(1106, persisted[1].deadline)
@@ -282,6 +301,102 @@ describe("notify", function()
 
       assert.are.equal(1, #notify._stack)
       assert.are.equal(2010, notify._stack[1].deadline) -- full 10s: nothing elapsed while paused
+    end)
+  end)
+
+  describe("hover tracked per card, not per element", function()
+    -- The real event order when the pointer moves from the card body onto the
+    -- close glyph: the old element's exit arrives before the new element's
+    -- enter, so the entered-element set is transiently empty.
+    local function showHovered()
+      hs.timer._now = 0
+      notify.show({ message = "hi", duration = 10 })
+      local record = notify._stack[1]
+      local handle = fakeRenderer.instances[1]
+      hs.timer._now = 4
+      handle.onEvent("mouseEnter", "body")
+      return record, handle
+    end
+
+    local function assertPaused(record)
+      assert.is_true(record.timer == nil or not record.timer:running())
+      assert.is_nil(record.deadline)
+      assert.are.equal(6, record.remaining) -- 10 - 4
+    end
+
+    it("stays paused when the pointer moves from the body onto the close glyph", function()
+      local record, handle = showHovered()
+      assertPaused(record)
+
+      hs.timer._now = 5
+      handle.onEvent("mouseExit", "body")
+      assertPaused(record)
+      handle.onEvent("mouseEnter", "close")
+      assertPaused(record)
+
+      -- The exit's grace timer was cancelled by the enter, so firing it (as a
+      -- stopped timer would never do for real) must still not resume.
+      for _, t in ipairs(hs.timer._timers) do
+        if t.seconds == cfg.hover_exit_grace then t.fn() end
+      end
+      assertPaused(record)
+    end)
+
+    it("resumes only once the grace timer fires after a real exit", function()
+      local record, handle = showHovered()
+      handle.onEvent("mouseExit", "body")
+      handle.onEvent("mouseEnter", "close")
+
+      hs.timer._now = 100
+      handle.onEvent("mouseExit", "close")
+      assertPaused(record) -- still paused: the grace period hasn't elapsed
+
+      fireHoverGrace()
+
+      assert.is_nil(record.remaining)
+      assert.are.equal(106, record.deadline) -- 100 + 6
+      assert.is_not_nil(record.timer)
+    end)
+
+    it("does not resume when an enter arrives before the grace timer fires", function()
+      local record, handle = showHovered()
+
+      handle.onEvent("mouseExit", "body")
+      local grace = pendingHoverGrace()
+      assert.is_not_nil(grace)
+      handle.onEvent("mouseEnter", "body")
+
+      assert.is_nil(pendingHoverGrace()) -- cancelled
+      grace.fn()
+      assertPaused(record)
+    end)
+
+    it("leaves no hover-exit timer that throws when a hovered card is dismissed", function()
+      local record, handle = showHovered()
+      local id = record.id
+      handle.onEvent("mouseExit", "body")
+      local grace = pendingHoverGrace()
+
+      notify.dismiss(id)
+
+      assert.are.equal(0, #notify._stack)
+      assert.is_nil(pendingHoverGrace())
+      assert.has_no.errors(function() grace.fn() end)
+      for _, t in ipairs(hs.timer._timers) do
+        assert.has_no.errors(function() t.fn() end)
+      end
+      assert.are.equal(0, #notify._stack)
+    end)
+
+    it("drops hover state and stops the key tap when a hovered card is replaced", function()
+      showHovered()
+      local tap = hs.eventtap._instances[#hs.eventtap._instances]
+
+      notify.show({ message = "again", duration = 10, id = notify._stack[1].id })
+
+      assert.is_false(tap:isEnabled())
+      assert.is_nil(pendingHoverGrace())
+      assert.are.equal(10, notify._stack[1].deadline - hs.timer._now)
     end)
   end)
 
@@ -309,7 +424,7 @@ describe("notify", function()
   end)
 
   describe("escape while hovering", function()
-    it("starts the eventtap on mouseEnter and stops it on mouseExit", function()
+    it("starts the eventtap on mouseEnter and stops it once the exit grace fires", function()
       notify.show({ message = "hi", sticky = true })
       local handle = fakeRenderer.instances[1]
 
@@ -318,7 +433,24 @@ describe("notify", function()
       assert.is_true(tap:isEnabled())
 
       handle.onEvent("mouseExit")
+      fireHoverGrace()
       assert.is_false(tap:isEnabled())
+    end)
+
+    it("starts the tap once on the first enter, not again on an intra-card transition", function()
+      notify.show({ message = "hi", sticky = true })
+      local handle = fakeRenderer.instances[1]
+
+      handle.onEvent("mouseEnter", "body")
+      local tapCount = #hs.eventtap._instances
+      local tap = hs.eventtap._instances[tapCount]
+
+      handle.onEvent("mouseExit", "body")
+      handle.onEvent("mouseEnter", "close")
+
+      assert.are.equal(tapCount, #hs.eventtap._instances)
+      assert.are.equal(tap, hs.eventtap._instances[tapCount])
+      assert.is_true(tap:isEnabled())
     end)
 
     it("dismisses the hovered card when escape fires, and never swallows the key", function()
