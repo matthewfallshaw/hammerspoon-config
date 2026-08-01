@@ -1,0 +1,210 @@
+#!/bin/sh
+# notify -- non-blocking notification CLI.
+#
+#   notify [OPTIONS] MESSAGE...
+#
+# Fires a notification into the running Hammerspoon instance's notify
+# module (see notify/init.lua, required as `require('notify')`) via `hs -c`,
+# base64-encoding every string that
+# crosses the shell/Lua boundary so arbitrary clipboard content (quotes,
+# backslashes, `]]`, newlines, emoji) can never break out of the Lua literal
+# or inject code. If Hammerspoon isn't reachable, falls back to
+# `osascript -e 'display notification'`.
+#
+# This script must stay POSIX sh (no bashisms) -- launchers (Quicksilver,
+# Alfred, cron, other scripts' `exec`) invoke it under /bin/sh-family
+# shells, not necessarily bash.
+#
+# Exit codes: 2 for a genuine usage error (bad flags), 0 for everything
+# else -- a missing Hammerspoon, a missing osascript, a wedged instance,
+# whatever. The caller must never see a notification failure.
+
+set -eu
+
+prog=$(basename "$0")
+
+usage_line="Usage: $prog [--title TEXT] [--sticky] [--duration SECONDS] [--icon PATH|NAME] [--id NAME] [--private] [--] MESSAGE..."
+
+usage() {
+  cat <<EOF
+$usage_line
+
+  --title TEXT         heading (default: Notice)
+  --sticky             persist until dismissed; overrides --duration
+  --duration SECONDS   auto-dismiss delay (default: 5)
+  --icon PATH|NAME     leading image
+  --id NAME            replace-in-place key
+  --private            never persisted to disk
+  --help               show this help
+  --                   end of options; remaining args are message text,
+                       even if they start with '-'
+
+EXAMPLES
+
+  notify "Build finished"
+
+  notify --sticky --title "Backup" "Backup complete: 42 files copied"
+
+  notify --id backup-status --title "Backup" "Backup complete: 42 files copied"
+EOF
+}
+
+# base64-encode a single argument, stripped of the newline `base64` wraps at.
+b64() {
+  printf '%s' "$1" | base64 | tr -d '\n'
+}
+
+title="Notice"
+sticky=false
+duration=5
+icon=""
+id=""
+private=false
+have_icon=false
+have_id=false
+
+# Option parsing stops at the first non-option word or explicit `--`; only
+# dash-prefixed words *before* that point are treated (and validated) as
+# options, so a message may itself start with '-' once introduced by `--`.
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --help)
+      usage
+      exit 0
+      ;;
+    --title)
+      [ $# -ge 2 ] || { echo "$prog: --title requires an argument" >&2; exit 2; }
+      title=$2
+      shift 2
+      ;;
+    --sticky)
+      sticky=true
+      shift
+      ;;
+    --duration)
+      [ $# -ge 2 ] || { echo "$prog: --duration requires an argument" >&2; exit 2; }
+      duration=$2
+      # Genuine non-negative decimal only: N, N., N.M, or .M. Rejects a bare
+      # '.', two-or-more dots (e.g. '1.2.3' or '..'), and anything with a
+      # character that isn't a digit or a dot (e.g. '-1', 'abc').
+      case "$duration" in
+        ''|.|*[!0-9.]*|*.*.*)
+          echo "$prog: --duration must be a non-negative number, got '$duration'" >&2
+          exit 2
+          ;;
+      esac
+      shift 2
+      ;;
+    --icon)
+      [ $# -ge 2 ] || { echo "$prog: --icon requires an argument" >&2; exit 2; }
+      icon=$2
+      have_icon=true
+      shift 2
+      ;;
+    --id)
+      [ $# -ge 2 ] || { echo "$prog: --id requires an argument" >&2; exit 2; }
+      id=$2
+      have_id=true
+      shift 2
+      ;;
+    --private)
+      private=true
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      echo "$prog: unknown option: $1" >&2
+      echo "$usage_line" >&2
+      exit 2
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+if [ $# -eq 0 ]; then
+  echo "$prog: MESSAGE is required" >&2
+  echo "$usage_line" >&2
+  exit 2
+fi
+
+message="$*"
+
+# --- Locate hs by absolute path (never via PATH: launchers give a bare one) ---
+# $HS_BIN, if set, wins outright. Otherwise search the app's own install
+# location plus every place `pbclip.py`'s SEARCH_PATHS looks (nix profile,
+# per-user nix-darwin profile, current-system, homebrew, MacPorts) -- a
+# launcher's minimal PATH won't have found `hs` any other way either.
+find_hs() {
+  if [ -n "${HS_BIN:-}" ]; then
+    printf '%s\n' "$HS_BIN"
+    return 0
+  fi
+  for candidate in \
+    /opt/homebrew/bin/hs \
+    /usr/local/bin/hs \
+    /Applications/Hammerspoon.app/Contents/Frameworks/hs/hs \
+    "${HOME:-}/.nix-profile/bin/hs" \
+    "/etc/profiles/per-user/${USER:-}/bin/hs" \
+    /run/current-system/sw/bin/hs \
+    /opt/local/bin/hs
+  do
+    if [ -x "$candidate" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# osascript's location is also overridable, purely so tests can stub it --
+# real callers always get /usr/bin/osascript.
+osascript_bin="${OSASCRIPT_BIN:-/usr/bin/osascript}"
+
+# Escape a string for embedding in an AppleScript double-quoted literal:
+# backslash first (so we don't double-escape the quote-escaping backslashes
+# we're about to add), then double quote.
+osa_escape() {
+  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+# `display notification` only (never `display alert`, which is modal and
+# steals focus -- Matt hates it, even for --sticky). Best-effort: always
+# exits 0, whether or not osascript is present or succeeds.
+fallback_osascript() {
+  if [ -x "$osascript_bin" ]; then
+    esc_msg=$(osa_escape "$message")
+    esc_title=$(osa_escape "$title")
+    "$osascript_bin" -e "display notification \"$esc_msg\" with title \"$esc_title\"" >/dev/null 2>&1 &
+  fi
+  exit 0
+}
+
+hs_bin=$(find_hs) || hs_bin=""
+
+# Liveness pre-check: `hs -c` waits for its Lua to return, which hangs
+# indefinitely against a wedged instance -- and non-blocking is a hard
+# requirement. So confirm both the binary and a live process before ever
+# invoking it; anything short of that goes straight to the osascript
+# fallback instead of risking a hang.
+if [ -n "$hs_bin" ] && [ -x "$hs_bin" ] && pgrep -x Hammerspoon >/dev/null 2>&1; then
+  lua="require('notify').show({ message = hs.base64.decode('$(b64 "$message")'), title = hs.base64.decode('$(b64 "$title")'), sticky = $sticky, duration = $duration"
+  if [ "$have_icon" = true ]; then
+    lua="$lua, icon = hs.base64.decode('$(b64 "$icon")')"
+  fi
+  if [ "$have_id" = true ]; then
+    lua="$lua, id = hs.base64.decode('$(b64 "$id")')"
+  fi
+  lua="$lua, private = $private })"
+
+  # Fire and forget: background it, discard its output, exit immediately.
+  # Never wait on it.
+  "$hs_bin" -c "$lua" >/dev/null 2>&1 &
+  exit 0
+fi
+
+fallback_osascript

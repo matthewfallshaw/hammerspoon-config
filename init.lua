@@ -204,6 +204,13 @@ trash_recent.hotkey = spoon.CaptureHotkeys:bind(
 
 pp("after require trash_recent")
 
+
+-- Growl-style notifications, driven from the CLI by bin/notify
+notify = require('notify') -- luacheck: no global
+notify.start()
+
+pp("after require notify")
+
 -- ScanSnap: Start ScanSnap's horrendous array of apps when scanner attached, and kill them when detatched
 logger.setLogLevel(4)
 logger.i("Loading USB watcher")

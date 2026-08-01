@@ -10,12 +10,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `busted spec/` - Run all tests in spec directory
 - Guard file monitoring: `guard` - Auto-runs tests when files change (Ruby Guard + Guardfile)
 
-**Testing Limitations**: The busted tests run in an isolated environment without access to the Hammerspoon (HS) APIs. They use mocks provided in `spec_helper.lua`. To test actual Hammerspoon functionality, ask the user to manually test the configuration. The config auto-reloads when files change via `auto_reload_or_test.lua`, so no manual reload is needed.
+**Testing Limitations**: The busted tests run in an isolated environment without access to the Hammerspoon (HS) APIs. They use mocks provided in `spec_helper.lua`. To test actual Hammerspoon functionality, ask the user to manually test the configuration. The config auto-reloads when files change (see below), so no manual reload is needed.
 
 ### Development Workflow
-- Configuration auto-reloads via `auto_reload_or_test.lua`
-- Files listed in `configConsts.modules_under_test` trigger spec tests instead of reload
-- All other changes trigger `hs.reload()`
+- Configuration auto-reloads via `Spoons/Hammer.spoon`, which watches `hs.configdir` **recursively** and calls `hs.reload()` on any changed path ending `.lua`
+- `~/.hammerspoon` is a symlink to this repo, so *any* `.lua` save anywhere in the repo — including inside `.claude/worktrees/` — reloads the live config. When editing Lua here, expect a live reload on every save; develop outside the tree if that matters
+- Spec-on-save comes only from the Ruby `Guardfile`, and only while `guard` is running
 
 ## Architecture Overview
 
@@ -79,12 +79,6 @@ This is a sophisticated Hammerspoon configuration with modular architecture:
 - Double-tap detection for enhanced workflows
 - Integrates with desktop space numbering system
 
-**auto_reload_or_test.lua** - Development automation:
-- Watches config directory for changes
-- Modules under test → run specs
-- Other modules → reload configuration
-- Supports TDD workflow
-
 **trash_recent.lua** - Download management:
 - Interactive interface for trashing recent downloads
 - QuickLook preview integration
@@ -123,7 +117,6 @@ This is a sophisticated Hammerspoon configuration with modular architecture:
 - Tests in `spec/` mirror source structure
 - `spec_helper.lua` provides Hammerspoon API mocks
 - Guard integration for continuous testing
-- Modules can be marked for testing vs reload in `configConsts.modules_under_test`
 
 ### Configuration Management
 

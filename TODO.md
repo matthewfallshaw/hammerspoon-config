@@ -17,7 +17,7 @@ The gap: **non-modal, persistent-until-dismissed, stacked, styled**. That's what
 
 ### Consumer
 
-`~/code/clipboard-scripts` — ~51 scripts, all notifying through one file, `lib/notify`. That file is deliberately the only implementation, so pointing it at Hammerspoon is a one-file change on that side.
+`~/code/clipboard-scripts` — 51 scripts, ~49 of which notify, all through one file, `lib/notify`. That file is deliberately the only implementation, so pointing it at Hammerspoon is nearly a one-file change on that side — see "Awaiting Matt" for why it turned out to be three.
 
 Other callers should be assumed later. Design the CLI contract for general use, not just clipboard-scripts.
 
@@ -105,12 +105,12 @@ notify.dismissAll()
 - Don't consume the event. The window under the pointer is our own canvas, so there's nothing beneath to protect.
 - Thresholds are tuning constants → `configConsts`. Working definition, to be checked against Apple's if it is documented anywhere: the gesture must **begin over a card** (latch that card at touch-`began` — the pointer travels off the card mid-swipe, so continuous hit-testing would break it), travel rightward past a minimum but not beyond a maximum, and release, all inside a short time bound. Large changes in velocity-as-a-vector — speed or direction — abort it.
 - **The card does not follow the finger** in the first implementation. It animates out only once the gesture completes. Following the finger with a spring-back is nicer and makes the threshold visible rather than hidden, but it is per-frame canvas work and not worth the first pass.
-- **Magic Mouse is untested.** Expected to work — it is a multitouch surface — but unconfirmed. Test alongside the click-swallowing check.
+- **Magic Mouse is untested.** Expected to work — it is a multitouch surface — but unconfirmed. Test alongside the click-swallowing check. (One is connected: Apple Magic Mouse, VID `0x004C` PID `0x0269`, alongside the built-in trackpad.)
 - A plain non-multitouch mouse generates no gesture events at all, which is why `✕` and `⎋`-hover are not optional.
 
 **`--id` replace-in-place — keep position, replace every attribute, reset the timer, pulse the card.** Position because it's the same item and the never-moves rule applies. Wholesale replacement rather than a merge, so the second call's `--sticky`/`--duration`/`--title` win outright with no ambiguity. Timer reset because a new event is new information. A brief border pulse because an in-place text swap on a card you weren't watching is otherwise invisible — the failure mode of replace-in-place. If the previous card with that id is already gone, the new one appends at the bottom as usual. Ids are one flat global namespace; callers namespace themselves and collisions are the caller's problem.
 
-**`lib/notify` defaults `--id` to the calling script's name** (`pbclip.py` has `argv[0]`), fixing the pile-up of repeated `pb-*` banners across all ~51 scripts with no per-script change. The cost — two different results from the same script collapsing into one card — is a caller concern: a script wanting successive results to coexist passes its own unique id.
+**`lib/notify` defaults `--id` to the calling script's name**, taken from a new `--from NAME` flag that `pbclip.py`'s `notify()` fills in from `sys.argv[0]` — `$0` alone cannot carry it, see "Awaiting Matt". This fixes the pile-up of repeated `pb-*` banners across all ~49 of them; the 42 Python callers need no per-script change, the 9 bash ones pass `--from` themselves. The cost — two different results from the same script collapsing into one card — is a caller concern: a script wanting successive results to coexist passes its own unique id.
 
 **Styling — monospace body, system-font title, palette follows system appearance.** Monospace (`SFMono-Regular`, as `modal_commands.lua` uses) is a simplification, not just a taste: `hs.canvas.minimumTextSize` and `hs.drawing.getTextDrawingSize` measure a string but neither accepts a wrapping width, so wrapping proportional text to a fixed-width card means repeated measurement of candidate lines. With a fixed character width, measured once, wrapping is arithmetic. It also suits the payloads — hashes, indent-aligned password blocks, and passwords where `l`/`1`/`I` and `O`/`0` must be distinguishable. The cost is that prose notifications look like terminal output.
 
@@ -120,7 +120,9 @@ notify.dismissAll()
 
 **Liveness pre-check, then fire-and-forget.** `hs -c` waits for the Lua to return, which is normally tens of milliseconds but hangs indefinitely if Hammerspoon is wedged — and non-blocking is a hard requirement. So: check the `hs` binary exists *and* `pgrep -x Hammerspoon` succeeds; if either fails, use `osascript`; otherwise fire `hs -c` in the background and exit 0 immediately. The residual failure is that a running-but-wedged Hammerspoon silently drops a notification. That is the right trade — the caller never blocks and never breaks.
 
-**Testing — a pure layout core with a thin canvas renderer over it.** busted has no Hammerspoon APIs, only `spec_helper.lua`'s mocks, so the seam has to be deliberate: everything testable is arithmetic and bookkeeping, and it must not touch `hs.canvas`. Testable without the app: word wrapping and truncation, `… (+N more lines)` counting, stack frame arithmetic, gap-closing on dismissal, id replacement bookkeeping, timer deadline handling, persistence round-trip and the `private` exclusion, argument parsing and defaults. `spec_helper.lua` needs mocks added for `hs.canvas`, `hs.eventtap`, `hs.settings`, `hs.mouse`, `hs.screen`, `hs.base64`, `hs.host`. Add `notify` to `configConsts.modules_under_test` while building, so saving `notify.lua` runs specs instead of reloading.
+**Testing — a pure layout core with a thin canvas renderer over it.** busted has no Hammerspoon APIs, only `spec_helper.lua`'s mocks, so the seam has to be deliberate: everything testable is arithmetic and bookkeeping, and it must not touch `hs.canvas`. Testable without the app: word wrapping and truncation, `… (+N more lines)` counting, stack frame arithmetic, gap-closing on dismissal, id replacement bookkeeping, timer deadline handling, persistence round-trip and the `private` exclusion, argument parsing and defaults. `spec_helper.lua` needs mocks added for `hs.canvas`, `hs.eventtap`, `hs.settings`, `hs.mouse`, `hs.screen`, `hs.base64`, `hs.host`, `hs.timer.doAfter`.
+
+Note on the dev loop: auto-reload is `Spoons/Hammer.spoon`, which watches `hs.configdir` **recursively** and reloads on *any* changed `.lua` path. `~/.hammerspoon` is a symlink to this repo, so a `.lua` save anywhere in the repo — including inside `.claude/worktrees/` — reloads the live config. Spec-on-save exists only via the Ruby `Guardfile`, and only while `guard` is running.
 
 ### Build order
 
@@ -146,3 +148,27 @@ notify.dismissAll()
 - **Grouping similar notifications so they all fit.** The likeliest overflow is a poorly-considered tight loop, so the count may be very large but highly repetitive. First pass: group exact duplicates and show one card with a count badge. Later passes: cleverer grouping of near-duplicates.
 - **`+N more` pill** at the foot of the stack, with queued notifications fading in as space frees.
 - **Stranded notifications** if the primary display changes or disconnects. The primary display is the one holding the menubar (System Settings → Displays → Arrange). Since `primaryScreen()` is re-resolved at paint time, and macOS always designates some display primary, a Hammerspoon reload should recover a stranded stack. End-of-project cleanup note, not an MVP concern.
+
+### Awaiting Matt
+
+Live checks nothing headless can answer, and decisions taken on Matt's behalf that he may want to overturn.
+
+**Live checks** — console prototype at `~/.claude/jobs/6b9d933f/tmp/notify_prototype.lua`, loaded with `P = dofile(...)`. Every test self-destructs on a timer; `P.cleanup()` is safe at any time.
+
+| test | question | answer |
+| --- | --- | --- |
+| `P.t3` | `SFMono-Regular` character advance width → `notify.char_width` | *pending* (provisionally 7.2) |
+| `P.t1` | does a canvas with mouse events disabled pass clicks through to the window beneath? | *pending* |
+| `P.t1b` | with mouse events enabled, what does `mouseCallback` report, and are clicks then swallowed? | *pending* |
+| `P.t2` | does `getTouches()` report the Magic Mouse as well as the trackpad? | *pending* |
+| `P.t4` | does per-element hit reporting distinguish `body` from `close`? | *pending* |
+| `P.t5` | does `canJoinAllSpaces` keep a card across a space switch? | *pending* |
+
+Then, once the module is installed: stack appearance, fade timing, hover-pause feel, dark/light palettes, and the swipe thresholds. Only `char_width` blocks correct rendering; the rest are tuning.
+
+**Decisions taken without him**
+
+- **`lib/notify` alone can't carry the calling script's name.** The spec assumed `basename "$0"` would work, but every Python caller reaches `lib/notify` through `pbclip.py`'s `notify()`, which runs it as a fixed path — so `$0` is always `notify`, and defaulting `--id` to it would collapse every card onto one id, strictly worse than today. Fixed by giving `lib/notify` a `--from NAME` flag and having `pbclip.notify()` pass the script name. Cost: three files change in clipboard-scripts, not the one the spec predicted.
+- **`--private` set on exactly three callers** — `pb-pwgen-sticky`, `pb-peek-at-clipboard`, `pb-peek-at-clipboard-sticky`. Not on `pb-pwgen` or `pb-pwgen-pin`, which reveal nothing ("New password in clipboard").
+- **Card renderer uses `hs.canvas.windowLevels.floating`**, not `overlay`. A notification should float above app windows but stay below the dock, menu bar and screen saver; `overlay` is what `modal_commands.lua` uses for a full-screen modal takeover, which this isn't.
+- **Development happened outside the watched tree.** `Spoons/Hammer.spoon` watches `hs.configdir` recursively and `~/.hammerspoon` symlinks to this repo, so every `.lua` save anywhere in it — worktrees included — reloads the live config. The module was built and tested in a scratch directory and landed in single commits.

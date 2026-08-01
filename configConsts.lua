@@ -8,9 +8,6 @@ hs.application.enableSpotlightForNameSearches(true)
 hs.allowAppleScript(true)
 
 return {
-  -- modules under test
-  modules_under_test = {},
-
   -- Timing constants (in seconds) for window/space operations
   timing = {
     WINDOW_FOCUS_WAIT = 0.8,      -- 0.2 seconds - time to wait after focusing a window
@@ -273,5 +270,78 @@ return {
         --   {'Backup and Sync from Google', 'Backup and Sync'},
       }
     }
+  },
+
+  -- notify: Growl-replacement notification cards (see TODO.md). Every limit
+  -- notify/init.lua uses lives here, not as a literal in the module.
+  notify = {
+    -- Layout (pixels unless noted)
+    card_width = 320,
+    max_lines = 12,
+    stack_gap = 8,
+    margin_top = 8,
+    margin_right = 8,
+    padding = 12,
+    title_height = 18,
+    title_gap = 6,
+    line_height = 16,
+    min_height = 48,
+    icon_width = 32,
+    icon_gap = 8,
+    tab_width = 4,
+    close_size = 14,
+    corner_radius = 8,
+
+    -- char_width is provisional: a guessed advance width for SFMono-Regular
+    -- at body_font_size, pending a live measurement (hs.drawing.getTextDrawingSize
+    -- against the real font) to replace it with a measured value.
+    char_width = 7.2,
+
+    body_font = 'SFMono-Regular',
+    body_font_size = 12,
+    title_font = '.AppleSystemUIFont',
+    title_font_size = 13,
+
+    -- Timing (seconds)
+    default_duration = 5,
+    fade_in = 0.15,  -- matches hs.alert's fade
+    fade_out = 0.15,
+    pulse_duration = 0.4,
+
+    -- Safety valve: a caller in a tight loop drops new cards past this
+    -- rather than queuing them.
+    max_cards = 8,
+
+    -- hs.settings key the persisted (sticky/non-private) stack is written to.
+    settings_key = 'notify.persisted',
+
+    -- Safety-valve hotkey bound via hyper.bindKey in notify.start().
+    dismiss_all_hotkey = { mods = {}, key = 'n' },
+
+    -- Palettes selected at paint time from hs.host.interfaceStyle().
+    -- Dark is anchored on hs.alert's own defaults ({white=0, alpha=0.75}
+    -- fill, white stroke) so a card looks like part of the config.
+    palettes = {
+      dark = {
+        background = { white = 0, alpha = 0.75 },
+        border = { white = 1, alpha = 1 },
+        title = { white = 1, alpha = 1 },
+        body = { white = 1, alpha = 0.9 },
+        footer = { white = 1, alpha = 0.6 },
+        close = { white = 1, alpha = 0.6 },
+        close_hover = { white = 1, alpha = 1 },
+        pulse = { white = 1, alpha = 1 },
+      },
+      light = {
+        background = { white = 1, alpha = 0.92 },
+        border = { white = 0, alpha = 0.3 },
+        title = { white = 0, alpha = 1 },
+        body = { white = 0, alpha = 0.85 },
+        footer = { white = 0, alpha = 0.5 },
+        close = { white = 0, alpha = 0.5 },
+        close_hover = { white = 0, alpha = 1 },
+        pulse = { white = 0, alpha = 1 },
+      },
+    },
   },
 }
