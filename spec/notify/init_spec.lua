@@ -236,6 +236,53 @@ describe("notify", function()
       assert.is_nil(notify._stack[1].timer)
       assert.is_nil(notify._stack[1].deadline)
     end)
+
+    it("persists the pause: the stale deadline is gone, the remaining time is written", function()
+      hs.timer._now = 1000
+      notify.show({ message = "hovered", duration = 10 }) -- deadline 1010
+      local handle = fakeRenderer.instances[1]
+
+      hs.timer._now = 1004
+      handle.onEvent("mouseEnter")
+
+      local persisted = hs.settings.get(cfg.settings_key)
+      assert.are.equal(1, #persisted)
+      assert.is_nil(persisted[1].deadline)
+      assert.are.equal(6, persisted[1].remaining)
+    end)
+
+    it("persists the recomputed deadline on resume", function()
+      hs.timer._now = 1000
+      notify.show({ message = "hovered", duration = 10 })
+      local handle = fakeRenderer.instances[1]
+
+      hs.timer._now = 1004
+      handle.onEvent("mouseEnter")
+      hs.timer._now = 1100
+      handle.onEvent("mouseExit")
+
+      local persisted = hs.settings.get(cfg.settings_key)
+      assert.are.equal(1106, persisted[1].deadline)
+      assert.is_nil(persisted[1].remaining)
+    end)
+
+    it("restores a card hovered across a reload with its remaining time, not a past deadline", function()
+      hs.timer._now = 1000
+      notify.show({ message = "hovered", duration = 10 }) -- deadline 1010
+      fakeRenderer.instances[1].onEvent("mouseEnter")
+
+      -- Simulate hs.reload() well after the original deadline would have passed.
+      notify._stack = {}
+      fakeRenderer = makeFakeRenderer()
+      notify._renderer = fakeRenderer
+      notify._bindHotkey = function() end
+      hs.timer._now = 2000
+
+      notify:start()
+
+      assert.are.equal(1, #notify._stack)
+      assert.are.equal(2010, notify._stack[1].deadline) -- full 10s: nothing elapsed while paused
+    end)
   end)
 
   describe("close button and click-elsewhere", function()
@@ -418,7 +465,7 @@ describe("notify", function()
       notify._renderer = fakeRenderer
       notify._bindHotkey = function() end -- avoid touching real hyper in the test env
 
-      notify.start()
+      notify:start()
 
       assert.are.equal(2, #notify._stack)
       assert.are.equal(stickyId, notify._stack[1].id)
@@ -441,7 +488,7 @@ describe("notify", function()
       notify._bindHotkey = function() end
 
       hs.timer._now = 2000 -- long past the deadline
-      notify.start()
+      notify:start()
 
       assert.are.equal(0, #notify._stack)
     end)
@@ -458,6 +505,46 @@ describe("notify", function()
       hs.host._interfaceStyle = nil
       notify.show({ message = "hi", sticky = true })
       assert.are.same(cfg.palettes.light, fakeRenderer.instances[1]._opts.palette)
+    end)
+  end)
+
+  describe("renderer config", function()
+    -- notify.card reads snake_case (cfg.corner_radius); notify.layout reads
+    -- camelCase (cfg.cornerRadius). The renderer must be handed the module's
+    -- own config, not layout's mapping of it, or every styling value is
+    -- silently discarded in favour of notify.card's defaults.
+    local styling = { "corner_radius", "fade_in", "close_size" }
+    local saved
+
+    before_each(function()
+      saved = {}
+      for _, k in ipairs(styling) do saved[k] = notify._cfg[k] end
+      notify._cfg.corner_radius = 99
+      notify._cfg.fade_in = 0.42
+      notify._cfg.close_size = 21
+    end)
+
+    after_each(function()
+      for _, k in ipairs(styling) do notify._cfg[k] = saved[k] end
+    end)
+
+    it("hands a new card the configured styling values, in the keys card.lua reads", function()
+      notify.show({ message = "hi", sticky = true })
+
+      local rendered = fakeRenderer.instances[1]._opts.cfg
+      assert.are.equal(99, rendered.corner_radius)
+      assert.are.equal(0.42, rendered.fade_in)
+      assert.are.equal(21, rendered.close_size)
+      assert.is_nil(rendered.cornerRadius)
+    end)
+
+    it("keeps the configured styling when a card is replaced in place", function()
+      notify.show({ message = "first", sticky = true, id = "mine" })
+      notify.show({ message = "second", sticky = true, id = "mine" })
+
+      local update = fakeRenderer.instances[1].updateCalls[1]
+      assert.are.equal(99, update.cfg.corner_radius)
+      assert.are.equal(21, update.cfg.close_size)
     end)
   end)
 
@@ -501,7 +588,7 @@ describe("notify", function()
       end
 
       notify.show({ message = "one", sticky = true })
-      notify.start()
+      notify:start()
 
       assert.are.same(cfg.dismiss_all_hotkey.mods, capturedMods)
       assert.are.equal(cfg.dismiss_all_hotkey.key, capturedKey)
@@ -513,13 +600,13 @@ describe("notify", function()
 
     it("does not let a failure escape (e.g. a broken binder)", function()
       notify._bindHotkey = function() error("boom") end
-      assert.has_no.errors(function() notify.start() end)
+      assert.has_no.errors(function() notify:start() end)
     end)
   end)
 
   describe(".stop", function()
     it("does not throw", function()
-      assert.has_no.errors(function() notify.stop() end)
+      assert.has_no.errors(function() notify:stop() end)
     end)
   end)
 end)

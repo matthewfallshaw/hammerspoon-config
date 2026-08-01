@@ -33,6 +33,15 @@ table.clone = function(self)
   return out
 end
 
+-- Shallow: `other`'s keys win, and table values are shared with the source
+-- tables rather than copied (cf. table.clone, which is deep).
+table.merge = function(self, other)
+  local out = {}
+  for k,v in pairs(self) do out[k] = v end
+  for k,v in pairs(other or {}) do out[k] = v end
+  return out
+end
+
 table.head = function(self)
   return self[1]
 end

@@ -207,7 +207,7 @@ pp("after require trash_recent")
 
 -- Growl-style notifications, driven from the CLI by bin/notify
 notify = require('notify') -- luacheck: no global
-notify.start()
+notify:start()
 
 pp("after require notify")
 

@@ -2,11 +2,9 @@
 --- Pure-Lua layout core for the notify module: word wrapping, truncation,
 --- overflow footers, card-height and stack-frame arithmetic.
 ---
---- Deliberately has **no reference to `hs.*` anywhere** in this file, so it
---- runs and is fully testable under plain `busted`, without the Hammerspoon
---- application or any of its API mocks. `notify.lua`'s canvas renderer calls
---- this module for every measurement so it needs no layout arithmetic of its
---- own; see notify.compose.
+--- Has no reference to `hs.*` anywhere, so it runs and is fully testable
+--- under plain `busted`. `notify.card` paints what `compose` returns and does
+--- no arithmetic of its own.
 
 local M = {}
 
@@ -17,23 +15,13 @@ M.author = "Matthew Fallshaw <m@fallshaw.me>"
 M.homepage = "https://github.com/matthewfallshaw/hammerspoon-config"
 M.license = "MIT - https://opensource.org/licenses/MIT"
 
---------------------------------------------------------------------------------
--- UTF-8 helpers
---
--- Card text is arbitrary clipboard content: em-dashes, emoji, CJK. Column
--- counting must be per-codepoint, not per-byte, or a 3-byte em-dash would be
--- (wrongly) charged as 3 columns of a fixed-width card.
---
--- Simplification (documented per the spec): every codepoint is treated as
--- exactly 1 column. A real monospace terminal renders many emoji at 2
--- columns, but measuring true display width needs a Unicode East-Asian-Width
--- table this module doesn't have; 1-column-per-codepoint is close enough for
--- a notification card and is cheap to compute.
---------------------------------------------------------------------------------
+-- Card text is arbitrary clipboard content (em-dashes, emoji, CJK), so columns
+-- are counted per-codepoint, not per-byte. Every codepoint counts as exactly 1
+-- column: true display width would need a Unicode East-Asian-Width table, and
+-- 1-per-codepoint is close enough for a notification card.
 
---- Returns the UTF-8 byte length of the codepoint starting at byte `b`
---- (1, 2, 3 or 4). A stray/invalid continuation byte is treated as a
---- 1-byte codepoint so callers can never stall walking malformed input.
+-- Byte length (1-4) of the UTF-8 codepoint starting at byte `b`. A stray
+-- continuation byte counts as 1, so malformed input can never stall a walk.
 local function utf8CharLen(b)
   if b < 0x80 then return 1
   elseif b >= 0xF0 then return 4
@@ -43,8 +31,6 @@ local function utf8CharLen(b)
   end
 end
 
---- Counts the number of UTF-8 codepoints (== display columns, see the
---- simplification note above) in `s`.
 local function utf8Len(s)
   local len = 0
   local i = 1
@@ -56,9 +42,7 @@ local function utf8Len(s)
   return len
 end
 
---- Splits `s` after its first `n` codepoints, never cutting a multi-byte
---- codepoint in half. Returns `head, tail` such that `head .. tail == s`.
---- If `n <= 0`, `head` is `""`. If `n >= utf8Len(s)`, `tail` is `""`.
+-- Splits after the first `n` codepoints, never mid-codepoint. `head .. tail == s`.
 local function utf8SplitAt(s, n)
   local i = 1
   local len = #s
@@ -70,16 +54,9 @@ local function utf8SplitAt(s, n)
   return s:sub(1, i - 1), s:sub(i)
 end
 
---------------------------------------------------------------------------------
--- Wrapping helpers (local; not part of the public API)
---------------------------------------------------------------------------------
-
---- Splits `text` on "\n", preserving empty lines (including leading,
---- trailing and consecutive newlines). Unlike `utilities/string.lua`'s
---- `:split()` — which is a character-class split built on `gsub("[^%s]+")`
---- and silently drops empty fields — this never collapses runs of the
---- separator, which the spec requires ("consecutive newlines producing
---- empty lines"). `text == ""` returns `{""}`.
+-- Splits on "\n" keeping empty fields, which `utilities/string.lua`'s
+-- `:split()` drops -- consecutive newlines must survive as empty lines.
+-- `text == ""` returns `{""}`.
 local function splitLines(text)
   local lines = {}
   local start = 1
@@ -96,11 +73,9 @@ local function splitLines(text)
   return lines
 end
 
---- Tokenizes a single paragraph (no "\n") into an ordered array of
---- `{ kind = "word"|"space", text = string }`. The split point (ASCII
---- 0x20) is safe against UTF-8 multi-byte sequences: continuation and
---- lead bytes are always >= 0x80, so a plain byte-wise scan for `" "`
---- never lands inside a codepoint.
+-- One paragraph (no "\n") to an ordered array of
+-- `{ kind = "word"|"space", text = string }`. Scanning bytes for " " is
+-- UTF-8-safe: lead and continuation bytes are always >= 0x80.
 local function tokenize(paragraph)
   local tokens = {}
   local i = 1
@@ -117,10 +92,9 @@ local function tokenize(paragraph)
   return tokens
 end
 
---- Greedily word-wraps one paragraph (no "\n" inside it) at `maxChars`
---- columns. Trailing whitespace on a produced line is dropped; a run of
---- spaces mid-line survives as-is when it fits. A word longer than
---- `maxChars` is hard-split at exactly `maxChars` columns, UTF-8 aware.
+-- Greedy wrap of one paragraph at `maxChars` columns. Trailing whitespace on a
+-- produced line is dropped; a run of spaces mid-line survives when it fits. A
+-- word longer than `maxChars` is hard-split at exactly `maxChars` columns.
 local function wrapParagraph(paragraph, maxChars)
   local tokens = tokenize(paragraph)
   local lines = {}
@@ -143,7 +117,6 @@ local function wrapParagraph(paragraph, maxChars)
   for _, tok in ipairs(tokens) do
     local tokLen = utf8Len(tok.text)
     if tok.kind == "word" and tokLen > maxChars then
-      -- Over-long word: finish whatever's pending, then hard-split it.
       if currentLen > 0 then flush() end
       local remaining = tok.text
       while utf8Len(remaining) > maxChars do
@@ -157,15 +130,13 @@ local function wrapParagraph(paragraph, maxChars)
       table.insert(current, tok)
       currentLen = currentLen + tokLen
     else
-      -- Doesn't fit on the current line.
       flush()
       if tok.kind == "word" then
         current = { tok }
         currentLen = tokLen
       end
-      -- A space token that doesn't fit is pure separator whitespace at a
-      -- forced wrap point: drop it rather than starting the next line
-      -- with leading spaces.
+      -- A space token at a forced wrap point is separator whitespace: drop it
+      -- rather than start the next line indented.
     end
   end
   if currentLen > 0 or #lines == 0 then
@@ -174,29 +145,11 @@ local function wrapParagraph(paragraph, maxChars)
   return lines
 end
 
---------------------------------------------------------------------------------
--- Public API
---------------------------------------------------------------------------------
-
 --- notify.layout.wrap(text, maxChars, opts) -> lines
---- Function
---- Word-wraps `text` to `maxChars` columns per line.
----
---- Parameters:
----  * text - (string) the text to wrap. Hard line breaks ("\n") are
----    preserved as line breaks before word-wrapping is applied to each
----    resulting paragraph.
----  * maxChars - (integer) columns available per line. Clamped to a
----    minimum of 1 (a `maxChars` of 0 or less would otherwise make an
----    over-long word impossible to hard-split).
----  * opts - (table or nil) `{ tabWidth = integer }`; `tabWidth` defaults
----    to 4 and is the fixed number of spaces each "\t" expands to (no
----    tab-stop alignment — a flat substitution, done once, before
----    splitting on "\n").
----
---- Returns:
----  * lines - ({string}) one entry per output line. An empty `text`
----    yields `{""}`, never `{}`.
+--- Word-wraps `text` to `maxChars` columns, preserving hard "\n" breaks.
+--- `maxChars` is clamped to 1 (0 would make an over-long word unsplittable).
+--- `opts.tabWidth` (default 4) is a flat substitution, not tab stops.
+--- An empty `text` yields `{""}`, never `{}`.
 function M.wrap(text, maxChars, opts)
   opts = opts or {}
   local tabWidth = opts.tabWidth or 4
@@ -216,18 +169,8 @@ function M.wrap(text, maxChars, opts)
 end
 
 --- notify.layout.truncate(lines, maxLines) -> keptLines, overflow
---- Function
---- Caps an array of lines at `maxLines` entries.
----
---- Parameters:
----  * lines - ({string}) the lines to cap.
----  * maxLines - (integer or nil) the limit. 0 or nil means no limit.
----
---- Returns:
----  * keptLines - ({string}) `lines` unchanged if it already fits,
----    otherwise its first `maxLines` entries.
----  * overflow - (integer) `0` if nothing was cut, otherwise the number
----    of lines dropped from the end.
+--- Caps `lines` at `maxLines` entries; `nil` or `0` means no limit.
+--- `overflow` is the number of lines dropped from the end, `0` if none.
 function M.truncate(lines, maxLines)
   if maxLines == nil or maxLines == 0 or #lines <= maxLines then
     return lines, 0
@@ -240,16 +183,8 @@ function M.truncate(lines, maxLines)
 end
 
 --- notify.layout.overflowFooter(overflow) -> string or nil
---- Function
---- Builds the "N more lines" footer text for a truncated card.
----
---- Parameters:
----  * overflow - (integer or nil) number of lines cut by `truncate`.
----
---- Returns:
----  * footer - (string or nil) `nil` when `overflow` is `0` or `nil`;
----    otherwise `"… (+1 more line)"` (singular) or `"… (+N more lines)"`
----    (plural) as appropriate.
+--- The "… (+N more lines)" footer for a truncated card; `nil` when nothing
+--- was cut.
 function M.overflowFooter(overflow)
   if not overflow or overflow == 0 then
     return nil
@@ -259,21 +194,9 @@ function M.overflowFooter(overflow)
 end
 
 --- notify.layout.cardHeight(spec, cfg) -> integer
---- Function
---- Computes the pixel height of a card from its content, deterministically.
----
---- Parameters:
----  * spec - (table) `{ title = string or nil, lines = {string},
----    overflow = integer, hasIcon = boolean }`. `hasIcon` is accepted for
----    shape-compatibility with `compose`'s output but does not affect the
----    height formula below.
----  * cfg - (table) `{ padding, titleHeight, titleGap, lineHeight,
----    minHeight }`, all integers (pixels).
----
---- Returns:
----  * height - (integer) `padding*2 + (title and titleHeight+titleGap or
----    0) + #lines*lineHeight + (overflow>0 and lineHeight or 0)`, floored
----    at `cfg.minHeight`.
+--- Pixel height of a card from `spec` (`{ title, lines, overflow }`) and `cfg`
+--- (`{ padding, titleHeight, titleGap, lineHeight, minHeight }`), floored at
+--- `cfg.minHeight`.
 function M.cardHeight(spec, cfg)
   local height = cfg.padding * 2
   if spec.title then
@@ -290,22 +213,11 @@ function M.cardHeight(spec, cfg)
 end
 
 --- notify.layout.stackFrames(heights, screenFrame, cfg) -> frames
---- Function
---- Computes top-right-anchored, non-overlapping card frames for a stack.
---- Recomputing from a shortened `heights` list (i.e. calling this again
---- after a card is removed from the middle) is how gaps close on
---- dismissal — cards above the gap keep their `y`, cards below it move up.
----
---- Parameters:
----  * heights - ({integer}) card heights in stack order; index 1 is the
----    oldest card (topmost).
----  * screenFrame - (table) `{ x, y, w, h }`, the target screen's frame.
----  * cfg - (table) `{ cardWidth, stackGap, marginTop, marginRight }`,
----    all integers (pixels).
----
---- Returns:
----  * frames - ({table}) one `{ x, y, w, h }` per input height, same
----    order.
+--- Top-right-anchored, non-overlapping `{x, y, w, h}` frames, one per height,
+--- in stack order (index 1 is the oldest card, topmost). `cfg` is
+--- `{ cardWidth, stackGap, marginTop, marginRight }`. Recomputing from a
+--- shortened `heights` list is how gaps close on dismissal: cards above the
+--- gap keep their `y`, cards below it move up.
 function M.stackFrames(heights, screenFrame, cfg)
   local x = screenFrame.x + screenFrame.w - cfg.marginRight - cfg.cardWidth
   local y = screenFrame.y + cfg.marginTop
@@ -318,20 +230,9 @@ function M.stackFrames(heights, screenFrame, cfg)
 end
 
 --- notify.layout.bodyColumns(cardWidth, charWidth, cfg) -> integer
---- Function
---- Computes how many monospace columns of body text fit in a card.
----
---- Parameters:
----  * cardWidth - (integer) card width in pixels.
----  * charWidth - (integer) width of one monospace character, in pixels.
----  * cfg - (table) `{ padding, hasIcon, iconWidth, iconGap }`. `padding`
----    is charged on both sides. When `hasIcon` is truthy, `iconWidth +
----    iconGap` is also subtracted; `iconWidth`/`iconGap` are ignored
----    (and may be omitted) when `hasIcon` is falsy.
----
---- Returns:
----  * columns - (integer) `floor((cardWidth - padding*2 - (hasIcon and
----    iconWidth+iconGap or 0)) / charWidth)`, floored at a minimum of 1.
+--- Monospace columns of body text that fit in a card, floored at 1. `cfg` is
+--- `{ padding, hasIcon, iconWidth, iconGap }`; `iconWidth`/`iconGap` are read
+--- only when `hasIcon` is truthy.
 function M.bodyColumns(cardWidth, charWidth, cfg)
   local iconSpace = 0
   if cfg.hasIcon then
@@ -345,25 +246,10 @@ function M.bodyColumns(cardWidth, charWidth, cfg)
 end
 
 --- notify.layout.compose(input, cfg) -> card
---- Function
---- The single entry point the canvas renderer calls: wraps, truncates,
---- builds the overflow footer and computes height, so the renderer needs
---- no layout arithmetic of its own.
----
---- Parameters:
----  * input - (table) `{ message = string, title = string or nil, icon =
----    any or nil }`. `icon` is only tested for presence (`~= nil`); its
----    value is opaque to this module.
----  * cfg - (table) union of the `cfg` shapes above: `{ padding,
----    titleHeight, titleGap, lineHeight, minHeight, cardWidth, stackGap,
----    marginTop, marginRight, charWidth, maxLines, iconWidth, iconGap,
----    tabWidth }`. `tabWidth` is optional (see `wrap`); the rest are
----    required by the functions this composes.
----
---- Returns:
----  * card - (table) `{ title = string or nil, lines = {string},
----    overflow = integer, footer = string or nil, height = integer,
----    hasIcon = boolean }`.
+--- The single entry point the renderer calls. `input` is
+--- `{ message, title, icon }` (`icon` is only tested for presence; its value
+--- is opaque here); `cfg` is the union of the shapes above, plus the optional
+--- `tabWidth`. Returns `{ title, lines, overflow, footer, height, hasIcon }`.
 function M.compose(input, cfg)
   local hasIcon = input.icon ~= nil
   local maxChars = M.bodyColumns(cfg.cardWidth, cfg.charWidth, {
@@ -375,12 +261,7 @@ function M.compose(input, cfg)
   local wrapped = M.wrap(input.message or "", maxChars, { tabWidth = cfg.tabWidth })
   local kept, overflow = M.truncate(wrapped, cfg.maxLines)
   local footer = M.overflowFooter(overflow)
-  local height = M.cardHeight({
-    title = input.title,
-    lines = kept,
-    overflow = overflow,
-    hasIcon = hasIcon,
-  }, cfg)
+  local height = M.cardHeight({ title = input.title, lines = kept, overflow = overflow }, cfg)
 
   return {
     title = input.title,

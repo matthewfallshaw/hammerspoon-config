@@ -272,8 +272,11 @@ return {
     }
   },
 
-  -- notify: Growl-replacement notification cards (see TODO.md). Every limit
-  -- notify/init.lua uses lives here, not as a literal in the module.
+  -- notify: Growl-replacement notification cards (see TODO.md). This is the
+  -- whole module's tuning: notify/init.lua merges it over its own fallback
+  -- defaults and hands the result to notify.card and notify.gesture, neither
+  -- of which keeps defaults of its own. The merge is shallow, so the `swipe`
+  -- and `palettes` sub-tables below are taken whole and must stay complete.
   notify = {
     -- Layout (pixels unless noted)
     card_width = 320,
@@ -292,12 +295,13 @@ return {
     close_size = 14,
     corner_radius = 8,
 
-    -- char_width is provisional: a guessed advance width for SFMono-Regular
-    -- at body_font_size, pending a live measurement (hs.drawing.getTextDrawingSize
-    -- against the real font) to replace it with a measured value.
-    char_width = 7.2,
+    -- Menlo, not SFMono-Regular: SFMono-Regular is not installed on this machine.
+    -- char_width is Menlo's measured advance at body_font_size; wrapping is
+    -- arithmetic rather than repeated measurement, so it must match the font.
+    -- Emoji are ~2.2x this wide and will overrun the card; they clip, not re-wrap.
+    char_width = 7.2246,
 
-    body_font = 'SFMono-Regular',
+    body_font = 'Menlo',
     body_font_size = 12,
     title_font = '.AppleSystemUIFont',
     title_font_size = 13,
@@ -308,9 +312,9 @@ return {
     fade_out = 0.15,
     pulse_duration = 0.4,
 
-    -- Safety valve: a caller in a tight loop drops new cards past this
-    -- rather than queuing them.
-    max_cards = 8,
+    -- Runaway-loop safety valve, not a display limit (a screen fits 10-15
+    -- cards): past this, new cards are dropped -- logged, not queued.
+    max_cards = 50,
 
     -- hs.settings key the persisted (sticky/non-private) stack is written to.
     settings_key = 'notify.persisted',

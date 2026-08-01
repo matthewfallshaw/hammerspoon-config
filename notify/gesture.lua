@@ -25,42 +25,20 @@ M.license = "MIT - https://opensource.org/licenses/MIT"
 M._logger = hs.logger.new("NotifyGesture")
 local logger = M._logger
 
--- Mirrors configConsts.notify.swipe (see TODO.md), so a caller that hands in
--- a partial cfg still gets a safe, inert gesture rather than a crash.
-local DEFAULTS = {
-  enabled = true,
-  min_distance = 0.15,
-  max_distance = 0.9,
-  max_duration = 0.6,
-  max_velocity_change = 2.0,
-  direction_tolerance = 0.05,
-}
-
 --- notify.gesture.new(opts) -> gesture
---- Function
---- Creates a swipe-to-dismiss gesture state machine. Does not start the
---- eventtap; call `:start()`.
+--- Creates a swipe-to-dismiss state machine. Does not start the eventtap;
+--- call `start()`. `opts` is `{ cfg, hitTest, onSwipe }`: `cfg` is a complete
+--- swipe config (`notify` owns the defaults), `hitTest(point) -> cardId|nil`
+--- is called once, at touch `began`, with `hs.mouse.absolutePosition()`, and
+--- `onSwipe(cardId)` fires when a swipe completes past threshold
+--- (`pcall`-wrapped: a throwing `onSwipe` is logged, not propagated).
 ---
---- Parameters:
----  * opts - (table):
----    * cfg - (table) swipe tuning, see `DEFAULTS` above for keys/shape.
----      Missing keys fall back to `DEFAULTS`.
----    * hitTest - (function) `hitTest(point) -> cardId|nil`. Called once,
----      at touch `began`, with `hs.mouse.absolutePosition()`.
----    * onSwipe - (function) `onSwipe(cardId)`, called when a swipe
----      completes past threshold. `pcall`-wrapped: a throwing `onSwipe`
----      is logged, not propagated.
----
---- Returns:
----  * gesture - (table) `{ start, stop, isRunning, _handleEvent }`.
+--- Returns `{ start, stop, isRunning, _handleEvent }`.
 function M.new(opts)
   opts = opts or {}
+  local cfg = opts.cfg
   local hitTest = opts.hitTest
   local onSwipe = opts.onSwipe
-
-  local cfg = {}
-  for k, v in pairs(DEFAULTS) do cfg[k] = v end
-  for k, v in pairs(opts.cfg or {}) do cfg[k] = v end
 
   local self = {}
   local tap = nil

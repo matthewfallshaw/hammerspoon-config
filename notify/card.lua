@@ -1,18 +1,18 @@
 --- === notify.card ===
 --- Thin `hs.canvas` renderer for a single notification card.
 ---
---- Deliberately does **no layout arithmetic**: every position it paints
---- comes straight from the `card` table `notify.layout.compose` already
---- produced (title, wrapped lines, overflow footer, height) and from the
---- `cfg` table handed in. If a wrap or a total height ever needs computing
---- here, that is a sign the value belongs in `notify.layout` instead.
+--- Does no layout arithmetic: every position it paints comes from the `card`
+--- table `notify.layout.compose` produced and from the `cfg` handed in. A wrap
+--- or a total height that needs computing here belongs in `notify.layout`.
 ---
---- Every element carries a stable `id` so `notify.init`'s `mouseCallback`
---- consumer can tell them apart: `"body"` for the background, `"close"` for
---- the dismiss glyph, `"icon"`/`"title"`/`"footer"` for their singletons,
---- and `"line1"`, `"line2"`, ... for wrapped body text, one element per
---- already-wrapped line (never handed to the canvas as one blob to
---- re-wrap -- see `buildElements` below).
+--- `cfg` and `palette` arrive complete -- `notify` owns the defaults and the
+--- merge, so there is nothing to fall back to here.
+---
+--- Every element carries a stable `id` so the `onEvent` consumer can tell them
+--- apart: `"body"` for the background, `"close"` for the dismiss glyph,
+--- `"icon"`/`"title"`/`"footer"` for their singletons, and `"line1"`,
+--- `"line2"`, ... one per already-wrapped body line (never handed to the
+--- canvas as one blob to re-wrap).
 
 local M = {}
 
@@ -25,63 +25,8 @@ M.license = "MIT - https://opensource.org/licenses/MIT"
 
 local logger = hs.logger.new("NotifyCard")
 
---------------------------------------------------------------------------------
--- Defaults
---
--- Mirrors configConsts.notify (see TODO.md "Styling"), so a caller that
--- forgets -- or only partially specifies -- a cfg/palette key still gets a
--- sane card instead of a crash.
---------------------------------------------------------------------------------
-
-local DEFAULT_CFG = {
-  padding = 12,
-  title_height = 18,
-  title_gap = 6,
-  line_height = 16,
-  char_width = 7.2,
-  body_font = "SFMono-Regular",
-  body_font_size = 12,
-  title_font = ".AppleSystemUIFont",
-  title_font_size = 13,
-  icon_width = 32,
-  icon_gap = 8,
-  fade_in = 0.15,
-  fade_out = 0.15,
-  close_size = 14,
-  corner_radius = 8,
-  pulse_duration = 0.4,
-}
-
--- Dark-anchored, matching hs.alert's own defaults ({white=0, alpha=0.75}
--- fill, white stroke) per TODO.md "Styling" -- used only when a caller
--- omits a palette key outright.
-local DEFAULT_PALETTE = {
-  background = { white = 0, alpha = 0.75 },
-  border = { white = 1, alpha = 1 },
-  title = { white = 1, alpha = 1 },
-  body = { white = 1, alpha = 0.9 },
-  footer = { white = 1, alpha = 0.6 },
-  close = { white = 1, alpha = 0.6 },
-  close_hover = { white = 1, alpha = 1 },
-  pulse = { white = 1, alpha = 1 },
-}
-
---- Shallow-merges `t` over a copy of `defaults`; `t`'s keys win.
-local function withDefaults(defaults, t)
-  local merged = {}
-  for k, v in pairs(defaults) do merged[k] = v end
-  for k, v in pairs(t or {}) do merged[k] = v end
-  return merged
-end
-
---------------------------------------------------------------------------------
--- Rendering (local; not part of the public API)
---------------------------------------------------------------------------------
-
---- Loads `icon` (a filesystem path or a named system/bundle image) into an
---- `hs.image` object. A string containing "/" is treated as a path
---- (`hs.image.imageFromPath`); anything else is treated as a named image
---- (`hs.image.imageFromName`) -- e.g. an `hs.image.systemImageNames` key.
+-- A string containing "/" is a filesystem path; anything else is a named
+-- system/bundle image (e.g. an `hs.image.systemImageNames` key).
 local function loadIcon(icon)
   if not icon then return nil end
   if type(icon) == "string" and icon:find("/", 1, true) then
@@ -90,13 +35,10 @@ local function loadIcon(icon)
   return hs.image.imageFromName(icon)
 end
 
---- Builds the ordered element array for one card, in local canvas
---- coordinates (0,0 is the canvas's own top-left, independent of where
---- `notify.init` has placed the canvas on screen). Shared by `new` and
---- `update` so both paint identically.
----
---- Order: background, icon (optional), title (optional), one element per
---- body line, overflow footer (optional), close glyph.
+-- The ordered element array for one card, in local canvas coordinates (0,0 is
+-- the canvas's own top-left). Shared by `new` and `update` so both paint
+-- identically. Order: background, icon, title, one per body line, overflow
+-- footer, close glyph.
 local function buildElements(card, frame, palette, cfg, icon)
   local elements = {}
   local w, h = frame.w, frame.h
@@ -109,8 +51,8 @@ local function buildElements(card, frame, palette, cfg, icon)
     fillColor = palette.background,
     strokeColor = palette.border,
     roundedRectRadii = { xRadius = cfg.corner_radius, yRadius = cfg.corner_radius },
-    -- Hover pauses the auto-dismiss countdown (notify.init's job); clicking
-    -- the body itself is a deliberate no-op per TODO.md "Dismissal".
+    -- Tracked so the consumer can pause the auto-dismiss countdown on hover;
+    -- a click on the body itself is a deliberate no-op.
     trackMouseEnterExit = true,
   })
 
@@ -191,48 +133,27 @@ local function buildElements(card, frame, palette, cfg, icon)
   return elements
 end
 
---------------------------------------------------------------------------------
--- Public API
---------------------------------------------------------------------------------
-
 --- notify.card.new(opts) -> handle
---- Constructor
---- Creates and shows the canvas for one notification card.
+--- Creates and shows the canvas for one notification card. `opts` is
+--- `{ card, frame, palette, cfg, icon, onEvent }`: `card` is
+--- `notify.layout.compose`'s output, `frame` its screen frame (`h` already
+--- equals `card.height`), `palette` and `cfg` complete tables, `icon` a path
+--- or image name, and `onEvent(eventName, elementId)` a callback for every
+--- tracked mouse event (`pcall`-wrapped; an error in it is logged, not
+--- propagated).
 ---
---- Parameters:
----  * opts - (table):
----    * card - (table) `notify.layout.compose`'s output: `{title, lines,
----      overflow, footer, height, hasIcon}`.
----    * frame - (table) `{x, y, w, h}`, the card's screen frame. `h`
----      should already equal `card.height`; this module does not compute
----      it.
----    * palette - (table or nil) `{background, border, title, body,
----      footer, close, close_hover, pulse}` hs colour tables. Missing
----      keys fall back to a dark-anchored default (see `DEFAULT_PALETTE`).
----    * cfg - (table or nil) render tuning; every key has an in-code
----      default (see `DEFAULT_CFG`) so a partial table is safe.
----    * icon - (string or nil) a filesystem path (containing "/") or a
----      named system/bundle image.
----    * onEvent - (function or nil) `function(eventName, elementId) end`,
----      called for every canvas mouse event this card tracks. Wrapped in
----      `pcall`; an error in it is logged, not propagated.
----
---- Returns:
----  * handle - (table) `{setFrame, update, pulse, delete, frame}`, all
----    methods. Every method is a silent no-op once `delete` has run.
+--- Returns a handle with `setFrame`, `update`, `pulse`, `delete` and `frame`
+--- methods, every one a silent no-op once `delete` has run.
 function M.new(opts)
   opts = opts or {}
   local onEvent = opts.onEvent or function() end
 
   local state = {
-    cfg = withDefaults(DEFAULT_CFG, opts.cfg),
-    palette = withDefaults(DEFAULT_PALETTE, opts.palette),
+    cfg = opts.cfg,
+    palette = opts.palette,
     card = opts.card,
     icon = opts.icon,
     deleted = false,
-    -- Numeric positions of the "body" and "close" elements in the array
-    -- most recently pushed to the canvas -- see the comment at
-    -- setElements below for why lookup is by index, not by id.
     bodyIndex = 1,
     closeIndex = nil,
   }
@@ -240,27 +161,21 @@ function M.new(opts)
   local canvas = hs.canvas.new(opts.frame)
   state.canvas = canvas
 
-  -- hs.canvas's string-keyed __index (`canvas["close"]`) only exists on
-  -- the real userdata, which scans elements for a matching `id`; the
-  -- recording mock used in tests does not implement that fallback and
-  -- would silently hand back nil. Numeric indexing (`canvas[i]`) is
-  -- supported by both -- the mock returns the same table it stored, and
-  -- the real API returns a live proxy -- so mutating a single element
-  -- (hover feedback, pulse) addresses elements by their position in the
-  -- array most recently sent, tracked in state.bodyIndex/closeIndex.
+  -- Individual elements are addressed by their numeric position in the array
+  -- most recently sent, not by id: `canvas["close"]`'s string-keyed lookup
+  -- exists only on the real userdata, and the recording mock used in specs
+  -- would silently hand back nil.
   local function setElements(elements)
     state.bodyIndex = 1
     state.closeIndex = #elements
     return elements
   end
 
-  -- clickActivating(false): a click on the card must not pull Hammerspoon
-  -- to the front. behaviorAsLabels: cards survive a space switch
-  -- ("stationary") and follow you to whichever space you're on
-  -- ("canJoinAllSpaces"), matching sticky notifications' durability.
-  -- level "floating": above normal app windows (so a card is never buried
-  -- behind the window you're working in) but below the dock, menu bar and
-  -- screen saver -- a notification is not a modal takeover.
+  -- clickActivating(false): a click on the card must not pull Hammerspoon to
+  -- the front. behaviorAsLabels: cards survive a space switch and follow you
+  -- to whichever space you're on. level "floating": above normal app windows,
+  -- below the dock, menu bar and screen saver -- a notification is not a
+  -- modal takeover.
   canvas:clickActivating(false)
   canvas:behaviorAsLabels({ "canJoinAllSpaces", "stationary" })
   canvas:level(hs.canvas.windowLevels.floating)
@@ -271,7 +186,7 @@ function M.new(opts)
 
   canvas:mouseCallback(function(_canvas, message, id, _x, _y)
     -- Close-hover feedback lives here, not in the consumer: it is pure
-    -- rendering, not a decision notify.init needs to make.
+    -- rendering, not a decision anyone else needs to make.
     if id == "close" and state.closeIndex then
       if message == "mouseEnter" then
         canvas[state.closeIndex].textColor = state.palette.close_hover
@@ -289,28 +204,21 @@ function M.new(opts)
 
   local handle = {}
 
-  --- notify.card.handle:setFrame(frame)
-  --- Method
-  --- Repositions/resizes the card's canvas outright -- used for stack
-  --- placement and gap-closing on dismissal. No-op once deleted.
+  --- Repositions/resizes the canvas outright -- stack placement and gap
+  --- closing on dismissal.
   function handle:setFrame(frame)  --luacheck: no self
     if state.deleted then return end
     state.canvas:frame(frame)
   end
 
-  --- notify.card.handle:update(opts)
-  --- Method
-  --- Replaces the card's contents in place: same keys as `new` minus
-  --- `frame`/`onEvent`. Resizes the canvas to the new `card.height` while
-  --- keeping its current origin and width -- the card does not move. This
-  --- is `--id` replace-in-place's rendering half; the timer reset and
-  --- pulse are the caller's job (see `notify.card.handle:pulse`).
-  --- No-op once deleted.
+  --- Replaces the card's contents in place (same keys as `new` minus
+  --- `frame`/`onEvent`), resizing to the new `card.height` but keeping the
+  --- current origin and width, so the card does not move.
   function handle:update(updateOpts)  --luacheck: no self
     if state.deleted then return end
     updateOpts = updateOpts or {}
-    state.cfg = withDefaults(DEFAULT_CFG, updateOpts.cfg)
-    state.palette = withDefaults(DEFAULT_PALETTE, updateOpts.palette)
+    state.cfg = updateOpts.cfg
+    state.palette = updateOpts.palette
     state.card = updateOpts.card
     state.icon = updateOpts.icon
 
@@ -322,12 +230,8 @@ function M.new(opts)
     )))
   end
 
-  --- notify.card.handle:pulse()
-  --- Method
-  --- Briefly swaps the border to `palette.pulse`, then restores it after
-  --- `cfg.pulse_duration` -- the visual cue for `--id` replace-in-place
-  --- landing on a card you weren't watching. Guards against the canvas
-  --- having been deleted before the timer fires. No-op once deleted.
+  --- Briefly swaps the border to `palette.pulse` -- the visual cue for a
+  --- replace-in-place landing on a card you weren't watching.
   function handle:pulse()  --luacheck: no self
     if state.deleted then return end
     state.canvas[state.bodyIndex].strokeColor = state.palette.pulse
@@ -337,23 +241,15 @@ function M.new(opts)
     end)
   end
 
-  --- notify.card.handle:delete(fade)
-  --- Method
-  --- Fades the card out and destroys its canvas. Every other method is a
-  --- silent no-op after this runs.
-  ---
-  --- Parameters:
-  ---  * fade - (number or nil) fade-out duration in seconds; defaults to
-  ---    `cfg.fade_out`.
+  --- Fades the card out over `fade` seconds (default `cfg.fade_out`) and
+  --- destroys its canvas.
   function handle:delete(fade)  --luacheck: no self
     if state.deleted then return end
     state.deleted = true
     state.canvas:delete(fade or state.cfg.fade_out)
   end
 
-  --- notify.card.handle:frame() -> {x, y, w, h}
-  --- Method
-  --- Returns the card's current screen frame.
+  --- The card's current screen frame.
   function handle:frame()  --luacheck: no self
     return state.canvas:frame()
   end

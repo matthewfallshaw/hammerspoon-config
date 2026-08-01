@@ -157,12 +157,14 @@ Live checks nothing headless can answer, and decisions taken on Matt's behalf th
 
 | test | question | answer |
 | --- | --- | --- |
-| `P.t3` | `SFMono-Regular` character advance width → `notify.char_width` | *pending* (provisionally 7.2) |
-| `P.t1` | does a canvas with mouse events disabled pass clicks through to the window beneath? | *pending* |
-| `P.t1b` | with mouse events enabled, what does `mouseCallback` report, and are clicks then swallowed? | *pending* |
-| `P.t2` | does `getTouches()` report the Magic Mouse as well as the trackpad? | *pending* |
-| `P.t4` | does per-element hit reporting distinguish `body` from `close`? | *pending* |
+| `P.t3` | monospace character advance width → `notify.char_width` | **`SFMono-Regular` is not installed.** Menlo, fixed-pitch, `7.2246` at size 12. Em-dash is exactly 1 column; **emoji are 2.21** |
+| `P.t1` | does a canvas with mouse events disabled pass clicks through to the window beneath? | **Yes** |
+| `P.t1b` | with mouse events enabled, what does `mouseCallback` report, and are clicks then swallowed? | **Swallowed, as expected.** Canvas-wide events report `id=_canvas_`; per-element ids are `t4`'s question |
+| `P.t2` | does `getTouches()` report the Magic Mouse as well as the trackpad? | *pending* — gates the swipe thresholds |
+| `P.t4` | does per-element hit reporting distinguish `body` from `close`? | *pending* — **the `✕` does not work without this** |
 | `P.t5` | does `canJoinAllSpaces` keep a card across a space switch? | *pending* |
+
+Emoji at 2.21 columns break `layout.lua`'s one-codepoint-one-column arithmetic: a line containing them overruns the card and is clipped rather than re-wrapped. Cheap to fix if it bites — give the width function a codepoint-range table — but it degrades quietly, so it isn't worth the complexity until it annoys you.
 
 Then, once the module is installed: stack appearance, fade timing, hover-pause feel, dark/light palettes, and the five swipe thresholds in `configConsts.notify.swipe` (`min_distance`, `max_distance`, `max_duration`, `max_velocity_change`, `direction_tolerance` — all provisional, all chosen without a finger ever touching the pad). Only `char_width` blocks correct rendering; the rest is tuning.
 
@@ -173,4 +175,8 @@ If the gesture misbehaves, `configConsts.notify.swipe.enabled = false` stops the
 - **`lib/notify` alone can't carry the calling script's name.** The spec assumed `basename "$0"` would work, but every Python caller reaches `lib/notify` through `pbclip.py`'s `notify()`, which runs it as a fixed path — so `$0` is always `notify`, and defaulting `--id` to it would collapse every card onto one id, strictly worse than today. Fixed by giving `lib/notify` a `--from NAME` flag and having `pbclip.notify()` pass the script name. Cost: three files change in clipboard-scripts, not the one the spec predicted.
 - **`--private` set on exactly three callers** — `pb-pwgen-sticky`, `pb-peek-at-clipboard`, `pb-peek-at-clipboard-sticky`. Not on `pb-pwgen` or `pb-pwgen-pin`, which reveal nothing ("New password in clipboard").
 - **Card renderer uses `hs.canvas.windowLevels.floating`**, not `overlay`. A notification should float above app windows but stay below the dock, menu bar and screen saver; `overlay` is what `modal_commands.lua` uses for a full-screen modal takeover, which this isn't.
+- **A `max_cards` cap exists, and the spec said there shouldn't be one.** The spec chose to let the stack run off the bottom of the screen; a cap that silently drops notifications contradicts that. It is here anyway as a guard against a caller in a tight loop papering the screen with canvases, which is the failure mode that would make the machine unusable. Set high enough to be purely a runaway guard, and every drop is logged. Delete it if you disagree — the spec is on your side.
+- **A `dismissAll` hotkey is bound at `start()`** (`configConsts.notify.dismiss_all_hotkey`, hyper-`n`). Not in the spec; added as a way out if the stack ever misbehaves. `hs.reload()` already destroys every card, so this is convenience rather than a safety net.
+- **Every non-private card is persisted, not only sticky ones.** The spec's heading says "Sticky notifications survive `hs.reload()`", but its own next bullet — "a reload mid-countdown either resets or eats the timer" — only makes sense for a card that *has* a countdown, so non-stickies persist too. Worth knowing that this puts more notification text at rest in the plist than the `--private` discussion contemplated. Narrowing persistence to stickies only would be a one-line change.
+- **`bin/notify` exits 2 on a malformed command line.** "Never let a notification failure break the caller" is honoured — a missing or wedged Hammerspoon still exits 0 — but a genuine usage error is a bug in the caller and should be visible.
 - **Development happened outside the watched tree.** `Spoons/Hammer.spoon` watches `hs.configdir` recursively and `~/.hammerspoon` symlinks to this repo, so every `.lua` save anywhere in it — worktrees included — reloads the live config. The module was built and tested in a scratch directory and landed in single commits.
