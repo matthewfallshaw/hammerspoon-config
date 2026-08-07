@@ -94,7 +94,6 @@ This is a sophisticated Hammerspoon configuration with modular architecture:
 - Various utility spoons (MouseCircle, AClock, etc.)
 
 **External System Integration**:
-- Chrome extension for tab management (`chrome_tabs/`)
 - Asana API integration for task management
 - VPN automation based on network security
 - Audio device switching with Bluetooth support

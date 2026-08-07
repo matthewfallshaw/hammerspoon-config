@@ -66,19 +66,6 @@ return {
 
   -- stay
 
-  -- chrome_tabs = require 'chrome_tabs'
-  -- chrome_gmail_window_filter = hs.window.filter.new()
-
-  -- app_tabs = require 'app_tabs'
-  -- chrome_gmail_window_filter = app_tabs.window_filter.new({['Google Chrome'] = {
-  -- tab1 = {url_pattern = '^https://mail%.google%.com/mail/u/0/#'} }})
-  -- chrome_docs_window_filter = app_tabs.window_filter.new({['Google Chrome' ]= {
-  -- tab1 = {url_pattern = '^https://drive%.google%.com/drive/..[^0]'} }})
-  -- safari_gmail_window_filter = app_tabs.window_filter.new({Safari = {
-  --     tab1 = {url_pattern = '^https://mail%.google%.com/mail/u/0/'} }})
-  -- safari_docs_window_filter = app_tabs.window_filter.new({Safari = {
-  --     tab1 = {url_pattern = '^https://drive%.google%.com/drive/u/0/'} }})
-
   stay = {
     target_space_rules = {
       {
