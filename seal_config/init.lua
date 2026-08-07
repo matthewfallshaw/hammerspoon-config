@@ -219,16 +219,19 @@ seal.plugins.useractions.actions = {
 }
 
 
+-- Keys are what `gchrome` accepts: either a profile directory (`Default`) or a
+-- profile's display name from Chrome's `Local State` (`bellroy`, `miri`), matched
+-- exactly. `gchrome -p` is required — a bare positional argument is silently ignored.
 local chrome_windows_seal = {
   Default = {
     name = 'Chrome Window Personal',
     keyword = 'cwp',
   },
-  Bellroy = {
+  bellroy = {
     name = 'Chrome Window Bellroy',
     keyword = 'cwb',
   },
-  MIRI = {
+  miri = {
     name = 'Chrome Window MIRI',
     keyword = 'cwm',
   },
@@ -237,7 +240,7 @@ M.chrome_windows_seal = chrome_windows_seal
 for profile, props in pairs(chrome_windows_seal) do
   seal.plugins.useractions.actions[props.name] = {
     fn = function()
-      local result, status, _, rc = hs.execute('~/.nix-profile/bin/fish -c "~/bin/gchrome '..profile..'"')
+      local result, status, _, rc = hs.execute('~/bin/gchrome -p '..profile)
       if not status then
         logger.e('Seal '..props.name..' failed to create a window for profile '..profile..
           ' (rc '..tostring(rc)..'): '..result)
