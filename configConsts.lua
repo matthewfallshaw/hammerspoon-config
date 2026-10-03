@@ -259,6 +259,10 @@ return {
     }
   },
 
+  mic_keepalive = {
+    hold_seconds = 30 * 60, -- how long the mic stays open after the last right-option press
+  },
+
   -- notify: Growl-replacement notification cards (see TODO.md). This is the
   -- whole module's tuning: notify/init.lua merges it over its own fallback
   -- defaults and hands the result to notify.card and notify.gesture, neither

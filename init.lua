@@ -473,6 +473,9 @@ function changeAudioDevice(deviceName)
   end
 end
 
+-- Keep a Bluetooth mic open between Monologue dictations
+init.mic_keepalive = require('mic_keepalive'):start()
+
 -- Seal
 seal = require('seal_config')
 
