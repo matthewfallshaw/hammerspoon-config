@@ -7,6 +7,10 @@
 -- call profile, so playback is at call quality.
 --
 -- The tap only observes: it returns false, so Monologue sees the key as usual.
+--
+-- A menubar icon shows while the mic is held (to release it, or to disable the
+-- keepalive) and while the keepalive is disabled (to re-enable it). Disabling
+-- lasts until re-enabled or Hammerspoon reloads.
 
 local M = {}
 
@@ -14,6 +18,8 @@ local logger = hs.logger.new('MicKeepalive')
 M.logger = logger
 
 local RIGHT_OPTION = hs.keycodes.map.rightalt
+local ICON_HOLDING = hs.image.imageFromName("NSTouchBarAudioInputTemplate")
+local ICON_DISABLED = hs.image.imageFromName("NSTouchBarAudioInputMuteTemplate")
 
 -- sox exits at once unless given a duration, so the hold is sox's own
 -- `trim 0 <seconds>`; a sox orphaned by a Hammerspoon restart ends by itself.
@@ -27,14 +33,26 @@ local function findSox()
   end
 end
 
+local function refreshMenubar()
+  if not M.menubar then return end
+  local icon = (M.disabled and ICON_DISABLED) or (M.task and ICON_HOLDING)
+  if icon then
+    M.menubar:setIcon(icon):returnToMenuBar()
+  else
+    M.menubar:removeFromMenuBar()
+  end
+end
+
 local function release()
   if M.task then
     M.task:terminate()
     M.task = nil
   end
+  refreshMenubar()
 end
 
 local function hold()
+  if M.disabled then return end
   local device = hs.audiodevice.defaultInputDevice()
   if not (device and device:transportType() == "Bluetooth") then
     release()
@@ -44,12 +62,38 @@ local function hold()
   local task
   task = hs.task.new(M.sox, function(rc, _, err)
     if rc ~= 0 and rc ~= 15 then logger.e("sox exited " .. rc .. ": " .. err) end
-    if M.task == task then M.task = nil end
+    if M.task == task then
+      M.task = nil
+      refreshMenubar()
+    end
   end, { "-q", "-d", "-n", "trim", "0", tostring(M.hold_seconds) })
   M.task = task
+  M.device_name = device:name()
+  M.held_until = os.time() + M.hold_seconds
   task:start()
   -- Start the new hold before ending the old one, so the link never idles.
   if previous then previous:terminate() end
+  refreshMenubar()
+end
+
+local function setDisabled(disabled)
+  M.disabled = disabled
+  release()
+end
+
+local function menu()
+  if M.disabled then
+    return {
+      { title = "Mic keepalive disabled", disabled = true },
+      { title = "Enable keepalive", fn = function() setDisabled(false) end },
+    }
+  end
+  return {
+    { title = "Holding " .. M.device_name .. " until " .. os.date("%H:%M", M.held_until),
+      disabled = true },
+    { title = "Release now", fn = release },
+    { title = "Disable keepalive", fn = function() setDisabled(true) end },
+  }
 end
 
 function M:start()
@@ -59,6 +103,7 @@ function M:start()
     logger.e("sox not found; mic keepalive disabled")
     return self
   end
+  self.menubar = hs.menubar.new(false):setMenu(menu):setTooltip("Mic keepalive")
   self.tap = hs.eventtap.new({ hs.eventtap.event.types.flagsChanged }, function(event)
     if event:getKeyCode() == RIGHT_OPTION and event:getFlags().alt then hold() end
     return false
@@ -69,6 +114,7 @@ end
 function M:stop()
   if self.tap then self.tap:stop() end
   release()
+  if self.menubar then self.menubar:delete() end
   return self
 end
 
