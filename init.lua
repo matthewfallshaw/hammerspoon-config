@@ -7,9 +7,7 @@
 -- nix makes global luarocks hard, use local
 package.path = package.path ..
     ";" .. os.getenv("HOME") .. "/.luarocks/share/lua/5.3/?.lua" ..
-    ";" .. os.getenv("HOME") .. "/.luarocks/share/lua/5.3/?/init.lua" ..
-    ";" .. os.getenv("HOME") .. "/.nix-profile/share/lua/5.3/?.lua" ..
-    ";" .. os.getenv("HOME") .. "/.nix-profile/share/lua/5.3/?/init.lua"
+    ";" .. os.getenv("HOME") .. "/.luarocks/share/lua/5.3/?/init.lua"
 package.cpath = package.cpath ..
     ";" .. os.getenv("HOME") .. "/.luarocks/lib/lua/5.3/?.so"
 
