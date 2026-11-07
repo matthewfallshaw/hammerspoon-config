@@ -160,8 +160,6 @@ pp("after require stay")
 local mwm = hs.loadSpoon("MiroWindowsManager")
 mwm.sizes = init.consts.mwm.sizes
 mwm.fullScreenSizes = init.consts.mwm.fullScreenSizes
-mwm.GRID = init.consts.mwm.GRID
-mwm.stickySides = true
 mwm:bindHotkeys(init.consts.mwm.hotkeys)
 
 pp("after require MiroWindowsManager")

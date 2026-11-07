@@ -46,17 +46,15 @@ return {
 
   -- miro window manager
   mwm = {
-    sizes = { 2, 3 / 2, 3, 4, 4 / 3 },
-    -- 0.5, 0.66, 0.33, 0.25, 0.75
-    -- 6,   8,    4,    3,    9
-    fullScreenSizes = { 1, 4 / 3, 2, 'c' },
-    GRID = { w = 24, h = 12 },
-    stickySides = true,
+    sizes = { 1 / 2, 2 / 3, 1 / 3, 1 / 4, 3 / 4 },
+    fullScreenSizes = { 1, 3 / 4, 1 / 2, 'c' },
     hotkeys = {
       up         = { { '⌥', '⌘' }, 'k' },
       down       = { { '⌥', '⌘' }, 'j' },
       left       = { { '⌥', '⌘' }, 'h' },
       right      = { { '⌥', '⌘' }, 'l' },
+      fullWidth  = { { '⌥', '⌘' }, 'h+l' },
+      fullHeight = { { '⌥', '⌘' }, 'k+j' },
       fullscreen = { { '⌥', '⌘' }, 'f' },
       center     = { { '⌥', '⌘' }, 'c' },
       move       = { { '⌥', '⌘' }, "v" },
