@@ -44,8 +44,8 @@ return {
   asanaWorkWorkspaceName = "bellroy.com",
   asanaPersonalWorkspaceName = "Matt & Lina",
 
-  -- miro window manager
-  mwm = {
+  -- Glazier window manager
+  glazier = {
     sizes = { 1 / 2, 2 / 3, 1 / 3, 1 / 4, 3 / 4 },
     fullScreenSizes = { 1, 3 / 4, 1 / 2, 'c' },
     hotkeys = {
@@ -53,12 +53,14 @@ return {
       down       = { { '⌥', '⌘' }, 'j' },
       left       = { { '⌥', '⌘' }, 'h' },
       right      = { { '⌥', '⌘' }, 'l' },
-      fullWidth  = { { '⌥', '⌘' }, 'h+l' },
-      fullHeight = { { '⌥', '⌘' }, 'k+j' },
       fullscreen = { { '⌥', '⌘' }, 'f' },
       center     = { { '⌥', '⌘' }, 'c' },
       move       = { { '⌥', '⌘' }, "v" },
       resize     = { { '⌥', '⌘' }, "d" },
+    },
+    chords = {
+      fullWidth  = { { '⌥', '⌘' }, 'h', 'l' },
+      fullHeight = { { '⌥', '⌘' }, 'k', 'j' },
     },
   },
 

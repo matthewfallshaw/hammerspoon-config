@@ -157,12 +157,20 @@ spoon.CaptureHotkeys:capture(
 
 pp("after require stay")
 
-local mwm = hs.loadSpoon("MiroWindowsManager")
-mwm.sizes = init.consts.mwm.sizes
-mwm.fullScreenSizes = init.consts.mwm.fullScreenSizes
-mwm:bindHotkeys(init.consts.mwm.hotkeys)
+local glazier = hs.loadSpoon("Glazier")
+glazier.sizes = init.consts.glazier.sizes
+glazier.fullScreenSizes = init.consts.glazier.fullScreenSizes
+glazier:bindHotkeys(init.consts.glazier.hotkeys)
+glazier:bindChords(init.consts.glazier.chords)
+do  -- CaptureHotkeys only captures bindHotkeys, so show each chord as 'key1+key2'
+  local chords = {}
+  for action, chord in pairs(init.consts.glazier.chords) do
+    chords[action] = { { table.unpack(chord[1]) }, chord[2] .. '+' .. chord[3] }
+  end
+  spoon.CaptureHotkeys:capture("Glazier", chords)
+end
 
-pp("after require MiroWindowsManager")
+pp("after require Glazier")
 
 hs.loadSpoon("WindowScreenLeftAndRight")
 spoon.WindowScreenLeftAndRight:bindHotkeys({
