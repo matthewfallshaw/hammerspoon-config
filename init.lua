@@ -162,6 +162,7 @@ glazier.sizes = init.consts.glazier.sizes
 glazier.fullScreenSizes = init.consts.glazier.fullScreenSizes
 glazier:bindHotkeys(init.consts.glazier.hotkeys)
 glazier:bindChords(init.consts.glazier.chords)
+glazier.logger.setLogLevel('debug')  -- logs each key press and window placement
 do  -- CaptureHotkeys only captures bindHotkeys, so show each chord as 'key1+key2'
   local chords = {}
   for action, chord in pairs(init.consts.glazier.chords) do
